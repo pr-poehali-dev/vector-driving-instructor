@@ -1,17 +1,22 @@
 {
   "tests": [
     {
-      "name": "Get students - no token",
-      "method": "GET",
+      "name": "List students - no token",
+      "method": "POST",
       "path": "/",
-      "expectedStatus": 403
+      "body": {"action": "list"},
+      "expectedStatus": 403,
+      "expectedBody": {"error": "string"},
+      "bodyMatcher": "partial"
     },
     {
       "name": "Add student - no token",
       "method": "POST",
       "path": "/",
-      "body": {"name": "Тест", "login": "test", "password": "1234"},
-      "expectedStatus": 403
+      "body": {"action": "add", "name": "Тест", "login": "test", "password": "1234"},
+      "expectedStatus": 403,
+      "expectedBody": {"error": "string"},
+      "bodyMatcher": "partial"
     }
   ]
 }

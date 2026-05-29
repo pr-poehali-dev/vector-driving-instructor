@@ -44,7 +44,6 @@ def handler(event: dict, context) -> dict:
     if event.get('httpMethod') == 'OPTIONS':
         return {'statusCode': 200, 'headers': CORS, 'body': ''}
 
-    method = event.get('httpMethod', 'GET')
     headers = event.get('headers') or {}
     token = headers.get('X-Auth-Token') or headers.get('x-auth-token', '')
 
@@ -55,6 +54,8 @@ def handler(event: dict, context) -> dict:
         except Exception:
             pass
 
+    action = body.get('action', '')
+
     conn = get_conn()
     cur = conn.cursor(cursor_factory=RealDictCursor)
 
@@ -62,16 +63,16 @@ def handler(event: dict, context) -> dict:
         if not check_admin(cur, token):
             return json_resp({'error': 'Доступ запрещён'}, 403)
 
-        # GET / — список учеников
-        if method == 'GET':
+        # action=list — список учеников
+        if action == 'list':
             cur.execute(
                 f"SELECT id, name, login, is_active, notes, created_at FROM {SCHEMA}.students ORDER BY created_at DESC"
             )
             rows = cur.fetchall()
             return json_resp({'students': [dict(r) for r in rows]})
 
-        # POST / — добавить ученика
-        if method == 'POST':
+        # action=add — добавить ученика
+        if action == 'add':
             name = body.get('name', '').strip()
             login = body.get('login', '').strip().lower()
             password = body.get('password', '').strip()
@@ -91,8 +92,8 @@ def handler(event: dict, context) -> dict:
             conn.commit()
             return json_resp({'student': dict(row)}, 201)
 
-        # PUT / — обновить ученика
-        if method == 'PUT':
+        # action=update — обновить ученика
+        if action == 'update':
             student_id = body.get('id')
             if not student_id:
                 return json_resp({'error': 'Не указан id'}, 400)
@@ -127,7 +128,7 @@ def handler(event: dict, context) -> dict:
                 return json_resp({'error': 'Ученик не найден'}, 404)
             return json_resp({'student': dict(row)})
 
-        return json_resp({'error': 'Method not allowed'}, 405)
+        return json_resp({'error': 'Unknown action'}, 400)
 
     finally:
         cur.close()

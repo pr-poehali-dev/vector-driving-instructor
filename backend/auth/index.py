@@ -42,13 +42,15 @@ def handler(event: dict, context) -> dict:
         return {'statusCode': 200, 'headers': CORS, 'body': ''}
 
     method = event.get('httpMethod', 'GET')
-    path = event.get('path', '/')
     body = {}
     if event.get('body'):
         try:
             body = json.loads(event['body'])
         except Exception:
             pass
+
+    # Роутинг через поле action в теле запроса (надёжнее чем path в Cloud Functions)
+    action = body.get('action', '')
 
     # Получаем токен из заголовка
     headers = event.get('headers') or {}
@@ -58,22 +60,22 @@ def handler(event: dict, context) -> dict:
     cur = conn.cursor(cursor_factory=RealDictCursor)
 
     try:
-        # POST /admin-login
-        if method == 'POST' and path.endswith('/admin-login'):
+        # action=admin-login  (POST)
+        if action == 'admin-login':
             password = body.get('password', '')
             admin_pw = os.environ.get('ADMIN_PASSWORD', '')
             if not admin_pw or password != admin_pw:
                 return json_resp({'error': 'Неверный пароль'}, 401)
-            token = make_token()
+            new_token = make_token()
             cur.execute(
                 f"INSERT INTO {SCHEMA}.admin_sessions (token) VALUES (%s) RETURNING token",
-                (token,)
+                (new_token,)
             )
             conn.commit()
-            return json_resp({'token': token, 'role': 'admin'})
+            return json_resp({'token': new_token, 'role': 'admin'})
 
-        # GET /admin-me
-        if method == 'GET' and path.endswith('/admin-me'):
+        # action=admin-me  (POST или GET)
+        if action == 'admin-me':
             if not token:
                 return json_resp({'error': 'Нет токена'}, 401)
             cur.execute(
@@ -85,8 +87,8 @@ def handler(event: dict, context) -> dict:
                 return json_resp({'error': 'Сессия истекла'}, 401)
             return json_resp({'role': 'admin'})
 
-        # POST /login — вход ученика
-        if method == 'POST' and path.endswith('/login'):
+        # action=login — вход ученика
+        if action == 'login':
             login = body.get('login', '').strip().lower()
             password = body.get('password', '')
             if not login or not password:
@@ -99,16 +101,16 @@ def handler(event: dict, context) -> dict:
             student = cur.fetchone()
             if not student:
                 return json_resp({'error': 'Неверный логин или пароль'}, 401)
-            token = make_token()
+            new_token = make_token()
             cur.execute(
                 f"INSERT INTO {SCHEMA}.sessions (student_id, token) VALUES (%s, %s) RETURNING token",
-                (student['id'], token)
+                (student['id'], new_token)
             )
             conn.commit()
-            return json_resp({'token': token, 'name': student['name'], 'role': 'student'})
+            return json_resp({'token': new_token, 'name': student['name'], 'role': 'student'})
 
-        # GET /me — проверка сессии ученика
-        if method == 'GET' and path.endswith('/me'):
+        # action=me — проверка сессии ученика
+        if action == 'me':
             if not token:
                 return json_resp({'error': 'Нет токена'}, 401)
             cur.execute(
@@ -122,14 +124,14 @@ def handler(event: dict, context) -> dict:
                 return json_resp({'error': 'Сессия истекла'}, 401)
             return json_resp({'name': row['name'], 'id': row['id'], 'role': 'student'})
 
-        # POST /logout
-        if method == 'POST' and path.endswith('/logout'):
+        # action=logout
+        if action == 'logout':
             if token:
                 cur.execute(f"UPDATE {SCHEMA}.sessions SET expires_at=NOW() WHERE token=%s", (token,))
                 conn.commit()
             return json_resp({'ok': True})
 
-        return json_resp({'error': 'Not found'}, 404)
+        return json_resp({'error': 'Unknown action'}, 400)
 
     finally:
         cur.close()
