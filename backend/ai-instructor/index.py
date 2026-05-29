@@ -1,7 +1,6 @@
 """
-AI-инструктор автошколы Вектор на базе YandexGPT.
-Российский сервис, серверы в России, работает стабильно.
-POST / — { action: "chat", message: "...", history: [{role, text}] }
+AI-инструктор автошколы Вектор — YandexGPT.
+POST / { action: "chat", message: "...", history: [{role, text}] }
 """
 import json
 import os
@@ -14,19 +13,18 @@ CORS = {
     'Access-Control-Allow-Headers': 'Content-Type, X-Auth-Token',
 }
 
-SYSTEM_PROMPT = """Ты — опытный инструктор по вождению автошколы «Вектор» (г. Курган).
-Твоя задача — помогать ученикам изучать правила дорожного движения и технику вождения.
+FOLDER_ID = 'b1g0sotnrm9uvrj7aeu6'
 
-Правила общения:
-- Отвечай ТОЛЬКО на темы, связанные с вождением, ПДД, автомобилями, автошколой
-- Если вопрос не по теме вождения — вежливо перенаправь: «Я инструктор по вождению, могу помочь только с вопросами про ПДД и технику вождения»
-- Говори как профессиональный, но доброжелательный инструктор
-- Используй простой язык, без лишних технических терминов
-- Давай конкретные практические советы
-- При необходимости — объясняй пошагово
-- Отвечай кратко (3-6 предложений), если вопрос не требует подробного разбора
-- Можешь использовать эмодзи для наглядности: 🚗 📌 ⚠️ ✅
-- Не упоминай, что ты AI или нейросеть — ты инструктор Вектора"""
+SYSTEM_PROMPT = """Ты — опытный инструктор по вождению автошколы «Вектор» (г. Курган).
+Помогай ученикам изучать ПДД и технику вождения.
+- Отвечай ТОЛЬКО на темы вождения, ПДД, автомобилей
+- Если вопрос не по теме — скажи: «Я инструктор по вождению, помогу только с вопросами про ПДД и вождение»
+- Говори как доброжелательный профессиональный инструктор
+- Простой язык, конкретные практические советы
+- Кратко (3-6 предложений), при необходимости пошагово
+- Эмодзи: 🚗 📌 ⚠️ ✅
+- Не упоминай что ты AI — ты инструктор Вектора
+- Отвечай только на русском языке"""
 
 
 def resp(data, status=200):
@@ -35,62 +33,6 @@ def resp(data, status=200):
         'headers': {**CORS, 'Content-Type': 'application/json'},
         'body': json.dumps(data, ensure_ascii=False),
     }
-
-
-def get_folder_id_from_key(api_key: str) -> str:
-    """Получаем folder_id через Yandex Cloud API — смотрим на сервисный аккаунт ключа."""
-    url = 'https://iam.api.cloud.yandex.net/iam/v1/apiKeys/' + 'self'
-    # Получаем список ресурсов доступных ключу
-    req = urllib.request.Request(
-        'https://resource-manager.api.cloud.yandex.net/resource-manager/v1/folders',
-        headers={'Authorization': f'Api-Key {api_key}'},
-        method='GET'
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=10) as r:
-            result = json.loads(r.read().decode('utf-8'))
-            folders = result.get('folders', [])
-            if folders:
-                return folders[0]['id']
-    except Exception:
-        pass
-    return ''
-
-
-def call_yandexgpt(api_key: str, folder_id: str, message: str, history: list) -> str:
-    url = 'https://llm.api.cloud.yandex.net/foundationModels/v1/completion'
-
-    messages_v1 = [{'role': 'system', 'text': SYSTEM_PROMPT}]
-    for h in history[-10:]:
-        role = 'user' if h.get('role') == 'user' else 'assistant'
-        messages_v1.append({'role': role, 'text': h.get('text', '')})
-    messages_v1.append({'role': 'user', 'text': message})
-
-    payload = json.dumps({
-        'modelUri': f'gpt://{folder_id}/yandexgpt-lite',
-        'completionOptions': {
-            'stream': False,
-            'temperature': 0.7,
-            'maxTokens': 512,
-        },
-        'messages': messages_v1,
-    }).encode('utf-8')
-
-    req = urllib.request.Request(
-        url,
-        data=payload,
-        headers={
-            'Content-Type': 'application/json',
-            'Authorization': f'Api-Key {api_key}',
-            'x-folder-id': folder_id,
-        },
-        method='POST'
-    )
-
-    with urllib.request.urlopen(req, timeout=25) as r:
-        result = json.loads(r.read().decode('utf-8'))
-
-    return result['result']['alternatives'][0]['message']['text']
 
 
 def handler(event: dict, context) -> dict:
@@ -106,20 +48,16 @@ def handler(event: dict, context) -> dict:
 
     action = body.get('action', '')
 
-    # Диагностика
     if action == 'ping':
-        raw_key = os.environ.get('YANDEX_API_KEY', '')
-        raw_folder = os.environ.get('YANDEX_FOLDER_ID', '')
-        effective_key = raw_key or (raw_folder if raw_folder.startswith('AQVN') else '')
+        api_key = os.environ.get('YANDEX_API_KEY', '') or os.environ.get('YANDEX_FOLDER_ID', '')
         return resp({
             'ok': True,
-            'has_api_key': bool(effective_key),
-            'api_key_prefix': effective_key[:8] + '...' if effective_key else 'MISSING',
-            'folder_id_raw': raw_folder[:10] + '...' if raw_folder else 'MISSING',
+            'has_key': bool(api_key and api_key.startswith('AQVN')),
+            'folder_id': FOLDER_ID,
         })
 
     if action != 'chat':
-        return resp({'error': 'Unknown action', 'received_action': action, 'body_keys': list(body.keys())}, 400)
+        return resp({'error': 'Unknown action'}, 400)
 
     message = (body.get('message') or '').strip()
     history = body.get('history') or []
@@ -129,56 +67,56 @@ def handler(event: dict, context) -> dict:
     if len(message) > 1000:
         return resp({'error': 'Сообщение слишком длинное'}, 400)
 
+    # Ключ может лежать в любом из двух полей
     api_key = os.environ.get('YANDEX_API_KEY', '')
-    folder_id = os.environ.get('YANDEX_FOLDER_ID', '')
-
-    # Автоопределение: если ключ попал в поле folder_id — меняем местами
-    if not api_key and folder_id and folder_id.startswith('AQVN'):
-        api_key = folder_id
-        folder_id = ''
-
-    # Извлекаем folder_id из ключа (он закодирован в base64 части ключа)
-    if api_key and not folder_id:
-        import base64
-        try:
-            # Ключ формата AQVN...: декодируем вторую часть
-            parts = api_key.split('.')
-            if len(parts) >= 2:
-                padded = parts[1] + '=' * (4 - len(parts[1]) % 4)
-                decoded = base64.b64decode(padded).decode('utf-8', errors='ignore')
-                # folder_id идёт после serviceAccountId
-                import re
-                m = re.search(r'"folderId"\s*:\s*"([^"]+)"', decoded)
-                if m:
-                    folder_id = m.group(1)
-        except Exception:
-            pass
-
     if not api_key:
+        api_key = os.environ.get('YANDEX_FOLDER_ID', '')
+    if not api_key or not api_key.startswith('AQVN'):
         return resp({'error': 'AI-инструктор не настроен. Обратитесь к администратору.'}, 503)
 
-    # Если folder_id не задан — пробуем получить автоматически
-    if not folder_id:
-        folder_id = get_folder_id_from_key(api_key)
+    # Формируем сообщения
+    messages = [{'role': 'system', 'text': SYSTEM_PROMPT}]
+    for h in history[-10:]:
+        role = 'user' if h.get('role') == 'user' else 'assistant'
+        messages.append({'role': role, 'text': h.get('text', '')})
+    messages.append({'role': 'user', 'text': message})
 
-    if not folder_id:
-        return resp({'error': 'Не удалось определить каталог Yandex Cloud. Укажите YANDEX_FOLDER_ID.'}, 503)
+    payload = json.dumps({
+        'modelUri': f'gpt://{FOLDER_ID}/yandexgpt-lite',
+        'completionOptions': {
+            'stream': False,
+            'temperature': 0.7,
+            'maxTokens': 512,
+        },
+        'messages': messages,
+    }).encode('utf-8')
+
+    req = urllib.request.Request(
+        'https://llm.api.cloud.yandex.net/foundationModels/v1/completion',
+        data=payload,
+        headers={
+            'Content-Type': 'application/json',
+            'Authorization': f'Api-Key {api_key}',
+            'x-folder-id': FOLDER_ID,
+        },
+        method='POST'
+    )
 
     try:
-        answer = call_yandexgpt(api_key, folder_id, message, history)
+        with urllib.request.urlopen(req, timeout=25) as r:
+            result = json.loads(r.read().decode('utf-8'))
+        answer = result['result']['alternatives'][0]['message']['text']
         return resp({'answer': answer})
     except urllib.error.HTTPError as e:
-        body_err = ''
+        err = ''
         try:
-            body_err = e.read().decode('utf-8', errors='ignore')
+            err = e.read().decode('utf-8', errors='ignore')
         except Exception:
             pass
+        if e.code == 401:
+            return resp({'error': 'Ошибка авторизации. Проверьте API-ключ.'}, 401)
         if e.code == 429:
             return resp({'error': 'Слишком много запросов, подождите немного'}, 429)
-        if e.code == 401:
-            return resp({'error': 'Ошибка авторизации. Проверьте API-ключ в настройках.'}, 401)
-        if e.code == 400:
-            return resp({'error': f'Ошибка запроса: {body_err[:200]}'}, 400)
-        return resp({'error': f'Ошибка AI ({e.code}): {body_err[:100]}'}, 502)
+        return resp({'error': f'Ошибка YandexGPT {e.code}: {err[:300]}'}, 200)
     except Exception as e:
-        return resp({'error': f'AI-инструктор недоступен: {str(e)[:100]}'}, 502)
+        return resp({'error': f'Ошибка: {str(e)[:200]}'}, 200)
