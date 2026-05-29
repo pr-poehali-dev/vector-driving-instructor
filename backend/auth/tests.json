@@ -1,0 +1,30 @@
+{
+  "tests": [
+    {
+      "name": "Admin login - wrong password",
+      "method": "POST",
+      "path": "/admin-login",
+      "body": {"password": "wrongpass"},
+      "expectedStatus": 401
+    },
+    {
+      "name": "Student login - missing fields",
+      "method": "POST",
+      "path": "/login",
+      "body": {},
+      "expectedStatus": 400
+    },
+    {
+      "name": "Me - no token",
+      "method": "GET",
+      "path": "/me",
+      "expectedStatus": 401
+    },
+    {
+      "name": "Admin me - no token",
+      "method": "GET",
+      "path": "/admin-me",
+      "expectedStatus": 401
+    }
+  ]
+}

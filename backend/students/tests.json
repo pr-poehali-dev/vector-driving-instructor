@@ -1,0 +1,17 @@
+{
+  "tests": [
+    {
+      "name": "Get students - no token",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 403
+    },
+    {
+      "name": "Add student - no token",
+      "method": "POST",
+      "path": "/",
+      "body": {"name": "Тест", "login": "test", "password": "1234"},
+      "expectedStatus": 403
+    }
+  ]
+}

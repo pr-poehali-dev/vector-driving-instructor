@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import Icon from '@/components/ui/icon';
 import { WELCOME_MESSAGE, TOPICS, TOPIC_MAP, ChatMessage } from '@/data/chatData';
+import StudentLogin from '@/components/StudentLogin';
+import { studentMe, studentLogout } from '@/api/auth';
 
 interface VideoPlayerProps {
   url: string;
@@ -98,6 +100,8 @@ function OptionButtons({ options, onSelect }: { options: string[]; onSelect: (o:
 
 export default function ChatBot() {
   const [isOpen, setIsOpen] = useState(false);
+  const [authState, setAuthState] = useState<'checking' | 'login' | 'ok'>('checking');
+  const [studentName, setStudentName] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE]);
   const [currentOptions, setCurrentOptions] = useState<string[]>(WELCOME_MESSAGE.options || []);
   const [isTyping, setIsTyping] = useState(false);
@@ -105,11 +109,24 @@ export default function ChatBot() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Проверяем сессию при монтировании
+  useEffect(() => {
+    studentMe()
+      .then(d => { setStudentName(d.name); setAuthState('ok'); })
+      .catch(() => setAuthState('login'));
+  }, []);
+
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, isTyping]);
+
+  const handleLogout = () => {
+    studentLogout();
+    setAuthState('login');
+    setIsOpen(false);
+  };
 
   const handleOptionSelect = (option: string) => {
     const userMsg: ChatMessage = {
@@ -169,22 +186,66 @@ export default function ChatBot() {
     setNewMessageIds(new Set(['welcome']));
   };
 
+  // Кнопка-триггер (всегда видна, открывает чат или форму входа)
+  const floatingBtn = (
+    <button
+      data-chatbot-btn
+      onClick={() => setIsOpen(true)}
+      className={`fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3 rounded-full shadow-xl transition-all duration-300 pulse-red ${
+        isOpen ? 'opacity-0 pointer-events-none scale-75' : 'opacity-100 scale-100'
+      }`}
+      style={{ background: '#E8002D' }}
+    >
+      <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+        <Icon name="MessageCircle" size={16} className="text-white" />
+      </div>
+      <span className="text-white font-semibold text-sm font-montserrat pr-1">Спросить инструктора</span>
+    </button>
+  );
+
+  // Ещё проверяем авторизацию
+  if (authState === 'checking') {
+    return floatingBtn;
+  }
+
+  // Форма входа (overlay поверх страницы)
+  if (authState === 'login') {
+    return (
+      <>
+        {floatingBtn}
+        {isOpen && (
+          <div
+            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:justify-end sm:p-6 bg-black/50 animate-fade-in"
+            onClick={() => setIsOpen(false)}
+          >
+            <div
+              className="w-full sm:w-[360px] sm:max-w-[calc(100vw-48px)] rounded-t-2xl sm:rounded-2xl shadow-2xl animate-scale-in"
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Close bar */}
+              <div className="flex items-center justify-between px-5 py-3 bg-white rounded-t-2xl border-b border-gray-100">
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Вход для ученика</span>
+                <button onClick={() => setIsOpen(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                  <Icon name="X" size={16} />
+                </button>
+              </div>
+              <StudentLogin
+                onSuccess={(name) => {
+                  setStudentName(name);
+                  setAuthState('ok');
+                }}
+              />
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
+
+  // Основной чат (авторизован)
   return (
     <>
-      {/* Floating button */}
-      <button
-        data-chatbot-btn
-        onClick={() => setIsOpen(true)}
-        className={`fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3 rounded-full shadow-xl transition-all duration-300 pulse-red ${
-          isOpen ? 'opacity-0 pointer-events-none scale-75' : 'opacity-100 scale-100'
-        }`}
-        style={{ background: '#E8002D' }}
-      >
-        <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
-          <span className="text-white text-sm font-bold">И</span>
-        </div>
-        <span className="text-white font-semibold text-sm font-montserrat pr-1">Спросить инструктора</span>
-      </button>
+      {floatingBtn}
 
       {/* Chat window */}
       <div
@@ -195,12 +256,14 @@ export default function ChatBot() {
       >
         {/* Header */}
         <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0" style={{ background: '#1a1a1a' }}>
-          <div className="w-9 h-9 rounded-full bg-[#E8002D] flex items-center justify-center text-white font-bold flex-shrink-0">
+          <div className="w-9 h-9 rounded-full bg-[#E8002D] flex items-center justify-center text-white font-bold flex-shrink-0 text-sm">
             И
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-white font-semibold text-sm font-montserrat">Инструктор Вектор</p>
-            <p className="text-white/60 text-xs">Автошкола • Онлайн</p>
+            <p className="text-white/60 text-xs truncate">
+              {studentName ? `Привет, ${studentName}` : 'Автошкола • Онлайн'}
+            </p>
           </div>
           <button
             onClick={handleReset}
@@ -208,6 +271,13 @@ export default function ChatBot() {
             title="Начать заново"
           >
             <Icon name="RotateCcw" size={14} />
+          </button>
+          <button
+            onClick={handleLogout}
+            className="text-white/50 hover:text-white/80 transition-colors p-1"
+            title="Выйти"
+          >
+            <Icon name="LogOut" size={14} />
           </button>
           <button
             onClick={() => setIsOpen(false)}
