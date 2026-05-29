@@ -42,18 +42,18 @@ const BOT_FEATURES = [
 const WHY_VECTOR = [
   {
     num: '01',
-    title: 'Мы знаем, чего боятся ученики',
-    text: 'За 9 лет мы обучили 10 000+ водителей и знаем все типичные страхи и ошибки. Бот отвечает именно на те вопросы, которые возникают перед экзаменом.',
+    title: 'Знаем, чего боятся в Кургане',
+    text: 'Инструкторы кургановского филиала Вектора собрали самые частые вопросы учеников — и загрузили ответы прямо в бот. Никакой теории ради теории.',
   },
   {
     num: '02',
     title: 'Контент от живых инструкторов',
-    text: 'Каждый урок в боте составлен нашими инструкторами — не скопирован из интернета, а основан на реальном опыте обучения в Омске.',
+    text: 'Каждый урок составлен нашими инструкторами с опытом 5+ лет. Видео, схемы и советы проверены на реальных учениках в Кургане.',
   },
   {
     num: '03',
     title: 'Готовит к нашему автодрому',
-    text: 'Манёвры и советы адаптированы под конкретные упражнения, которые вы будете сдавать на нашем автодроме.',
+    text: 'Манёвры, схемы и советы заточены под упражнения, которые вы будете сдавать именно на курганском автодроме Вектора.',
   },
 ];
 
@@ -88,11 +88,11 @@ export default function Index() {
           <div className="flex items-center gap-6 text-xs">
             <span className="flex items-center gap-1.5">
               <Icon name="MapPin" size={12} />
-              г. Омск, ул. Гагарина 14 / ул. Кирова 47
+              г. Курган, ул. Станционная 49
             </span>
             <span className="flex items-center gap-1.5">
               <Icon name="Clock" size={12} />
-              Пн–Вс: 8:00–21:00
+              Пн–Вс: 8:30–20:30
             </span>
           </div>
           <a href="tel:88005056377" className="text-white font-semibold hover:text-[#E8002D] transition-colors flex items-center gap-1.5">
@@ -100,6 +100,11 @@ export default function Index() {
             8 (800) 505-63-77 — бесплатно
           </a>
         </div>
+      </div>
+
+      {/* PROMO BANNER */}
+      <div className="py-2 text-center text-sm font-medium" style={{ background: '#E8002D', color: 'white' }}>
+        🎂 Дарим <strong>−1000 ₽</strong> на обучение всем именинникам · Обучение от <strong>24 950 ₽</strong> · Беспроцентная рассрочка
       </div>
 
       {/* HEADER */}
@@ -179,7 +184,7 @@ export default function Index() {
               style={{ background: '#E8002D', color: 'white' }}
             >
               <Icon name="Sparkles" size={11} />
-              Новая технология обучения
+              Автошкола Вектор — Курган
             </div>
             <h1
               className="font-montserrat text-4xl md:text-6xl text-white leading-[1.1] mb-5"
@@ -213,9 +218,9 @@ export default function Index() {
             {/* Mini stats */}
             <div className="flex flex-wrap gap-6 mt-10 pt-8 border-t border-white/15">
               {[
-                { val: '5', label: 'тем для изучения' },
-                { val: '24/7', label: 'доступен всегда' },
-                { val: '10 000+', label: 'выпускников Вектора' },
+                { val: 'от 24 950 ₽', label: 'категория B, всё включено' },
+                { val: '24/7', label: 'инструктор доступен' },
+                { val: '−1000 ₽', label: 'скидка именинникам' },
               ].map((s) => (
                 <div key={s.label}>
                   <div className="font-montserrat text-white text-2xl" style={{ fontWeight: 900, color: '#E8002D' }}>{s.val}</div>
@@ -463,15 +468,16 @@ export default function Index() {
       {/* CONTACTS */}
       <section id="contacts" className="py-16 md:py-20" style={{ background: '#f7f7f7' }}>
         <div className="max-w-4xl mx-auto px-6 text-center">
-          <p className="text-[#E8002D] text-sm font-semibold uppercase tracking-widest mb-3">Автошкола Вектор — Омск</p>
-          <h2 className="font-montserrat text-2xl md:text-3xl text-[#1a1a1a] mb-8" style={{ fontWeight: 800 }}>
+          <p className="text-[#E8002D] text-sm font-semibold uppercase tracking-widest mb-3">Автошкола Вектор — Курган</p>
+          <h2 className="font-montserrat text-2xl md:text-3xl text-[#1a1a1a] mb-2" style={{ fontWeight: 800 }}>
             Федеральная академия вождения
           </h2>
+          <p className="text-gray-400 text-sm mb-8">Обучение категории B от 24 950 ₽ · Беспроцентная рассрочка · −1000 ₽ именинникам</p>
           <div className="grid sm:grid-cols-3 gap-4 mb-8">
             {[
-              { icon: 'MapPin', label: 'Адреса', value: 'ул. Гагарина 14, оф. 605\nул. Кирова 47' },
-              { icon: 'Phone', label: 'Телефон', value: '8 (800) 505-63-77', href: 'tel:88005056377' },
-              { icon: 'Clock', label: 'Режим работы', value: 'Пн–Вс: 8:00–21:00' },
+              { icon: 'MapPin', label: 'Адрес', value: 'г. Курган\nул. Станционная, 49' },
+              { icon: 'Phone', label: 'Телефон (бесплатно)', value: '8 (800) 505-63-77', href: 'tel:88005056377' },
+              { icon: 'Clock', label: 'Режим работы', value: 'Пн–Вс: 8:30–20:30' },
             ].map((item) => (
               <div key={item.label} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-3" style={{ background: '#fff0f2' }}>
@@ -504,7 +510,7 @@ export default function Index() {
         <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
           <VectorLogo size="sm" inverted />
           <p className="text-white/30 text-xs text-center">
-            © 2026 Федеральная академия вождения «Вектор». Все права защищены.
+            © 2026 Федеральная академия вождения «Вектор» · г. Курган. Все права защищены.
           </p>
           <div className="flex gap-5">
             {['Инструктор', 'О школе', 'Контакты'].map((link) => (
