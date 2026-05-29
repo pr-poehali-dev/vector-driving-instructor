@@ -85,8 +85,21 @@ def handler(event: dict, context) -> dict:
             pass
 
     action = body.get('action', '')
+
+    # Диагностика: проверяем секреты и входящие данные
+    if action == 'ping':
+        api_key = os.environ.get('YANDEX_API_KEY', '')
+        folder_id = os.environ.get('YANDEX_FOLDER_ID', '')
+        return resp({
+            'ok': True,
+            'has_api_key': bool(api_key),
+            'has_folder_id': bool(folder_id),
+            'api_key_prefix': api_key[:8] + '...' if api_key else 'MISSING',
+            'folder_id_prefix': folder_id[:8] + '...' if folder_id else 'MISSING',
+        })
+
     if action != 'chat':
-        return resp({'error': 'Unknown action'}, 400)
+        return resp({'error': 'Unknown action', 'received_action': action, 'body_keys': list(body.keys())}, 400)
 
     message = (body.get('message') or '').strip()
     history = body.get('history') or []
