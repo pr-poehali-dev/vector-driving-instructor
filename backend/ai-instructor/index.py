@@ -1,12 +1,14 @@
 """
-AI-инструктор автошколы Вектор на базе Groq (llama-3.3-70b).
-Бесплатный, очень быстрый. Ключ: console.groq.com
+AI-инструктор автошколы Вектор на базе GigaChat (Сбер).
+Российский сервис, работает без VPN, бесплатный тариф.
 POST / — { action: "chat", message: "...", history: [{role, text}] }
 """
 import json
 import os
+import uuid
 import urllib.request
 import urllib.error
+import ssl
 
 CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -26,8 +28,12 @@ SYSTEM_PROMPT = """Ты — опытный инструктор по вожде�
 - При необходимости — объясняй пошагово
 - Отвечай кратко (3-6 предложений), если вопрос не требует подробного разбора
 - Можешь использовать эмодзи для наглядности: 🚗 📌 ⚠️ ✅
-- Не упоминай, что ты AI или нейросеть — ты инструктор Вектора
-- Отвечай на русском языке"""
+- Не упоминай, что ты AI или нейросеть — ты инструктор Вектора"""
+
+# SSL-контекст без верификации (нужен для сертификатов Сбера)
+SSL_CTX = ssl.create_default_context()
+SSL_CTX.check_hostname = False
+SSL_CTX.verify_mode = ssl.CERT_NONE
 
 
 def resp(data, status=200):
@@ -38,22 +44,38 @@ def resp(data, status=200):
     }
 
 
-def call_groq(api_key: str, message: str, history: list) -> str:
-    url = 'https://api.groq.com/openai/v1/chat/completions'
+def get_gigachat_token(credentials: str) -> str:
+    """Получаем access token через OAuth."""
+    url = 'https://ngw.devices.sberbank.ru:9443/api/v2/oauth'
+    payload = 'scope=GIGACHAT_API_PERS'.encode('utf-8')
+    req = urllib.request.Request(
+        url,
+        data=payload,
+        headers={
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Accept': 'application/json',
+            'RqUID': str(uuid.uuid4()),
+            'Authorization': f'Basic {credentials}',
+        },
+        method='POST'
+    )
+    with urllib.request.urlopen(req, timeout=15, context=SSL_CTX) as r:
+        result = json.loads(r.read().decode('utf-8'))
+    return result['access_token']
 
-    # Собираем сообщения в формате OpenAI-совместимого API
+
+def call_gigachat(token: str, message: str, history: list) -> str:
+    """Отправляем сообщение в GigaChat."""
+    url = 'https://gigachat.devices.sberbank.ru/api/v1/chat/completions'
+
     messages = [{'role': 'system', 'content': SYSTEM_PROMPT}]
-
-    # История диалога (последние 10 сообщений)
     for h in history[-10:]:
         role = 'user' if h.get('role') == 'user' else 'assistant'
         messages.append({'role': role, 'content': h.get('text', '')})
-
-    # Текущий вопрос
     messages.append({'role': 'user', 'content': message})
 
     payload = json.dumps({
-        'model': 'llama-3.3-70b-versatile',
+        'model': 'GigaChat',
         'messages': messages,
         'temperature': 0.7,
         'max_tokens': 512,
@@ -64,14 +86,13 @@ def call_groq(api_key: str, message: str, history: list) -> str:
         data=payload,
         headers={
             'Content-Type': 'application/json',
-            'Authorization': f'Bearer {api_key}',
+            'Accept': 'application/json',
+            'Authorization': f'Bearer {token}',
         },
         method='POST'
     )
-
-    with urllib.request.urlopen(req, timeout=25) as r:
+    with urllib.request.urlopen(req, timeout=25, context=SSL_CTX) as r:
         result = json.loads(r.read().decode('utf-8'))
-
     return result['choices'][0]['message']['content']
 
 
@@ -87,7 +108,6 @@ def handler(event: dict, context) -> dict:
             pass
 
     action = body.get('action', '')
-
     if action != 'chat':
         return resp({'error': 'Unknown action'}, 400)
 
@@ -99,18 +119,19 @@ def handler(event: dict, context) -> dict:
     if len(message) > 1000:
         return resp({'error': 'Сообщение слишком длинное'}, 400)
 
-    api_key = os.environ.get('GROQ_API_KEY', '')
-    if not api_key:
-        return resp({'error': 'AI-инструктор временно недоступен. Обратитесь к администратору.'}, 503)
+    credentials = os.environ.get('GIGACHAT_CREDENTIALS', '')
+    if not credentials:
+        return resp({'error': 'AI-инструктор не настроен. Обратитесь к администратору.'}, 503)
 
     try:
-        answer = call_groq(api_key, message, history)
+        token = get_gigachat_token(credentials)
+        answer = call_gigachat(token, message, history)
         return resp({'answer': answer})
     except urllib.error.HTTPError as e:
         if e.code == 429:
-            return resp({'error': 'Слишком много запросов, подождите немного и попробуйте снова'}, 429)
+            return resp({'error': 'Слишком много запросов, подождите немного'}, 429)
         if e.code == 401:
-            return resp({'error': 'Ошибка авторизации AI. Обратитесь к администратору.'}, 401)
+            return resp({'error': 'Ошибка авторизации GigaChat. Проверьте ключ.'}, 401)
         return resp({'error': 'AI-инструктор временно недоступен, попробуйте позже'}, 502)
-    except Exception:
+    except Exception as e:
         return resp({'error': 'AI-инструктор временно недоступен, попробуйте позже'}, 502)
