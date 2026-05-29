@@ -37,14 +37,34 @@ def resp(data, status=200):
     }
 
 
+def get_folder_id_from_key(api_key: str) -> str:
+    """Получаем folder_id через Yandex Cloud API — смотрим на сервисный аккаунт ключа."""
+    url = 'https://iam.api.cloud.yandex.net/iam/v1/apiKeys/' + 'self'
+    # Получаем список ресурсов доступных ключу
+    req = urllib.request.Request(
+        'https://resource-manager.api.cloud.yandex.net/resource-manager/v1/folders',
+        headers={'Authorization': f'Api-Key {api_key}'},
+        method='GET'
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as r:
+            result = json.loads(r.read().decode('utf-8'))
+            folders = result.get('folders', [])
+            if folders:
+                return folders[0]['id']
+    except Exception:
+        pass
+    return ''
+
+
 def call_yandexgpt(api_key: str, folder_id: str, message: str, history: list) -> str:
     url = 'https://llm.api.cloud.yandex.net/foundationModels/v1/completion'
 
-    messages = [{'role': 'system', 'text': SYSTEM_PROMPT}]
+    messages_v1 = [{'role': 'system', 'text': SYSTEM_PROMPT}]
     for h in history[-10:]:
         role = 'user' if h.get('role') == 'user' else 'assistant'
-        messages.append({'role': role, 'text': h.get('text', '')})
-    messages.append({'role': 'user', 'text': message})
+        messages_v1.append({'role': role, 'text': h.get('text', '')})
+    messages_v1.append({'role': 'user', 'text': message})
 
     payload = json.dumps({
         'modelUri': f'gpt://{folder_id}/yandexgpt-lite',
@@ -53,7 +73,7 @@ def call_yandexgpt(api_key: str, folder_id: str, message: str, history: list) ->
             'temperature': 0.7,
             'maxTokens': 512,
         },
-        'messages': messages,
+        'messages': messages_v1,
     }).encode('utf-8')
 
     req = urllib.request.Request(
@@ -86,16 +106,16 @@ def handler(event: dict, context) -> dict:
 
     action = body.get('action', '')
 
-    # Диагностика: проверяем секреты и входящие данные
+    # Диагностика
     if action == 'ping':
-        api_key = os.environ.get('YANDEX_API_KEY', '')
-        folder_id = os.environ.get('YANDEX_FOLDER_ID', '')
+        raw_key = os.environ.get('YANDEX_API_KEY', '')
+        raw_folder = os.environ.get('YANDEX_FOLDER_ID', '')
+        effective_key = raw_key or (raw_folder if raw_folder.startswith('AQVN') else '')
         return resp({
             'ok': True,
-            'has_api_key': bool(api_key),
-            'has_folder_id': bool(folder_id),
-            'api_key_prefix': api_key[:8] + '...' if api_key else 'MISSING',
-            'folder_id_prefix': folder_id[:8] + '...' if folder_id else 'MISSING',
+            'has_api_key': bool(effective_key),
+            'api_key_prefix': effective_key[:8] + '...' if effective_key else 'MISSING',
+            'folder_id_raw': raw_folder[:10] + '...' if raw_folder else 'MISSING',
         })
 
     if action != 'chat':
@@ -111,8 +131,38 @@ def handler(event: dict, context) -> dict:
 
     api_key = os.environ.get('YANDEX_API_KEY', '')
     folder_id = os.environ.get('YANDEX_FOLDER_ID', '')
-    if not api_key or not folder_id:
+
+    # Автоопределение: если ключ попал в поле folder_id — меняем местами
+    if not api_key and folder_id and folder_id.startswith('AQVN'):
+        api_key = folder_id
+        folder_id = ''
+
+    # Извлекаем folder_id из ключа (он закодирован в base64 части ключа)
+    if api_key and not folder_id:
+        import base64
+        try:
+            # Ключ формата AQVN...: декодируем вторую часть
+            parts = api_key.split('.')
+            if len(parts) >= 2:
+                padded = parts[1] + '=' * (4 - len(parts[1]) % 4)
+                decoded = base64.b64decode(padded).decode('utf-8', errors='ignore')
+                # folder_id идёт после serviceAccountId
+                import re
+                m = re.search(r'"folderId"\s*:\s*"([^"]+)"', decoded)
+                if m:
+                    folder_id = m.group(1)
+        except Exception:
+            pass
+
+    if not api_key:
         return resp({'error': 'AI-инструктор не настроен. Обратитесь к администратору.'}, 503)
+
+    # Если folder_id не задан — пробуем получить автоматически
+    if not folder_id:
+        folder_id = get_folder_id_from_key(api_key)
+
+    if not folder_id:
+        return resp({'error': 'Не удалось определить каталог Yandex Cloud. Укажите YANDEX_FOLDER_ID.'}, 503)
 
     try:
         answer = call_yandexgpt(api_key, folder_id, message, history)
