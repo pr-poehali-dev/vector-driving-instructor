@@ -1,0 +1,22 @@
+{
+  "tests": [
+    {
+      "name": "Get topics - public",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "get_topics"},
+      "expectedStatus": 200,
+      "expectedBody": {"topics": []},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Save topic - no token",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "save_topic", "label": "Тест"},
+      "expectedStatus": 403,
+      "expectedBody": {"error": "string"},
+      "bodyMatcher": "partial"
+    }
+  ]
+}

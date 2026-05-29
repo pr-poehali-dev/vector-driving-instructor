@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import VectorLogo from '@/components/VectorLogo';
 import Icon from '@/components/ui/icon';
 import { adminLogin, adminMe, adminLogout, getStudents, addStudent, updateStudent } from '@/api/auth';
+import ContentEditor from '@/components/admin/ContentEditor';
 
 interface Student {
   id: number;
@@ -218,6 +219,7 @@ function EditStudentModal({ student, onClose, onUpdated }: { student: Student; o
 
 // ─── Main dashboard ──────────────────────────────────────────────────────────
 function AdminDashboard() {
+  const [tab, setTab] = useState<'students' | 'content'>('students');
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -254,6 +256,30 @@ function AdminDashboard() {
       </header>
 
       <div className="max-w-4xl mx-auto px-4 py-8">
+        {/* Tabs */}
+        <div className="flex gap-1 p-1 bg-white rounded-2xl shadow-sm border border-gray-100 mb-7 w-fit">
+          {([
+            { key: 'students', label: 'Ученики', icon: 'Users' },
+            { key: 'content', label: 'Контент бота', icon: 'MessageSquare' },
+          ] as const).map(t => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                tab === t.key
+                  ? 'bg-[#1a1a1a] text-white shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <Icon name={t.icon} size={14} fallback="Users" />
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {tab === 'content' && <ContentEditor />}
+
+        {tab === 'students' && <>
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8">
           {[
@@ -353,23 +379,24 @@ function AdminDashboard() {
         <p className="text-center text-xs text-gray-400 mt-6">
           Логин и пароль от чат-бота выдаётся ученику лично. Доступ можно заблокировать в любой момент.
         </p>
-      </div>
 
-      {showAdd && (
-        <AddStudentModal
-          onClose={() => setShowAdd(false)}
-          onAdded={s => setStudents(prev => [s, ...prev])}
-        />
-      )}
-      {editStudent && (
-        <EditStudentModal
-          student={editStudent}
-          onClose={() => setEditStudent(null)}
-          onUpdated={updated => {
-            setStudents(prev => prev.map(s => s.id === updated.id ? updated : s));
-          }}
-        />
-      )}
+        {showAdd && (
+          <AddStudentModal
+            onClose={() => setShowAdd(false)}
+            onAdded={s => setStudents(prev => [s, ...prev])}
+          />
+        )}
+        {editStudent && (
+          <EditStudentModal
+            student={editStudent}
+            onClose={() => setEditStudent(null)}
+            onUpdated={updated => {
+              setStudents(prev => prev.map(s => s.id === updated.id ? updated : s));
+            }}
+          />
+        )}
+        </>}
+      </div>
     </div>
   );
 }

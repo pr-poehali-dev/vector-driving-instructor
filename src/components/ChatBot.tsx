@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import Icon from '@/components/ui/icon';
-import { WELCOME_MESSAGE, TOPICS, TOPIC_MAP, ChatMessage } from '@/data/chatData';
+import { ChatMessage } from '@/data/chatData';
 import StudentLogin from '@/components/StudentLogin';
 import { studentMe, studentLogout } from '@/api/auth';
+import { getTopics, DBTopic } from '@/api/content';
 
 interface VideoPlayerProps {
   url: string;
@@ -98,16 +99,52 @@ function OptionButtons({ options, onSelect }: { options: string[]; onSelect: (o:
   );
 }
 
+// Конвертируем тему из БД в ChatMessage[]
+function dbTopicToMessages(topic: DBTopic): ChatMessage[] {
+  return topic.messages.map(m => ({
+    id: `db-${m.id}`,
+    role: 'instructor' as const,
+    text: m.text,
+    video: m.video_url ? { title: m.video_title || '', url: m.video_url, thumb: m.video_thumb || '' } : undefined,
+    image: m.image_url ? { src: m.image_url, caption: m.image_caption || '' } : undefined,
+    options: m.options?.length ? m.options : undefined,
+  }));
+}
+
 export default function ChatBot() {
   const [isOpen, setIsOpen] = useState(false);
   const [authState, setAuthState] = useState<'checking' | 'login' | 'ok'>('checking');
   const [studentName, setStudentName] = useState('');
-  const [messages, setMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE]);
-  const [currentOptions, setCurrentOptions] = useState<string[]>(WELCOME_MESSAGE.options || []);
+  const [dbTopics, setDbTopics] = useState<DBTopic[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [currentOptions, setCurrentOptions] = useState<string[]>([]);
   const [isTyping, setIsTyping] = useState(false);
   const [newMessageIds, setNewMessageIds] = useState<Set<string>>(new Set());
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Загружаем темы из БД
+  useEffect(() => {
+    getTopics().then(data => {
+      setDbTopics(data.topics);
+      const topicLabels: string[] = data.topics.map((t: DBTopic) => t.label);
+      const welcome: ChatMessage = {
+        id: 'welcome',
+        role: 'instructor',
+        text: 'Здравствуйте! Я ваш инструктор автошколы «Вектор». Готов помочь с обучением вождению. Выберите тему:',
+        options: topicLabels,
+      };
+      setMessages([welcome]);
+      setCurrentOptions(topicLabels);
+    }).catch(() => {
+      // fallback — пустое приветствие
+      setMessages([{
+        id: 'welcome',
+        role: 'instructor',
+        text: 'Здравствуйте! Я ваш инструктор. Загрузка тем...',
+      }]);
+    });
+  }, []);
 
   // Проверяем сессию при монтировании
   useEffect(() => {
@@ -139,32 +176,35 @@ export default function ChatBot() {
     setIsTyping(true);
     setNewMessageIds((prev) => new Set([...prev, userMsg.id]));
 
-    const topicId = TOPIC_MAP[option];
-    const topic = TOPICS.find((t) => t.id === topicId);
+    // Ищем тему по названию
+    const topic = dbTopics.find(t => t.label === option);
 
     if (topic) {
+      const topicMsgs = dbTopicToMessages(topic);
       let delay = 800;
-      topic.messages.forEach((msg, i) => {
+      topicMsgs.forEach((msg, i) => {
         setTimeout(() => {
-          setIsTyping(i < topic.messages.length - 1);
+          setIsTyping(i < topicMsgs.length - 1);
           setMessages((prev) => [...prev, msg]);
           setNewMessageIds((prev) => new Set([...prev, msg.id]));
-          if (i === topic.messages.length - 1) {
+          if (i === topicMsgs.length - 1) {
             setCurrentOptions(msg.options || []);
           }
         }, delay);
         delay += msg.video ? 1800 : msg.image ? 1400 : 1000;
       });
     } else {
+      // Не найдена тема — возвращаем список тем
       setTimeout(() => {
+        const topicLabels = dbTopics.map(t => t.label);
         const fallback: ChatMessage = {
           id: `fallback-${Date.now()}`,
           role: 'instructor',
-          text: 'Выберите тему из предложенных вариантов — расскажу подробно.',
-          options: ['Параллельная парковка', 'Заезд в гараж', 'Разворот в ограниченном пространстве', 'Правила проезда перекрёстков', 'Экстренное торможение'],
+          text: 'Выберите тему из списка — расскажу подробно.',
+          options: topicLabels,
         };
         setMessages((prev) => [...prev, fallback]);
-        setCurrentOptions(fallback.options || []);
+        setCurrentOptions(topicLabels);
         setIsTyping(false);
         setNewMessageIds((prev) => new Set([...prev, fallback.id]));
       }, 900);
@@ -180,8 +220,15 @@ export default function ChatBot() {
   };
 
   const handleReset = () => {
-    setMessages([WELCOME_MESSAGE]);
-    setCurrentOptions(WELCOME_MESSAGE.options || []);
+    const topicLabels = dbTopics.map(t => t.label);
+    const welcome: ChatMessage = {
+      id: 'welcome',
+      role: 'instructor',
+      text: 'Здравствуйте! Я ваш инструктор автошколы «Вектор». Выберите тему:',
+      options: topicLabels,
+    };
+    setMessages([welcome]);
+    setCurrentOptions(topicLabels);
     setIsTyping(false);
     setNewMessageIds(new Set(['welcome']));
   };
