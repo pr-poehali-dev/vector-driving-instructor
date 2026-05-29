@@ -1,14 +1,12 @@
 """
-AI-инструктор автошколы Вектор на базе GigaChat (Сбер).
-Российский сервис, работает без VPN, бесплатный тариф.
+AI-инструктор автошколы Вектор на базе YandexGPT.
+Российский сервис, серверы в России, работает стабильно.
 POST / — { action: "chat", message: "...", history: [{role, text}] }
 """
 import json
 import os
-import uuid
 import urllib.request
 import urllib.error
-import ssl
 
 CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -30,11 +28,6 @@ SYSTEM_PROMPT = """Ты — опытный инструктор по вожде�
 - Можешь использовать эмодзи для наглядности: 🚗 📌 ⚠️ ✅
 - Не упоминай, что ты AI или нейросеть — ты инструктор Вектора"""
 
-# SSL-контекст без верификации (нужен для сертификатов Сбера)
-SSL_CTX = ssl.create_default_context()
-SSL_CTX.check_hostname = False
-SSL_CTX.verify_mode = ssl.CERT_NONE
-
 
 def resp(data, status=200):
     return {
@@ -44,41 +37,23 @@ def resp(data, status=200):
     }
 
 
-def get_gigachat_token(credentials: str) -> str:
-    """Получаем access token через OAuth."""
-    url = 'https://ngw.devices.sberbank.ru:9443/api/v2/oauth'
-    payload = 'scope=GIGACHAT_API_PERS'.encode('utf-8')
-    req = urllib.request.Request(
-        url,
-        data=payload,
-        headers={
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Accept': 'application/json',
-            'RqUID': str(uuid.uuid4()),
-            'Authorization': f'Basic {credentials}',
-        },
-        method='POST'
-    )
-    with urllib.request.urlopen(req, timeout=15, context=SSL_CTX) as r:
-        result = json.loads(r.read().decode('utf-8'))
-    return result['access_token']
+def call_yandexgpt(api_key: str, folder_id: str, message: str, history: list) -> str:
+    url = 'https://llm.api.cloud.yandex.net/foundationModels/v1/completion'
 
-
-def call_gigachat(token: str, message: str, history: list) -> str:
-    """Отправляем сообщение в GigaChat."""
-    url = 'https://gigachat.devices.sberbank.ru/api/v1/chat/completions'
-
-    messages = [{'role': 'system', 'content': SYSTEM_PROMPT}]
+    messages = [{'role': 'system', 'text': SYSTEM_PROMPT}]
     for h in history[-10:]:
         role = 'user' if h.get('role') == 'user' else 'assistant'
-        messages.append({'role': role, 'content': h.get('text', '')})
-    messages.append({'role': 'user', 'content': message})
+        messages.append({'role': role, 'text': h.get('text', '')})
+    messages.append({'role': 'user', 'text': message})
 
     payload = json.dumps({
-        'model': 'GigaChat',
+        'modelUri': f'gpt://{folder_id}/yandexgpt-lite',
+        'completionOptions': {
+            'stream': False,
+            'temperature': 0.7,
+            'maxTokens': 512,
+        },
         'messages': messages,
-        'temperature': 0.7,
-        'max_tokens': 512,
     }).encode('utf-8')
 
     req = urllib.request.Request(
@@ -86,14 +61,16 @@ def call_gigachat(token: str, message: str, history: list) -> str:
         data=payload,
         headers={
             'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'Authorization': f'Bearer {token}',
+            'Authorization': f'Api-Key {api_key}',
+            'x-folder-id': folder_id,
         },
         method='POST'
     )
-    with urllib.request.urlopen(req, timeout=25, context=SSL_CTX) as r:
+
+    with urllib.request.urlopen(req, timeout=25) as r:
         result = json.loads(r.read().decode('utf-8'))
-    return result['choices'][0]['message']['content']
+
+    return result['result']['alternatives'][0]['message']['text']
 
 
 def handler(event: dict, context) -> dict:
@@ -119,19 +96,26 @@ def handler(event: dict, context) -> dict:
     if len(message) > 1000:
         return resp({'error': 'Сообщение слишком длинное'}, 400)
 
-    credentials = os.environ.get('GIGACHAT_CREDENTIALS', '')
-    if not credentials:
+    api_key = os.environ.get('YANDEX_API_KEY', '')
+    folder_id = os.environ.get('YANDEX_FOLDER_ID', '')
+    if not api_key or not folder_id:
         return resp({'error': 'AI-инструктор не настроен. Обратитесь к администратору.'}, 503)
 
     try:
-        token = get_gigachat_token(credentials)
-        answer = call_gigachat(token, message, history)
+        answer = call_yandexgpt(api_key, folder_id, message, history)
         return resp({'answer': answer})
     except urllib.error.HTTPError as e:
+        body_err = ''
+        try:
+            body_err = e.read().decode('utf-8', errors='ignore')
+        except Exception:
+            pass
         if e.code == 429:
             return resp({'error': 'Слишком много запросов, подождите немного'}, 429)
         if e.code == 401:
-            return resp({'error': 'Ошибка авторизации GigaChat. Проверьте ключ.'}, 401)
-        return resp({'error': 'AI-инструктор временно недоступен, попробуйте позже'}, 502)
+            return resp({'error': 'Ошибка авторизации. Проверьте API-ключ в настройках.'}, 401)
+        if e.code == 400:
+            return resp({'error': f'Ошибка запроса: {body_err[:200]}'}, 400)
+        return resp({'error': f'Ошибка AI ({e.code}): {body_err[:100]}'}, 502)
     except Exception as e:
-        return resp({'error': 'AI-инструктор временно недоступен, попробуйте позже'}, 502)
+        return resp({'error': f'AI-инструктор недоступен: {str(e)[:100]}'}, 502)
