@@ -1,0 +1,22 @@
+{
+  "tests": [
+    {
+      "name": "Chat - empty message",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "chat", "message": ""},
+      "expectedStatus": 400,
+      "expectedBody": {"error": "string"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Chat - unknown action",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "unknown"},
+      "expectedStatus": 400,
+      "expectedBody": {"error": "string"},
+      "bodyMatcher": "partial"
+    }
+  ]
+}
