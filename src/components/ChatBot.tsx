@@ -19,7 +19,7 @@ function VideoPlayer({ url, title, thumb }: VideoPlayerProps) {
         >
           <img src={thumb} alt={title} className="w-full h-36 object-cover" />
           <div className="absolute inset-0 bg-black/40 flex items-center justify-center group-hover:bg-black/50 transition-colors">
-            <div className="w-12 h-12 rounded-full bg-[#d42b2b] flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+            <div className="w-12 h-12 rounded-full bg-[#E8002D] flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
               <Icon name="Play" size={20} className="text-white ml-1" />
             </div>
           </div>
@@ -48,7 +48,7 @@ function MessageBubble({ message, isNew }: { message: ChatMessage; isNew?: boole
       className={`flex gap-2.5 ${isInstructor ? 'flex-row' : 'flex-row-reverse'} ${isNew ? 'animate-fade-in' : ''}`}
     >
       {isInstructor && (
-        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#0d2147] flex items-center justify-center text-white text-xs font-bold shadow-sm">
+        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#1a1a1a] flex items-center justify-center text-white text-xs font-bold shadow-sm">
           И
         </div>
       )}
@@ -57,7 +57,7 @@ function MessageBubble({ message, isNew }: { message: ChatMessage; isNew?: boole
           className={`rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
             isInstructor
               ? 'bg-white text-gray-800 shadow-sm border border-gray-100 rounded-tl-sm'
-              : 'bg-[#d42b2b] text-white rounded-tr-sm'
+              : 'bg-[#E8002D] text-white rounded-tr-sm'
           }`}
         >
           {message.text}
@@ -87,7 +87,7 @@ function OptionButtons({ options, onSelect }: { options: string[]; onSelect: (o:
         <button
           key={opt}
           onClick={() => onSelect(opt)}
-          className="px-3 py-1.5 text-xs rounded-full border border-[#0d2147]/30 text-[#0d2147] bg-white hover:bg-[#0d2147] hover:text-white hover:border-[#0d2147] transition-all duration-200 font-medium"
+          className="px-3 py-1.5 text-xs rounded-full border border-[#1a1a1a]/30 text-[#1a1a1a] bg-white hover:bg-[#1a1a1a] hover:text-white hover:border-[#1a1a1a] transition-all duration-200 font-medium"
         >
           {opt}
         </button>
@@ -177,7 +177,7 @@ export default function ChatBot() {
         className={`fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3 rounded-full shadow-xl transition-all duration-300 pulse-red ${
           isOpen ? 'opacity-0 pointer-events-none scale-75' : 'opacity-100 scale-100'
         }`}
-        style={{ background: '#d42b2b' }}
+        style={{ background: '#E8002D' }}
       >
         <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
           <span className="text-white text-sm font-bold">И</span>
@@ -193,8 +193,8 @@ export default function ChatBot() {
         style={{ height: '540px', maxHeight: 'calc(100vh - 40px)' }}
       >
         {/* Header */}
-        <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0" style={{ background: '#0d2147' }}>
-          <div className="w-9 h-9 rounded-full bg-[#d42b2b] flex items-center justify-center text-white font-bold flex-shrink-0">
+        <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0" style={{ background: '#1a1a1a' }}>
+          <div className="w-9 h-9 rounded-full bg-[#E8002D] flex items-center justify-center text-white font-bold flex-shrink-0">
             И
           </div>
           <div className="flex-1 min-w-0">
@@ -229,7 +229,7 @@ export default function ChatBot() {
 
           {isTyping && (
             <div className="flex gap-2.5 animate-fade-in">
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#0d2147] flex items-center justify-center text-white text-xs font-bold">
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#1a1a1a] flex items-center justify-center text-white text-xs font-bold">
                 И
               </div>
               <div className="bg-white rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm border border-gray-100">
@@ -254,7 +254,7 @@ export default function ChatBot() {
             type="text"
             placeholder="Задайте вопрос инструктору..."
             onKeyDown={handleInputKeyDown}
-            className="flex-1 text-sm px-3 py-2 rounded-full bg-[#f4f6fa] border border-gray-200 outline-none focus:border-[#0d2147]/40 transition-colors placeholder:text-gray-400"
+            className="flex-1 text-sm px-3 py-2 rounded-full bg-[#f4f6fa] border border-gray-200 outline-none focus:border-[#1a1a1a]/40 transition-colors placeholder:text-gray-400"
           />
           <button
             onClick={() => {
@@ -264,7 +264,7 @@ export default function ChatBot() {
               }
             }}
             className="w-8 h-8 rounded-full flex items-center justify-center transition-colors flex-shrink-0"
-            style={{ background: '#d42b2b' }}
+            style={{ background: '#E8002D' }}
           >
             <Icon name="Send" size={14} className="text-white" />
           </button>

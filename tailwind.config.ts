@@ -57,10 +57,10 @@ export default {
 					foreground: 'hsl(var(--card-foreground))'
 				},
 				vector: {
-					navy: '#0d2147',
-					red: '#d42b2b',
-					gold: '#f5a623',
-					light: '#f4f6fa',
+					dark: '#1a1a1a',
+					red: '#E8002D',
+					light: '#f7f7f7',
+					gray: '#f5f5f5',
 				},
 			},
 			borderRadius: {

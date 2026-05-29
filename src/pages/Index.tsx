@@ -7,64 +7,64 @@ const HERO_IMAGE = 'https://cdn.poehali.dev/projects/370344a9-a9ba-49da-84a7-a1a
 const INSTRUCTOR_IMAGE = 'https://cdn.poehali.dev/projects/370344a9-a9ba-49da-84a7-a1af7d9aae57/files/d6afaec1-319a-4ed5-a659-10842afd4ad7.jpg';
 
 const STATS = [
-  { value: '15+', label: 'лет на рынке' },
-  { value: '5000+', label: 'выпускников' },
-  { value: '97%', label: 'сдают с первого раза' },
-  { value: '12', label: 'опытных инструкторов' },
+  { value: '9+', label: 'лет на рынке' },
+  { value: '10 000+', label: 'выпускников' },
+  { value: '96%', label: 'сдают с первого раза' },
+  { value: '18', label: 'опытных инструкторов' },
 ];
 
 const ADVANTAGES = [
   {
-    icon: 'GraduationCap',
-    title: 'Опытные инструкторы',
-    text: 'Все инструкторы с категорией B и стажем более 5 лет. Индивидуальный подход к каждому ученику.',
+    icon: 'Laptop',
+    title: 'IT-автошкола',
+    text: 'Первая IT-автошкола в Омске. Онлайн-теория, личный кабинет, мобильное приложение — учитесь где удобно.',
   },
   {
     icon: 'Car',
     title: 'Современный автопарк',
-    text: 'Автомобили 2020–2024 года с двойными педалями. LADA Granta, Hyundai Solaris, KIA Rio.',
+    text: 'Автомобили с двойными педалями: LADA Granta, Hyundai Solaris, KIA Rio. Все оснащены видеорегистраторами.',
   },
   {
-    icon: 'FileCheck',
-    title: 'Полное сопровождение',
-    text: 'Помогаем с оформлением документов, сдачей экзамена в ГИБДД. Поддержка до получения прав.',
+    icon: 'Heart',
+    title: 'Без страха за руль',
+    text: 'Психологически комфортная атмосфера. Инструкторы не кричат, не давят. Учим с удовольствием.',
   },
   {
     icon: 'Clock',
     title: 'Удобное расписание',
-    text: 'Занятия 7 дней в неделю с 8:00 до 21:00. Выбирайте время, удобное именно вам.',
+    text: 'Занятия 7 дней в неделю с 8:00 до 21:00. Утренние, дневные и вечерние группы.',
   },
   {
     icon: 'MapPin',
     title: 'Удобное расположение',
-    text: 'Два учебных класса в центре Омска. Учебный автодром рядом с базой.',
+    text: '2 учебных класса в центре Омска: ул. Гагарина 14 и ул. Кирова 47. Рядом автодром.',
   },
   {
-    icon: 'Shield',
+    icon: 'Award',
     title: 'Лицензия МВД',
-    text: 'Официальная лицензия Министерства внутренних дел. Все документы в порядке.',
+    text: 'Официальная государственная лицензия. Аккредитованы Сколково как инновационная компания.',
   },
 ];
 
 const COURSES = [
   {
     category: 'B',
-    title: 'Категория B',
-    subtitle: 'Легковой автомобиль',
-    price: 'от 24 900 ₽',
+    title: 'Вектор Старт',
+    subtitle: 'Категория B — легковой автомобиль',
+    price: 'от 26 900 ₽',
     duration: '3 месяца',
-    hours: '56 ч. теории + 56 ч. практики',
-    features: ['Теория ПДД', 'Медсправка', 'Вождение в городе', 'Экзамен в ГИБДД', 'Автодром'],
+    hours: '130 ч. теории + 56 ч. практики',
+    features: ['Онлайн-теория ПДД', 'Личный кабинет', 'Вождение в городе', 'Автодром', 'Сопровождение на экзамен в ГИБДД'],
     popular: true,
   },
   {
-    category: 'A',
-    title: 'Категория A',
-    subtitle: 'Мотоцикл',
-    price: 'от 18 900 ₽',
-    duration: '2 месяца',
-    hours: '44 ч. теории + 18 ч. практики',
-    features: ['Теория ПДД', 'Медсправка', 'Вождение на мотодроме', 'Экзамен в ГИБДД'],
+    category: 'B+',
+    title: 'Вектор Black',
+    subtitle: 'Премиум-пакет • BMW / Tesla',
+    price: 'от 49 900 ₽',
+    duration: '3 месяца',
+    hours: '130 ч. теории + 56 ч. практики',
+    features: ['Всё из пакета Старт', 'Вождение на BMW или Tesla', 'Персональный инструктор', 'Приоритетное расписание'],
     popular: false,
   },
 ];
@@ -112,20 +112,21 @@ export default function Index() {
     <div className="min-h-screen bg-[#f4f6fa] font-opensans">
 
       {/* TOP BAR */}
-      <div className="hidden md:block py-2 text-sm" style={{ background: '#0d2147' }}>
-        <div className="max-w-6xl mx-auto px-6 flex items-center justify-between text-white/70">
+      <div className="hidden md:block py-2 text-sm" style={{ background: '#1a1a1a' }}>
+        <div className="max-w-6xl mx-auto px-6 flex items-center justify-between text-white/60">
           <div className="flex items-center gap-6">
             <span className="flex items-center gap-1.5">
               <Icon name="MapPin" size={13} />
-              г. Омск, ул. Лермонтова 120А
+              г. Омск, ул. Гагарина 14 / ул. Кирова 47
             </span>
             <span className="flex items-center gap-1.5">
               <Icon name="Clock" size={13} />
               Пн–Вс: 8:00–21:00
             </span>
           </div>
-          <a href="tel:+73812345678" className="text-white font-semibold text-base hover:text-[#f5a623] transition-colors">
-            +7 (381) 234-56-78
+          <a href="tel:88005056377" className="text-white font-semibold text-base hover:text-[#E8002D] transition-colors flex items-center gap-1.5">
+            <Icon name="Phone" size={13} />
+            8 (800) 505-63-77 — бесплатно
           </a>
         </div>
       </div>
@@ -140,7 +141,7 @@ export default function Index() {
               <button
                 key={link}
                 onClick={() => scrollTo(navMap[link])}
-                className="text-sm font-medium text-gray-600 hover:text-[#0d2147] transition-colors"
+                className="text-sm font-medium text-gray-600 hover:text-[#1a1a1a] transition-colors"
               >
                 {link}
               </button>
@@ -149,9 +150,9 @@ export default function Index() {
 
           <div className="flex items-center gap-3">
             <a
-              href="tel:+73812345678"
+              href="tel:88005056377"
               className="hidden md:flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all hover:opacity-90"
-              style={{ background: '#d42b2b', color: 'white' }}
+              style={{ background: '#E8002D', color: 'white' }}
             >
               <Icon name="Phone" size={14} />
               Позвонить
@@ -176,9 +177,9 @@ export default function Index() {
                 {link}
               </button>
             ))}
-            <a href="tel:+73812345678" className="flex items-center gap-2 text-[#d42b2b] font-semibold text-sm mt-1">
+            <a href="tel:88005056377" className="flex items-center gap-2 text-[#E8002D] font-semibold text-sm mt-1">
               <Icon name="Phone" size={15} />
-              +7 (381) 234-56-78
+              8 (800) 505-63-77
             </a>
           </div>
         )}
@@ -193,42 +194,42 @@ export default function Index() {
         />
         <div
           className="absolute inset-0"
-          style={{ background: 'linear-gradient(90deg, rgba(13,33,71,0.93) 0%, rgba(13,33,71,0.72) 55%, rgba(13,33,71,0.22) 100%)' }}
+          style={{ background: 'linear-gradient(90deg, rgba(26,26,26,0.94) 0%, rgba(26,26,26,0.75) 55%, rgba(26,26,26,0.20) 100%)' }}
         />
 
         <div className="relative max-w-6xl mx-auto px-6 py-20 flex flex-col justify-center min-h-[560px]">
           <div className="max-w-xl animate-slide-up">
             <div
               className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold mb-5 uppercase tracking-wider"
-              style={{ background: '#d42b2b', color: 'white' }}
+              style={{ background: '#E8002D', color: 'white' }}
             >
-              <Icon name="Star" size={11} />
-              Автошкола №1 в Омске
+              <Icon name="Heart" size={11} />
+              Первая IT-автошкола в Омске
             </div>
             <h1
               className="font-montserrat text-4xl md:text-5xl text-white leading-tight mb-4"
               style={{ fontWeight: 900 }}
             >
-              Получи права<br />
-              <span style={{ color: '#f5a623' }}>с первого раза</span>
+              Академия вождения<br />
+              <span style={{ color: '#E8002D' }}>Вектор</span>
             </h1>
             <p className="text-white/80 text-lg mb-8 leading-relaxed">
-              Автошкола «Вектор» — профессиональное обучение вождению категории B в Омске. Опытные инструкторы, современные автомобили, 97% выпускников сдают с первой попытки.
+              Обучаем с любовью ❤️ — без крика, без страха. 10 000+ выпускников с 2015 года. Онлайн-теория, персональный инструктор, вождение в городе.
             </p>
             <div className="flex flex-wrap gap-3">
               <button
                 onClick={() => scrollTo('courses')}
                 className="px-6 py-3.5 rounded-lg text-white text-base shadow-lg hover:shadow-xl transition-all hover:-translate-y-0.5 font-montserrat"
-                style={{ background: '#d42b2b', fontWeight: 700 }}
+                style={{ background: '#E8002D', fontWeight: 700 }}
               >
                 Записаться на обучение
               </button>
               <a
-                href="tel:+73812345678"
+                href="tel:88005056377"
                 className="px-6 py-3.5 rounded-lg text-white text-base border border-white/40 hover:bg-white/10 transition-all font-montserrat"
                 style={{ fontWeight: 600 }}
               >
-                +7 (381) 234-56-78
+                8 (800) 505-63-77
               </a>
             </div>
           </div>
@@ -255,7 +256,7 @@ export default function Index() {
       <div className="md:hidden grid grid-cols-2 gap-px bg-gray-200 border-b border-gray-200">
         {STATS.map((stat) => (
           <div key={stat.label} className="bg-white px-4 py-4 text-center">
-            <div className="font-montserrat text-2xl mb-0.5" style={{ fontWeight: 800, color: '#0d2147' }}>
+            <div className="font-montserrat text-2xl mb-0.5" style={{ fontWeight: 800, color: '#1a1a1a' }}>
               {stat.value}
             </div>
             <div className="text-gray-500 text-xs">{stat.label}</div>
@@ -267,8 +268,8 @@ export default function Index() {
       <section id="courses" className="py-16 md:py-24">
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-12">
-            <p className="text-[#d42b2b] text-sm font-semibold uppercase tracking-widest mb-2">Программы обучения</p>
-            <h2 className="font-montserrat text-3xl md:text-4xl text-[#0d2147]" style={{ fontWeight: 800 }}>
+            <p className="text-[#E8002D] text-sm font-semibold uppercase tracking-widest mb-2">Программы обучения</p>
+            <h2 className="font-montserrat text-3xl md:text-4xl text-[#1a1a1a]" style={{ fontWeight: 800 }}>
               Выберите свой курс
             </h2>
           </div>
@@ -278,13 +279,13 @@ export default function Index() {
               <div
                 key={course.category}
                 className={`relative bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1 ${
-                  course.popular ? 'ring-2 ring-[#d42b2b]' : ''
+                  course.popular ? 'ring-2 ring-[#E8002D]' : ''
                 }`}
               >
                 {course.popular && (
                   <div
                     className="absolute top-0 left-0 right-0 text-center py-1.5 text-xs font-semibold text-white uppercase tracking-widest"
-                    style={{ background: '#d42b2b' }}
+                    style={{ background: '#E8002D' }}
                   >
                     Самый популярный
                   </div>
@@ -294,17 +295,17 @@ export default function Index() {
                     <div>
                       <div
                         className="w-12 h-12 rounded-xl flex items-center justify-center font-montserrat text-xl text-white mb-3"
-                        style={{ background: '#0d2147', fontWeight: 900 }}
+                        style={{ background: '#1a1a1a', fontWeight: 900 }}
                       >
                         {course.category}
                       </div>
-                      <h3 className="font-montserrat text-xl text-[#0d2147]" style={{ fontWeight: 700 }}>
+                      <h3 className="font-montserrat text-xl text-[#1a1a1a]" style={{ fontWeight: 700 }}>
                         {course.title}
                       </h3>
                       <p className="text-gray-500 text-sm">{course.subtitle}</p>
                     </div>
                     <div className="text-right">
-                      <div className="font-montserrat text-2xl text-[#d42b2b]" style={{ fontWeight: 800 }}>
+                      <div className="font-montserrat text-2xl text-[#E8002D]" style={{ fontWeight: 800 }}>
                         {course.price}
                       </div>
                       <div className="text-gray-400 text-xs">{course.duration}</div>
@@ -318,7 +319,7 @@ export default function Index() {
                       <li key={f} className="flex items-center gap-2 text-sm text-gray-700">
                         <span
                           className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0"
-                          style={{ background: '#0d2147' }}
+                          style={{ background: '#1a1a1a' }}
                         >
                           <Icon name="Check" size={10} className="text-white" />
                         </span>
@@ -331,7 +332,7 @@ export default function Index() {
                     onClick={() => scrollTo('contacts')}
                     className="w-full py-3 rounded-xl text-sm transition-all hover:opacity-90 font-montserrat"
                     style={{
-                      background: course.popular ? '#d42b2b' : '#0d2147',
+                      background: course.popular ? '#E8002D' : '#1a1a1a',
                       color: 'white',
                       fontWeight: 600,
                     }}
@@ -349,8 +350,8 @@ export default function Index() {
       <section id="advantages" className="py-16 md:py-24 bg-white">
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-12">
-            <p className="text-[#d42b2b] text-sm font-semibold uppercase tracking-widest mb-2">Почему выбирают нас</p>
-            <h2 className="font-montserrat text-3xl md:text-4xl text-[#0d2147]" style={{ fontWeight: 800 }}>
+            <p className="text-[#E8002D] text-sm font-semibold uppercase tracking-widest mb-2">Почему выбирают нас</p>
+            <h2 className="font-montserrat text-3xl md:text-4xl text-[#1a1a1a]" style={{ fontWeight: 800 }}>
               Наши преимущества
             </h2>
           </div>
@@ -359,16 +360,16 @@ export default function Index() {
             {ADVANTAGES.map((adv) => (
               <div
                 key={adv.title}
-                className="group p-6 rounded-2xl bg-[#f4f6fa] hover:bg-[#0d2147] transition-all duration-300 cursor-default"
+                className="group p-6 rounded-2xl bg-[#f4f6fa] hover:bg-[#1a1a1a] transition-all duration-300 cursor-default"
               >
                 <div
-                  className="w-12 h-12 rounded-xl flex items-center justify-center mb-4 transition-all group-hover:bg-[#d42b2b]"
-                  style={{ background: '#0d2147' }}
+                  className="w-12 h-12 rounded-xl flex items-center justify-center mb-4 transition-all group-hover:bg-[#E8002D]"
+                  style={{ background: '#1a1a1a' }}
                 >
                   <Icon name={adv.icon} size={22} className="text-white" fallback="Star" />
                 </div>
                 <h3
-                  className="font-montserrat text-base text-[#0d2147] group-hover:text-white mb-2 transition-colors"
+                  className="font-montserrat text-base text-[#1a1a1a] group-hover:text-white mb-2 transition-colors"
                   style={{ fontWeight: 700 }}
                 >
                   {adv.title}
@@ -383,7 +384,7 @@ export default function Index() {
       </section>
 
       {/* INSTRUCTOR CHATBOT PROMO */}
-      <section className="py-16 md:py-24" style={{ background: '#0d2147' }}>
+      <section className="py-16 md:py-24" style={{ background: '#1a1a1a' }}>
         <div className="max-w-6xl mx-auto px-6">
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div>
@@ -402,7 +403,7 @@ export default function Index() {
                   'Правила дорожного движения',
                 ].map((item) => (
                   <li key={item} className="flex items-center gap-3 text-white/80 text-sm">
-                    <span className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: '#d42b2b' }}>
+                    <span className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: '#E8002D' }}>
                       <Icon name="Check" size={11} className="text-white" />
                     </span>
                     {item}
@@ -411,7 +412,7 @@ export default function Index() {
               </ul>
               <button
                 className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl text-white text-sm transition-all hover:opacity-90 font-montserrat"
-                style={{ background: '#d42b2b', fontWeight: 600 }}
+                style={{ background: '#E8002D', fontWeight: 600 }}
                 onClick={() => {
                   const btn = document.querySelector('[data-chatbot-btn]') as HTMLButtonElement;
                   btn?.click();
@@ -422,14 +423,14 @@ export default function Index() {
               </button>
             </div>
             <div className="relative">
-              <div className="absolute -top-4 -left-4 w-24 h-24 rounded-full opacity-20" style={{ background: '#d42b2b' }} />
+              <div className="absolute -top-4 -left-4 w-24 h-24 rounded-full opacity-20" style={{ background: '#E8002D' }} />
               <img
                 src={INSTRUCTOR_IMAGE}
                 alt="Инструктор"
                 className="relative rounded-2xl shadow-2xl w-full object-cover"
                 style={{ maxHeight: '400px' }}
               />
-              <div className="absolute -bottom-4 -right-4 bg-[#d42b2b] text-white rounded-2xl px-5 py-3 shadow-xl">
+              <div className="absolute -bottom-4 -right-4 bg-[#E8002D] text-white rounded-2xl px-5 py-3 shadow-xl">
                 <div className="font-montserrat text-2xl" style={{ fontWeight: 800 }}>97%</div>
                 <div className="text-white/80 text-xs">сдают с первого раза</div>
               </div>
@@ -442,8 +443,8 @@ export default function Index() {
       <section id="reviews" className="py-16 md:py-24 bg-white">
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-12">
-            <p className="text-[#d42b2b] text-sm font-semibold uppercase tracking-widest mb-2">Отзывы курсантов</p>
-            <h2 className="font-montserrat text-3xl md:text-4xl text-[#0d2147]" style={{ fontWeight: 800 }}>
+            <p className="text-[#E8002D] text-sm font-semibold uppercase tracking-widest mb-2">Отзывы курсантов</p>
+            <h2 className="font-montserrat text-3xl md:text-4xl text-[#1a1a1a]" style={{ fontWeight: 800 }}>
               Что говорят ученики
             </h2>
           </div>
@@ -461,11 +462,11 @@ export default function Index() {
                   <div className="flex items-center gap-2.5">
                     <div
                       className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
-                      style={{ background: '#0d2147' }}
+                      style={{ background: '#1a1a1a' }}
                     >
                       {review.name[0]}
                     </div>
-                    <span className="font-semibold text-sm text-[#0d2147]">{review.name}</span>
+                    <span className="font-semibold text-sm text-[#1a1a1a]">{review.name}</span>
                   </div>
                   <span className="text-xs text-gray-400">{review.date}</span>
                 </div>
@@ -479,8 +480,8 @@ export default function Index() {
       <section id="contacts" className="py-16 md:py-24" style={{ background: '#f4f6fa' }}>
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-12">
-            <p className="text-[#d42b2b] text-sm font-semibold uppercase tracking-widest mb-2">Запись на обучение</p>
-            <h2 className="font-montserrat text-3xl md:text-4xl text-[#0d2147]" style={{ fontWeight: 800 }}>
+            <p className="text-[#E8002D] text-sm font-semibold uppercase tracking-widest mb-2">Запись на обучение</p>
+            <h2 className="font-montserrat text-3xl md:text-4xl text-[#1a1a1a]" style={{ fontWeight: 800 }}>
               Свяжитесь с нами
             </h2>
           </div>
@@ -488,23 +489,23 @@ export default function Index() {
           <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
             <div className="space-y-5">
               {[
-                { icon: 'MapPin', label: 'Адрес', value: 'г. Омск, ул. Лермонтова 120А' },
-                { icon: 'Phone', label: 'Телефон', value: '+7 (381) 234-56-78', href: 'tel:+73812345678' },
+                { icon: 'MapPin', label: 'Адрес 1', value: 'г. Омск, ул. Гагарина 14, оф. 605' },
+                { icon: 'MapPin', label: 'Адрес 2', value: 'г. Омск, ул. Кирова 47' },
+                { icon: 'Phone', label: 'Телефон (бесплатно)', value: '8 (800) 505-63-77', href: 'tel:88005056377' },
                 { icon: 'Clock', label: 'Режим работы', value: 'Пн–Вс: 8:00–21:00' },
-                { icon: 'Mail', label: 'Email', value: 'info@avtoschool-vektor.ru', href: 'mailto:info@avtoschool-vektor.ru' },
               ].map((item) => (
                 <div key={item.label} className="flex items-start gap-4">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#0d2147' }}>
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#1a1a1a' }}>
                     <Icon name={item.icon} size={18} className="text-white" fallback="Info" />
                   </div>
                   <div>
                     <p className="text-xs text-gray-400 mb-0.5">{item.label}</p>
                     {item.href ? (
-                      <a href={item.href} className="font-semibold text-[#0d2147] hover:text-[#d42b2b] transition-colors">
+                      <a href={item.href} className="font-semibold text-[#1a1a1a] hover:text-[#E8002D] transition-colors">
                         {item.value}
                       </a>
                     ) : (
-                      <p className="font-semibold text-[#0d2147]">{item.value}</p>
+                      <p className="font-semibold text-[#1a1a1a]">{item.value}</p>
                     )}
                   </div>
                 </div>
@@ -513,19 +514,19 @@ export default function Index() {
               <div className="pt-4 flex gap-3">
                 <a href="https://vk.com" target="_blank" rel="noreferrer"
                   className="w-10 h-10 rounded-xl flex items-center justify-center transition-all hover:opacity-80"
-                  style={{ background: '#0d2147' }}>
+                  style={{ background: '#1a1a1a' }}>
                   <span className="text-white text-xs font-bold">VK</span>
                 </a>
                 <a href="https://t.me" target="_blank" rel="noreferrer"
                   className="w-10 h-10 rounded-xl flex items-center justify-center transition-all hover:opacity-80"
-                  style={{ background: '#0d2147' }}>
+                  style={{ background: '#1a1a1a' }}>
                   <Icon name="Send" size={16} className="text-white" />
                 </a>
               </div>
             </div>
 
             <div className="bg-white rounded-2xl shadow-md p-6">
-              <h3 className="font-montserrat text-lg text-[#0d2147] mb-5" style={{ fontWeight: 700 }}>
+              <h3 className="font-montserrat text-lg text-[#1a1a1a] mb-5" style={{ fontWeight: 700 }}>
                 Записаться на обучение
               </h3>
               <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
@@ -534,7 +535,7 @@ export default function Index() {
                   <input
                     type="text"
                     placeholder="Иван Иванов"
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-[#0d2147] transition-colors"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-[#1a1a1a] transition-colors"
                   />
                 </div>
                 <div>
@@ -542,12 +543,12 @@ export default function Index() {
                   <input
                     type="tel"
                     placeholder="+7 (___) ___-__-__"
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-[#0d2147] transition-colors"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-[#1a1a1a] transition-colors"
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Категория</label>
-                  <select className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-[#0d2147] transition-colors bg-white">
+                  <select className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-[#1a1a1a] transition-colors bg-white">
                     <option>Категория B (легковой авто)</option>
                     <option>Категория A (мотоцикл)</option>
                   </select>
@@ -555,7 +556,7 @@ export default function Index() {
                 <button
                   type="submit"
                   className="w-full py-3.5 rounded-xl text-white text-sm transition-all hover:opacity-90 font-montserrat"
-                  style={{ background: '#d42b2b', fontWeight: 600 }}
+                  style={{ background: '#E8002D', fontWeight: 600 }}
                 >
                   Отправить заявку
                 </button>
@@ -569,7 +570,7 @@ export default function Index() {
       </section>
 
       {/* FOOTER */}
-      <footer style={{ background: '#0d2147' }} className="py-8">
+      <footer style={{ background: '#1a1a1a' }} className="py-8">
         <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
           <VectorLogo size="sm" inverted />
           <p className="text-white/40 text-xs text-center">

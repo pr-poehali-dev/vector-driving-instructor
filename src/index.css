@@ -132,13 +132,13 @@
 
 @keyframes pulse-ring {
   0% {
-    box-shadow: 0 0 0 0 rgba(212, 43, 43, 0.4);
+    box-shadow: 0 0 0 0 rgba(232, 0, 45, 0.4);
   }
   70% {
-    box-shadow: 0 0 0 12px rgba(212, 43, 43, 0);
+    box-shadow: 0 0 0 12px rgba(232, 0, 45, 0);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(212, 43, 43, 0);
+    box-shadow: 0 0 0 0 rgba(232, 0, 45, 0);
   }
 }
 
