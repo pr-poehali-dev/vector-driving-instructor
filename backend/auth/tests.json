@@ -35,6 +35,24 @@
       "expectedStatus": 401,
       "expectedBody": {"error": "string"},
       "bodyMatcher": "partial"
+    },
+    {
+      "name": "Manager login - missing fields",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "manager-login"},
+      "expectedStatus": 400,
+      "expectedBody": {"error": "string"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Manager me - no token",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "manager-me"},
+      "expectedStatus": 401,
+      "expectedBody": {"error": "string"},
+      "bodyMatcher": "partial"
     }
   ]
 }

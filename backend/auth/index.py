@@ -1,10 +1,12 @@
 """
-Авторизация учеников и администратора автошколы Вектор.
-POST /login — вход ученика (login + password)
-POST /admin-login — вход администратора (password)
-POST /logout — выход
-GET /me — проверка сессии ученика
-GET /admin-me — проверка сессии администратора
+Авторизация учеников, администратора и менеджеров автошколы Вектор.
+action=admin-login    — вход администратора (password)
+action=admin-me       — проверка сессии администратора
+action=manager-login  — вход менеджера (login + password)
+action=manager-me     — проверка сессии менеджера + права
+action=login          — вход ученика
+action=me             — проверка сессии ученика
+action=logout         — выход
 """
 import json
 import os
@@ -41,7 +43,6 @@ def handler(event: dict, context) -> dict:
     if event.get('httpMethod') == 'OPTIONS':
         return {'statusCode': 200, 'headers': CORS, 'body': ''}
 
-    method = event.get('httpMethod', 'GET')
     body = {}
     if event.get('body'):
         try:
@@ -49,10 +50,7 @@ def handler(event: dict, context) -> dict:
         except Exception:
             pass
 
-    # Роутинг через поле action в теле запроса (надёжнее чем path в Cloud Functions)
     action = body.get('action', '')
-
-    # Получаем токен из заголовка
     headers = event.get('headers') or {}
     token = headers.get('X-Auth-Token') or headers.get('x-auth-token', '')
 
@@ -60,7 +58,7 @@ def handler(event: dict, context) -> dict:
     cur = conn.cursor(cursor_factory=RealDictCursor)
 
     try:
-        # action=admin-login  (POST)
+        # ── Вход администратора ──────────────────────────────────────────────
         if action == 'admin-login':
             password = body.get('password', '')
             admin_pw = os.environ.get('ADMIN_PASSWORD', '')
@@ -74,7 +72,7 @@ def handler(event: dict, context) -> dict:
             conn.commit()
             return json_resp({'token': new_token, 'role': 'admin'})
 
-        # action=admin-me  (POST или GET)
+        # ── Проверка сессии администратора ───────────────────────────────────
         if action == 'admin-me':
             if not token:
                 return json_resp({'error': 'Нет токена'}, 401)
@@ -82,12 +80,70 @@ def handler(event: dict, context) -> dict:
                 f"SELECT id FROM {SCHEMA}.admin_sessions WHERE token=%s AND expires_at > NOW()",
                 (token,)
             )
-            row = cur.fetchone()
-            if not row:
+            if not cur.fetchone():
                 return json_resp({'error': 'Сессия истекла'}, 401)
             return json_resp({'role': 'admin'})
 
-        # action=login — вход ученика
+        # ── Вход менеджера ───────────────────────────────────────────────────
+        if action == 'manager-login':
+            login = body.get('login', '').strip().lower()
+            password = body.get('password', '')
+            if not login or not password:
+                return json_resp({'error': 'Введите логин и пароль'}, 400)
+            pw_hash = hash_password(password)
+            cur.execute(
+                f"""SELECT id, name, can_students, can_content, can_ai, can_stats
+                    FROM {SCHEMA}.managers
+                    WHERE login=%s AND password_hash=%s AND is_active=TRUE""",
+                (login, pw_hash)
+            )
+            mgr = cur.fetchone()
+            if not mgr:
+                return json_resp({'error': 'Неверный логин или пароль'}, 401)
+            new_token = make_token()
+            cur.execute(
+                f"INSERT INTO {SCHEMA}.manager_sessions (manager_id, token) VALUES (%s, %s)",
+                (mgr['id'], new_token)
+            )
+            conn.commit()
+            return json_resp({
+                'token': new_token,
+                'role': 'manager',
+                'name': mgr['name'],
+                'permissions': {
+                    'students': mgr['can_students'],
+                    'content': mgr['can_content'],
+                    'ai': mgr['can_ai'],
+                    'stats': mgr['can_stats'],
+                }
+            })
+
+        # ── Проверка сессии менеджера ────────────────────────────────────────
+        if action == 'manager-me':
+            if not token:
+                return json_resp({'error': 'Нет токена'}, 401)
+            cur.execute(
+                f"""SELECT m.id, m.name, m.can_students, m.can_content, m.can_ai, m.can_stats
+                    FROM {SCHEMA}.manager_sessions ms
+                    JOIN {SCHEMA}.managers m ON m.id = ms.manager_id
+                    WHERE ms.token=%s AND ms.expires_at > NOW() AND m.is_active=TRUE""",
+                (token,)
+            )
+            mgr = cur.fetchone()
+            if not mgr:
+                return json_resp({'error': 'Сессия истекла'}, 401)
+            return json_resp({
+                'role': 'manager',
+                'name': mgr['name'],
+                'permissions': {
+                    'students': mgr['can_students'],
+                    'content': mgr['can_content'],
+                    'ai': mgr['can_ai'],
+                    'stats': mgr['can_stats'],
+                }
+            })
+
+        # ── Вход ученика ─────────────────────────────────────────────────────
         if action == 'login':
             login = body.get('login', '').strip().lower()
             password = body.get('password', '')
@@ -109,7 +165,7 @@ def handler(event: dict, context) -> dict:
             conn.commit()
             return json_resp({'token': new_token, 'name': student['name'], 'role': 'student'})
 
-        # action=me — проверка сессии ученика
+        # ── Проверка сессии ученика ──────────────────────────────────────────
         if action == 'me':
             if not token:
                 return json_resp({'error': 'Нет токена'}, 401)
@@ -124,10 +180,11 @@ def handler(event: dict, context) -> dict:
                 return json_resp({'error': 'Сессия истекла'}, 401)
             return json_resp({'name': row['name'], 'id': row['id'], 'role': 'student'})
 
-        # action=logout
+        # ── Выход ────────────────────────────────────────────────────────────
         if action == 'logout':
             if token:
                 cur.execute(f"UPDATE {SCHEMA}.sessions SET expires_at=NOW() WHERE token=%s", (token,))
+                cur.execute(f"UPDATE {SCHEMA}.manager_sessions SET expires_at=NOW() WHERE token=%s", (token,))
                 conn.commit()
             return json_resp({'ok': True})
 
