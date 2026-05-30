@@ -26,8 +26,20 @@ function VideoPlayer({ url, title, thumb }: VideoPlayerProps) {
           </div>
         </div>
       ) : (
-        <iframe src={`${url}?autoplay=1`} title={title} className="w-full h-48"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+        <div className="relative w-full h-48">
+          <iframe
+            src={`${url}?autoplay=1&rel=0&modestbranding=1&disablekb=0&fs=0&iv_load_policy=3`}
+            title={title}
+            className="w-full h-48"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope"
+            style={{ pointerEvents: 'auto' }}
+          />
+          <div
+            className="absolute top-0 right-0 w-16 h-10 z-10"
+            style={{ pointerEvents: 'all' }}
+            onContextMenu={e => e.preventDefault()}
+          />
+        </div>
       )}
     </div>
   );
