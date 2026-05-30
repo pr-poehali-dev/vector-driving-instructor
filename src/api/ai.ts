@@ -28,6 +28,11 @@ export async function saveAiSettings(settings: AiSettings): Promise<void> {
   await aiApi({ action: 'save_settings', ...settings }, getAdminToken());
 }
 
-export async function sendAiChat(message: string, history: { role: string; text: string }[]) {
-  return aiApi({ action: 'chat', message, history });
+export async function sendAiChat(
+  message: string,
+  history: { role: string; text: string }[],
+  student_id?: number | null,
+  student_name?: string
+) {
+  return aiApi({ action: 'chat', message, history, student_id: student_id ?? null, student_name: student_name || '' });
 }

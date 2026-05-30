@@ -148,6 +148,8 @@ def handler(event: dict, context) -> dict:
 
     message = (body.get('message') or '').strip()
     history = body.get('history') or []
+    student_id = body.get('student_id') or None
+    student_name = (body.get('student_name') or '').strip()
 
     if not message:
         return resp({'error': 'Сообщение не может быть пустым'}, 400)
@@ -213,6 +215,22 @@ def handler(event: dict, context) -> dict:
         with urllib.request.urlopen(req, timeout=25) as r:
             result = json.loads(r.read().decode('utf-8'))
         answer = result['result']['alternatives'][0]['message']['text']
+        # Сохраняем в лог
+        try:
+            log_conn = get_db()
+            log_cur = log_conn.cursor()
+            log_cur.execute(
+                f"INSERT INTO {SCHEMA}.chat_logs (student_id, student_name, mode, role, message) VALUES (%s, %s, 'ai', 'user', %s)",
+                (student_id, student_name, message)
+            )
+            log_cur.execute(
+                f"INSERT INTO {SCHEMA}.chat_logs (student_id, student_name, mode, role, message) VALUES (%s, %s, 'ai', 'bot', %s)",
+                (student_id, student_name, answer)
+            )
+            log_conn.commit()
+            log_conn.close()
+        except Exception as log_err:
+            print(f'Log error: {log_err}')
         return resp({'answer': answer, 'video': video})
     except urllib.error.HTTPError as e:
         err = ''

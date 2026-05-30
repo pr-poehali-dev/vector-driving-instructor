@@ -144,6 +144,7 @@ export default function ChatPage() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState('');
   const [aiWelcome, setAiWelcome] = useState('');
+  const [studentId, setStudentId] = useState<number | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -151,7 +152,7 @@ export default function ChatPage() {
 
   useEffect(() => {
     studentMe()
-      .then(d => { setStudentName(d.name); setAuthState('ok'); })
+      .then(d => { setStudentName(d.name); setStudentId(d.id || null); setAuthState('ok'); })
       .catch(() => setAuthState('login'));
   }, []);
 
@@ -244,7 +245,7 @@ export default function ChatPage() {
     setAiError('');
     const history = aiMessages.filter(m => m.id !== 'ai-welcome').map(m => ({ role: m.role === 'user' ? 'user' : 'instructor', text: m.text }));
     try {
-      const data = await sendAiChat(text, history);
+      const data = await sendAiChat(text, history, studentId, studentName);
       if (data.error) throw new Error(data.error);
       setAiMessages(prev => [...prev, { id: `ai-resp-${Date.now()}`, role: 'instructor', text: data.answer, video: data.video || null }]);
     } catch (err: unknown) {

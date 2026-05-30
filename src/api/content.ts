@@ -61,3 +61,16 @@ export const reorderTopics = (order: { id: number; sort_order: number }[]) =>
 
 export const reorderMessages = (order: { id: number; sort_order: number }[]) =>
   call({ action: 'reorder_messages', order }, adminToken());
+
+function accessToken() {
+  return localStorage.getItem('vector_admin_token') || localStorage.getItem('vector_manager_token') || '';
+}
+
+export const getLogsStudents = () =>
+  call({ action: 'logs_students' }, accessToken());
+
+export const getLogsHistory = (student_id: number | null, limit = 200) =>
+  call({ action: 'logs_history', student_id, limit }, accessToken());
+
+export const getLogsStats = () =>
+  call({ action: 'logs_stats' }, accessToken());

@@ -1,12 +1,15 @@
 """
 Управление контентом чат-бота автошколы Вектор.
-action=get_topics      — все темы с сообщениями (публичный, для чат-бота)
-action=save_topic      — создать/обновить тему (только admin)
-action=delete_topic    — удалить тему (только admin)
-action=save_message    — создать/обновить сообщение (только admin)
-action=delete_message  — удалить сообщение (только admin)
-action=reorder_topics  — изменить порядок тем (только admin)
-action=reorder_messages — изменить порядок сообщений (только admin)
+action=get_topics        — все темы с сообщениями (публичный, для чат-бота)
+action=save_topic        — создать/обновить тему (только admin)
+action=delete_topic      — удалить тему (только admin)
+action=save_message      — создать/обновить сообщение (только admin)
+action=delete_message    — удалить сообщение (только admin)
+action=reorder_topics    — изменить порядок тем (только admin)
+action=reorder_messages  — изменить порядок сообщений (только admin)
+action=logs_students     — список учеников с чатами (admin/manager)
+action=logs_history      — история чата ученика (admin/manager)
+action=logs_stats        — статистика по чатам (admin/manager)
 """
 import json
 import os
@@ -38,6 +41,18 @@ def is_admin(cur, token):
         return False
     cur.execute(
         f"SELECT id FROM {SCHEMA}.admin_sessions WHERE token=%s AND expires_at > NOW()",
+        (token,)
+    )
+    return cur.fetchone() is not None
+
+
+def is_manager_with_stats(cur, token):
+    if not token:
+        return False
+    cur.execute(
+        f"""SELECT m.id FROM {SCHEMA}.manager_sessions ms
+            JOIN {SCHEMA}.managers m ON m.id=ms.manager_id
+            WHERE ms.token=%s AND ms.expires_at > NOW() AND m.is_active=TRUE AND m.can_stats=TRUE""",
         (token,)
     )
     return cur.fetchone() is not None
@@ -261,6 +276,64 @@ def handler(event: dict, context) -> dict:
                 )
             conn.commit()
             return resp({'ok': True})
+
+        # ── Список учеников с чатами ──
+        if action == 'logs_students':
+            if not is_admin(cur, token) and not is_manager_with_stats(cur, token):
+                return resp({'error': 'Доступ запрещён'}, 403)
+            cur.execute(f"""
+                SELECT student_id, MAX(student_name) as student_name,
+                       COUNT(*) FILTER (WHERE role='user') as messages_count,
+                       MAX(created_at) as last_active
+                FROM {SCHEMA}.chat_logs
+                WHERE student_id IS NOT NULL
+                GROUP BY student_id
+                ORDER BY last_active DESC
+                LIMIT 200
+            """)
+            students = [dict(r) for r in cur.fetchall()]
+            cur.execute(f"""
+                SELECT COUNT(*) FILTER (WHERE role='user') as messages_count,
+                       MAX(created_at) as last_active
+                FROM {SCHEMA}.chat_logs WHERE student_id IS NULL
+            """)
+            anon = dict(cur.fetchone())
+            return resp({'students': students, 'anonymous': anon})
+
+        # ── История чата ──
+        if action == 'logs_history':
+            if not is_admin(cur, token) and not is_manager_with_stats(cur, token):
+                return resp({'error': 'Доступ запрещён'}, 403)
+            student_id = body.get('student_id')
+            limit = min(int(body.get('limit', 200)), 500)
+            if student_id:
+                cur.execute(f"""
+                    SELECT id, mode, role, message, created_at
+                    FROM {SCHEMA}.chat_logs WHERE student_id=%s
+                    ORDER BY created_at DESC LIMIT %s
+                """, (student_id, limit))
+            else:
+                cur.execute(f"""
+                    SELECT id, mode, role, message, created_at
+                    FROM {SCHEMA}.chat_logs WHERE student_id IS NULL
+                    ORDER BY created_at DESC LIMIT %s
+                """, (limit,))
+            messages = list(reversed([dict(r) for r in cur.fetchall()]))
+            return resp({'messages': messages})
+
+        # ── Статистика ──
+        if action == 'logs_stats':
+            if not is_admin(cur, token) and not is_manager_with_stats(cur, token):
+                return resp({'error': 'Доступ запрещён'}, 403)
+            cur.execute(f"""
+                SELECT
+                    COUNT(DISTINCT student_id) as unique_students,
+                    COUNT(*) FILTER (WHERE role='user') as total_questions,
+                    COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '24 hours' AND role='user') as today_questions,
+                    COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '7 days' AND role='user') as week_questions
+                FROM {SCHEMA}.chat_logs
+            """)
+            return resp({'stats': dict(cur.fetchone())})
 
         return resp({'error': 'Unknown action'}, 400)
 

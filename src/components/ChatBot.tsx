@@ -219,6 +219,7 @@ export default function ChatBot() {
   const [isOpen, setIsOpen] = useState(false);
   const [authState, setAuthState] = useState<'checking' | 'login' | 'ok'>('checking');
   const [studentName, setStudentName] = useState('');
+  const [studentId, setStudentId] = useState<number | null>(null);
   const [dbTopics, setDbTopics] = useState<DBTopic[]>([]);
   const [mode, setMode] = useState<ChatMode>('topics');
 
@@ -275,7 +276,7 @@ export default function ChatBot() {
 
   useEffect(() => {
     studentMe()
-      .then(d => { setStudentName(d.name); setAuthState('ok'); })
+      .then(d => { setStudentName(d.name); setStudentId(d.id || null); setAuthState('ok'); })
       .catch(() => setAuthState('login'));
   }, []);
 
@@ -359,7 +360,7 @@ export default function ChatBot() {
       .map(m => ({ role: m.role === 'user' ? 'user' : 'instructor', text: m.text }));
 
     try {
-      const data = await sendAiChat(text, history);
+      const data = await sendAiChat(text, history, studentId, studentName);
       if (data.error) throw new Error(data.error);
       setAiMessages(prev => [...prev, {
         id: `ai-resp-${Date.now()}`,

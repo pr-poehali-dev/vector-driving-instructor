@@ -5,6 +5,7 @@ import { adminLogin, adminMe, adminLogout, getStudents, addStudent, updateStuden
 import ContentEditor from '@/components/admin/ContentEditor';
 import AiSettings from '@/components/admin/AiSettings';
 import ManagersEditor from '@/components/admin/ManagersEditor';
+import ChatLogs from '@/components/admin/ChatLogs';
 
 interface Student {
   id: number;
@@ -265,6 +266,7 @@ function AdminDashboard() {
             { key: 'content', label: 'Контент бота', icon: 'MessageSquare' },
             { key: 'ai', label: 'AI-инструктор', icon: 'Brain' },
             { key: 'managers', label: 'Менеджеры', icon: 'UserCog' },
+            { key: 'logs', label: 'Переписка', icon: 'MessagesSquare' },
           ] as const).map(t => (
             <button
               key={t.key}
@@ -284,6 +286,7 @@ function AdminDashboard() {
         {tab === 'content' && <ContentEditor />}
         {tab === 'ai' && <AiSettings />}
         {tab === 'managers' && <ManagersEditor />}
+        {tab === 'logs' && <ChatLogs />}
 
         {tab === 'students' && <>
         {/* Stats */}
