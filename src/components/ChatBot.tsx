@@ -91,8 +91,17 @@ function MessageBubble({ message, isNew, studentName }: { message: ChatMessage; 
         }`}>
           {message.text}
           {message.image && (
-            <div className="mt-2 rounded-lg overflow-hidden">
-              <img src={message.image.src} alt={message.image.caption} className="w-full" />
+            <div
+              className="mt-2 rounded-lg overflow-hidden select-none"
+              onContextMenu={e => e.preventDefault()}
+              onDragStart={e => e.preventDefault()}
+            >
+              <img
+                src={message.image.src}
+                alt={message.image.caption}
+                className="w-full pointer-events-none"
+                draggable={false}
+              />
               <p className="text-xs text-gray-500 mt-1 italic">{message.image.caption}</p>
             </div>
           )}
