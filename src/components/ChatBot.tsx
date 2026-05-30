@@ -12,13 +12,13 @@ function WatermarkLayer({ name }: { name: string }) {
   return (
     <div className="absolute inset-0 pointer-events-none select-none" style={{ zIndex: 2147483647 }}>
       <div className="absolute top-3 left-3">
-        <span className="text-white/25 text-xs font-medium" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)', letterSpacing: '0.05em', userSelect: 'none' }}>{name}</span>
+        <span className="text-white/60 text-xs font-semibold" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.9)', letterSpacing: '0.05em', userSelect: 'none' }}>{name}</span>
       </div>
       <div className="absolute bottom-3 right-3">
-        <span className="text-white/25 text-xs font-medium" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)', letterSpacing: '0.05em', userSelect: 'none' }}>{name}</span>
+        <span className="text-white/60 text-xs font-semibold" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.9)', letterSpacing: '0.05em', userSelect: 'none' }}>{name}</span>
       </div>
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rotate-[-30deg]">
-        <span className="text-white/10 text-sm font-medium whitespace-nowrap" style={{ userSelect: 'none' }}>{name}</span>
+        <span className="text-white/25 text-sm font-semibold whitespace-nowrap" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.9)', userSelect: 'none' }}>{name}</span>
       </div>
     </div>
   );
@@ -108,24 +108,22 @@ function VideoPlayer({ url, title, thumb, studentName }: VideoPlayerProps) {
 }
 
 function ImageViewer({ src, caption, studentName }: { src: string; caption: string; studentName?: string }) {
-  const [fullscreen, setFullscreen] = useState(false);
+  const [isFs, setIsFs] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const watermark = studentName || '';
 
-  const openFullscreen = () => {
-    if (wrapperRef.current?.requestFullscreen) {
-      wrapperRef.current.requestFullscreen();
-      setFullscreen(true);
-    }
-  };
-
   useEffect(() => {
-    const onFsChange = () => {
-      if (!document.fullscreenElement) setFullscreen(false);
-    };
+    const onFsChange = () => setIsFs(!!document.fullscreenElement);
     document.addEventListener('fullscreenchange', onFsChange);
     return () => document.removeEventListener('fullscreenchange', onFsChange);
   }, []);
+
+  const handleFullscreen = () => {
+    if (wrapperRef.current?.requestFullscreen) wrapperRef.current.requestFullscreen();
+  };
+  const handleExitFullscreen = () => {
+    if (document.exitFullscreen) document.exitFullscreen();
+  };
 
   return (
     <div
@@ -133,30 +131,28 @@ function ImageViewer({ src, caption, studentName }: { src: string; caption: stri
       className="mt-2 rounded-lg overflow-hidden select-none relative"
       onContextMenu={e => e.preventDefault()}
       onDragStart={e => e.preventDefault()}
-      style={fullscreen ? { background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' } : {}}
+      style={isFs ? { background: '#000', width: '100vw', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' } : {}}
     >
       <img
         src={src}
         alt={caption}
-        className={fullscreen ? 'max-w-full max-h-full object-contain' : 'w-full'}
+        className={isFs ? 'max-w-full max-h-full object-contain' : 'w-full'}
         draggable={false}
         style={{ pointerEvents: 'none', userSelect: 'none' }}
       />
       <WatermarkLayer name={watermark} />
-      {!fullscreen && (
-        <button
-          onClick={openFullscreen}
-          className="absolute bottom-2 right-2 bg-black/50 hover:bg-black/70 text-white rounded p-1 transition-colors"
-          style={{ zIndex: 10 }}
-          title="На весь экран"
-        >
-          <Icon name="Maximize" size={14} />
-        </button>
-      )}
-      {caption && !fullscreen && (
+      <button
+        onClick={isFs ? handleExitFullscreen : handleFullscreen}
+        className="absolute bottom-2 right-2 bg-black/60 hover:bg-black/80 text-white rounded p-1.5 transition-colors"
+        style={{ zIndex: 2147483646 }}
+        title={isFs ? 'Свернуть' : 'На весь экран'}
+      >
+        <Icon name={isFs ? 'Minimize' : 'Maximize'} size={14} />
+      </button>
+      {caption && !isFs && (
         <p className="text-xs text-gray-500 mt-1 italic px-1 pb-1">{caption}</p>
       )}
-      {caption && fullscreen && (
+      {caption && isFs && (
         <div className="absolute bottom-6 left-0 right-0 text-center pointer-events-none select-none">
           <span className="text-white/60 text-xs italic">{caption}</span>
         </div>
