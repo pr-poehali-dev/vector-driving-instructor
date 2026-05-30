@@ -113,10 +113,12 @@ def handler(event: dict, context) -> dict:
             err = e.read().decode('utf-8', errors='ignore')
         except Exception:
             pass
+        print(f'YandexGPT HTTP error {e.code}: {err[:500]}')
         if e.code == 401:
-            return resp({'error': 'Ошибка авторизации. Проверьте API-ключ.'}, 401)
+            return resp({'error': f'Ошибка авторизации (401). Ключ не подходит к Yandex Cloud API. Детали: {err[:200]}'}, 200)
         if e.code == 429:
-            return resp({'error': 'Слишком много запросов, подождите немного'}, 429)
+            return resp({'error': 'Слишком много запросов, подождите немного'}, 200)
         return resp({'error': f'Ошибка YandexGPT {e.code}: {err[:300]}'}, 200)
     except Exception as e:
-        return resp({'error': f'Ошибка: {str(e)[:200]}'}, 200)
+        print(f'YandexGPT exception: {str(e)}')
+        return resp({'error': f'Ошибка соединения: {str(e)[:200]}'}, 200)
