@@ -4,8 +4,7 @@ import { ChatMessage } from '@/data/chatData';
 import StudentLogin from '@/components/StudentLogin';
 import { studentMe, studentLogout } from '@/api/auth';
 import { getTopics, DBTopic } from '@/api/content';
-
-const AI_URL = 'https://functions.poehali.dev/75e85bcd-a1d8-49cf-9700-e0da694a7ed8';
+import { getAiSettings, sendAiChat } from '@/api/ai';
 
 function WatermarkLayer({ name }: { name: string }) {
   if (!name) return null;
@@ -230,9 +229,10 @@ export default function ChatBot() {
   const [newMessageIds, setNewMessageIds] = useState<Set<string>>(new Set());
 
   // ai mode state
-  const [aiMessages, setAiMessages] = useState<{ role: 'user' | 'instructor'; text: string; id: string }[]>([]);
+  const [aiMessages, setAiMessages] = useState<{ role: 'user' | 'instructor'; text: string; id: string; video?: { title: string; url: string; thumb: string } | null }[]>([]);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState('');
+  const [aiWelcome, setAiWelcome] = useState('');
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -256,16 +256,22 @@ export default function ChatBot() {
     });
   }, []);
 
+  // Загружаем приветствие из настроек AI
+  useEffect(() => {
+    getAiSettings().then(s => {
+      if (s.welcome_message) setAiWelcome(s.welcome_message);
+    }).catch(() => {});
+  }, []);
+
   // Инициализируем AI-режим приветствием
   useEffect(() => {
     if (mode === 'ai' && aiMessages.length === 0) {
-      setAiMessages([{
-        id: 'ai-welcome',
-        role: 'instructor',
-        text: `Привет${studentName ? ', ' + studentName : ''}! 👋 Я ваш AI-инструктор. Задайте любой вопрос про вождение, ПДД или подготовку к экзамену — отвечу подробно!`,
-      }]);
+      const welcomeText = aiWelcome
+        ? aiWelcome.replace('{name}', studentName || '').replace('  ', ' ').trim()
+        : `Привет${studentName ? ', ' + studentName : ''}! 👋 Я ваш AI-инструктор. Задайте любой вопрос про вождение, ПДД или подготовку к экзамену — отвечу подробно!`;
+      setAiMessages([{ id: 'ai-welcome', role: 'instructor', text: welcomeText }]);
     }
-  }, [mode]);
+  }, [mode, aiWelcome]);
 
   useEffect(() => {
     studentMe()
@@ -343,21 +349,18 @@ export default function ChatBot() {
     setAiLoading(true);
     setAiError('');
 
-    // Собираем историю (без приветствия)
     const history = aiMessages
       .filter(m => m.id !== 'ai-welcome')
       .map(m => ({ role: m.role === 'user' ? 'user' : 'instructor', text: m.text }));
 
     try {
-      const res = await fetch(AI_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'chat', message: text, history }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Ошибка');
+      const data = await sendAiChat(text, history);
+      if (data.error) throw new Error(data.error);
       setAiMessages(prev => [...prev, {
-        id: `ai-resp-${Date.now()}`, role: 'instructor', text: data.answer,
+        id: `ai-resp-${Date.now()}`,
+        role: 'instructor',
+        text: data.answer,
+        video: data.video || null,
       }]);
     } catch (err: unknown) {
       setAiError(err instanceof Error ? err.message : 'Ошибка соединения');
@@ -526,7 +529,7 @@ export default function ChatBot() {
               {aiMessages.map(msg => (
                 <div key={msg.id} className={`flex gap-2.5 animate-fade-in ${msg.role === 'instructor' ? 'flex-row' : 'flex-row-reverse'}`}>
                   {msg.role === 'instructor' && (
-                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center flex-shrink-0">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center">
                       <Icon name="Sparkles" size={14} className="text-white" />
                     </div>
                   )}
@@ -536,6 +539,14 @@ export default function ChatBot() {
                       : 'bg-[#E8002D] text-white rounded-tr-sm'
                   }`}>
                     {msg.text}
+                    {msg.video && (
+                      <VideoPlayer
+                        url={msg.video.url}
+                        title={msg.video.title}
+                        thumb={msg.video.thumb}
+                        studentName={studentName}
+                      />
+                    )}
                   </div>
                 </div>
               ))}

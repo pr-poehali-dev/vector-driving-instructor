@@ -3,6 +3,7 @@ import VectorLogo from '@/components/VectorLogo';
 import Icon from '@/components/ui/icon';
 import { adminLogin, adminMe, adminLogout, getStudents, addStudent, updateStudent } from '@/api/auth';
 import ContentEditor from '@/components/admin/ContentEditor';
+import AiSettings from '@/components/admin/AiSettings';
 
 interface Student {
   id: number;
@@ -261,6 +262,7 @@ function AdminDashboard() {
           {([
             { key: 'students', label: 'Ученики', icon: 'Users' },
             { key: 'content', label: 'Контент бота', icon: 'MessageSquare' },
+            { key: 'ai', label: 'AI-инструктор', icon: 'Brain' },
           ] as const).map(t => (
             <button
               key={t.key}
@@ -278,6 +280,7 @@ function AdminDashboard() {
         </div>
 
         {tab === 'content' && <ContentEditor />}
+        {tab === 'ai' && <AiSettings />}
 
         {tab === 'students' && <>
         {/* Stats */}

@@ -23,6 +23,15 @@
       "method": "OPTIONS",
       "path": "/",
       "expectedStatus": 200
+    },
+    {
+      "name": "Get settings returns object",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "get_settings"},
+      "expectedStatus": 200,
+      "expectedBody": {"system_prompt": "string"},
+      "bodyMatcher": "partial"
     }
   ]
 }
