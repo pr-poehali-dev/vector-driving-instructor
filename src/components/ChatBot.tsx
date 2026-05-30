@@ -7,15 +7,16 @@ import { getTopics, DBTopic } from '@/api/content';
 
 const AI_URL = 'https://functions.poehali.dev/75e85bcd-a1d8-49cf-9700-e0da694a7ed8';
 
-interface VideoPlayerProps { url: string; title: string; thumb: string }
+interface VideoPlayerProps { url: string; title: string; thumb: string; studentName?: string }
 
-function VideoPlayer({ url, title, thumb }: VideoPlayerProps) {
+function VideoPlayer({ url, title, thumb, studentName }: VideoPlayerProps) {
   const [playing, setPlaying] = useState(false);
+  const watermark = studentName || '';
   return (
-    <div className="mt-2 rounded-lg overflow-hidden border border-white/20">
+    <div className="mt-2 rounded-lg overflow-hidden border border-white/20" onContextMenu={e => e.preventDefault()}>
       {!playing ? (
         <div className="relative cursor-pointer group" onClick={() => setPlaying(true)}>
-          <img src={thumb} alt={title} className="w-full h-36 object-cover" />
+          <img src={thumb} alt={title} className="w-full h-36 object-cover" onContextMenu={e => e.preventDefault()} />
           <div className="absolute inset-0 bg-black/40 flex items-center justify-center group-hover:bg-black/50 transition-colors">
             <div className="w-12 h-12 rounded-full bg-[#E8002D] flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
               <Icon name="Play" size={20} className="text-white ml-1" />
@@ -26,26 +27,47 @@ function VideoPlayer({ url, title, thumb }: VideoPlayerProps) {
           </div>
         </div>
       ) : (
-        <div className="relative w-full h-48">
+        <div className="relative w-full" style={{ aspectRatio: '16/9' }} onContextMenu={e => e.preventDefault()}>
           <iframe
-            src={`${url}?autoplay=1&rel=0&modestbranding=1&disablekb=0&fs=0&iv_load_policy=3`}
+            src={`${url}?autoplay=1&rel=0&modestbranding=1&iv_load_policy=3`}
             title={title}
-            className="w-full h-48"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope"
-            style={{ pointerEvents: 'auto' }}
+            className="w-full h-full"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; fullscreen"
+            allowFullScreen
           />
-          <div
-            className="absolute top-0 right-0 w-16 h-10 z-10"
-            style={{ pointerEvents: 'all' }}
-            onContextMenu={e => e.preventDefault()}
-          />
+          {watermark && (
+            <div
+              className="absolute inset-0 pointer-events-none z-10 flex items-end justify-end p-3"
+              style={{ userSelect: 'none' }}
+            >
+              <span
+                className="text-white/30 text-xs font-medium select-none"
+                style={{ textShadow: '0 1px 3px rgba(0,0,0,0.5)', letterSpacing: '0.05em' }}
+              >
+                {watermark}
+              </span>
+            </div>
+          )}
+          {watermark && (
+            <div
+              className="absolute top-3 left-3 pointer-events-none z-10"
+              style={{ userSelect: 'none' }}
+            >
+              <span
+                className="text-white/20 text-xs font-medium select-none"
+                style={{ textShadow: '0 1px 3px rgba(0,0,0,0.5)', letterSpacing: '0.05em' }}
+              >
+                {watermark}
+              </span>
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-function MessageBubble({ message, isNew }: { message: ChatMessage; isNew?: boolean }) {
+function MessageBubble({ message, isNew, studentName }: { message: ChatMessage; isNew?: boolean; studentName?: string }) {
   const isInstructor = message.role === 'instructor';
   return (
     <div className={`flex gap-2.5 ${isInstructor ? 'flex-row' : 'flex-row-reverse'} ${isNew ? 'animate-fade-in' : ''}`}>
@@ -68,7 +90,7 @@ function MessageBubble({ message, isNew }: { message: ChatMessage; isNew?: boole
             </div>
           )}
           {message.video && (
-            <VideoPlayer url={message.video.url} title={message.video.title} thumb={message.video.thumb} />
+            <VideoPlayer url={message.video.url} title={message.video.title} thumb={message.video.thumb} studentName={studentName} />
           )}
         </div>
       </div>
@@ -368,7 +390,7 @@ export default function ChatBot() {
             <div ref={scrollRef} className="flex-1 overflow-y-auto chat-scroll bg-[#f4f6fa] px-3 py-4 flex flex-col gap-3">
               {messages.map(msg => (
                 <div key={msg.id}>
-                  <MessageBubble message={msg} isNew={newMessageIds.has(msg.id)} />
+                  <MessageBubble message={msg} isNew={newMessageIds.has(msg.id)} studentName={studentName} />
                 </div>
               ))}
               {isTyping && (
