@@ -244,6 +244,7 @@ function AdminDashboard() {
   const [showAdd, setShowAdd] = useState(false);
   const [editStudent, setEditStudent] = useState<Student | null>(null);
   const [search, setSearch] = useState('');
+  const [showChangePw, setShowChangePw] = useState(false);
 
   useEffect(() => {
     getStudents().then(d => setStudents(d.students)).finally(() => setLoading(false));
@@ -265,14 +266,24 @@ function AdminDashboard() {
           <div className="hidden sm:block w-px h-8 bg-white/20" />
           <span className="hidden sm:block text-white/60 text-sm">Кабинет администратора</span>
         </div>
-        <button
-          onClick={() => { adminLogout(); window.location.reload(); }}
-          className="flex items-center gap-1.5 text-white/50 hover:text-white text-sm transition-colors"
-        >
-          <Icon name="LogOut" size={14} />
-          Выйти
-        </button>
+        <div className="flex items-center gap-3">
+          <button onClick={() => setShowChangePw(true)}
+            className="flex items-center gap-1.5 text-white/50 hover:text-white text-sm transition-colors">
+            <Icon name="KeyRound" size={14} />
+            <span className="hidden sm:inline">Сменить пароль</span>
+          </button>
+          <div className="w-px h-5 bg-white/20" />
+          <button
+            onClick={() => { adminLogout(); window.location.reload(); }}
+            className="flex items-center gap-1.5 text-white/50 hover:text-white text-sm transition-colors"
+          >
+            <Icon name="LogOut" size={14} />
+            Выйти
+          </button>
+        </div>
       </header>
+
+      {showChangePw && <ChangePasswordScreen onDone={() => setShowChangePw(false)} inline />}
 
       <div className="max-w-4xl mx-auto px-4 py-8">
         {/* Tabs */}
@@ -427,7 +438,7 @@ function AdminDashboard() {
 }
 
 // ─── Change password screen ───────────────────────────────────────────────────
-function ChangePasswordScreen({ onDone }: { onDone: () => void }) {
+function ChangePasswordScreen({ onDone, inline }: { onDone: () => void; inline?: boolean }) {
   const [newPw, setNewPw] = useState('');
   const [confirm, setConfirm] = useState('');
   const [loading, setLoading] = useState(false);
@@ -455,6 +466,55 @@ function ChangePasswordScreen({ onDone }: { onDone: () => void }) {
     } finally { setLoading(false); }
   };
 
+  const form = (
+    <>
+      {success ? (
+        <div className="px-8 py-8 text-center">
+          <Icon name="CheckCircle" size={36} className="mx-auto mb-3 text-green-500" />
+          <p className="text-gray-700 font-semibold">Пароль обновлён!</p>
+          <p className="text-gray-400 text-sm mt-1">Используйте его при следующем входе.</p>
+        </div>
+      ) : (
+        <form onSubmit={submit} className="px-6 py-5 flex flex-col gap-4">
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Новый пароль</label>
+            <input type="password" value={newPw} onChange={e => setNewPw(e.target.value)} required placeholder="Минимум 6 символов"
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-[#E8002D]" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Повторите пароль</label>
+            <input type="password" value={confirm} onChange={e => setConfirm(e.target.value)} required placeholder="Ещё раз"
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-[#E8002D]" />
+          </div>
+          {error && <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-red-50 text-red-600 text-sm"><Icon name="AlertCircle" size={14} />{error}</div>}
+          <div className="flex gap-3">
+            {inline && <button type="button" onClick={onDone}
+              className="flex-1 py-3 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">Отмена</button>}
+            <button type="submit" disabled={loading}
+              className="flex-1 py-3 rounded-xl text-white font-montserrat font-bold text-sm hover:opacity-90 disabled:opacity-60"
+              style={{ background: '#E8002D' }}>
+              {loading ? 'Сохранение...' : 'Сохранить'}
+            </button>
+          </div>
+        </form>
+      )}
+    </>
+  );
+
+  if (inline) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4" onClick={onDone}>
+        <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+            <h3 className="font-montserrat font-bold text-base">Смена пароля</h3>
+            <button onClick={onDone}><Icon name="X" size={18} className="text-gray-400" /></button>
+          </div>
+          {form}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#f7f7f7] px-4 font-opensans">
       <div className="w-full max-w-sm bg-white rounded-3xl shadow-xl overflow-hidden">
@@ -462,32 +522,7 @@ function ChangePasswordScreen({ onDone }: { onDone: () => void }) {
           <div className="flex justify-center mb-4"><VectorLogo size="md" inverted /></div>
           <p className="text-white/50 text-sm mt-2">Установите новый пароль</p>
         </div>
-        {success ? (
-          <div className="px-8 py-10 text-center">
-            <Icon name="CheckCircle" size={40} className="mx-auto mb-3 text-green-500" />
-            <p className="text-gray-700 font-semibold">Пароль обновлён!</p>
-            <p className="text-gray-400 text-sm mt-1">Запомните его — он больше не будет показан.</p>
-          </div>
-        ) : (
-          <form onSubmit={submit} className="px-8 py-7 flex flex-col gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Новый пароль</label>
-              <input type="password" value={newPw} onChange={e => setNewPw(e.target.value)} required placeholder="Минимум 6 символов"
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-[#E8002D]" />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Повторите пароль</label>
-              <input type="password" value={confirm} onChange={e => setConfirm(e.target.value)} required placeholder="Ещё раз"
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-[#E8002D]" />
-            </div>
-            {error && <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-red-50 text-red-600 text-sm"><Icon name="AlertCircle" size={14} />{error}</div>}
-            <button type="submit" disabled={loading}
-              className="w-full py-3.5 rounded-xl text-white font-montserrat font-bold text-sm hover:opacity-90 disabled:opacity-60"
-              style={{ background: '#E8002D' }}>
-              {loading ? 'Сохранение...' : 'Сохранить пароль'}
-            </button>
-          </form>
-        )}
+        {form}
       </div>
     </div>
   );
