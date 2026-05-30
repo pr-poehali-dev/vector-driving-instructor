@@ -291,6 +291,7 @@ function TopicForm({ topic, onClose, onSaved }: {
   const [label, setLabel] = useState(topic?.label || '');
   const [icon, setIcon] = useState(topic?.icon || 'BookOpen');
   const [isActive, setIsActive] = useState(topic?.is_active ?? true);
+  const [tags, setTags] = useState(topic?.tags || '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -302,7 +303,7 @@ function TopicForm({ topic, onClose, onSaved }: {
     setLoading(true);
     setError('');
     try {
-      const data = await saveTopic({ id: topic?.id, label, icon, is_active: isActive });
+      const data = await saveTopic({ id: topic?.id, label, icon, is_active: isActive, tags });
       onSaved(data.topic);
       onClose();
     } catch (err: unknown) {
@@ -329,6 +330,16 @@ function TopicForm({ topic, onClose, onSaved }: {
               placeholder="Параллельная парковка"
               className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-[#E8002D]"
             />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Теги / синонимы</label>
+            <input
+              value={tags}
+              onChange={e => setTags(e.target.value)}
+              placeholder="гараж, заезд задним ходом, 90 градусов"
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-[#E8002D]"
+            />
+            <p className="text-xs text-gray-400 mt-1">Через запятую. Бот найдёт тему по любому слову.</p>
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Иконка</label>

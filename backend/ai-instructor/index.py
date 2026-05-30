@@ -53,7 +53,7 @@ def load_topics_with_videos():
     conn = get_db()
     cur = conn.cursor()
     cur.execute(f'''
-        SELECT t.label, m.video_title, m.video_url, m.video_thumb
+        SELECT t.label, t.tags, m.video_title, m.video_url, m.video_thumb
         FROM {SCHEMA}.chat_topics t
         JOIN {SCHEMA}.chat_messages m ON m.topic_id = t.id
         WHERE m.video_url IS NOT NULL
@@ -62,10 +62,17 @@ def load_topics_with_videos():
     rows = cur.fetchall()
     conn.close()
     topics = {}
-    for label, title, url, thumb in rows:
+    for label, tags, title, url, thumb in rows:
         if label not in topics:
-            topics[label] = []
-        topics[label].append({'title': title, 'url': url, 'thumb': thumb or ''})
+            # Собираем все ключевые слова: название + теги
+            keywords = [w for w in label.lower().split() if len(w) > 2]
+            if tags:
+                for tag in tags.split(','):
+                    t = tag.strip().lower()
+                    if t:
+                        keywords.append(t)
+            topics[label] = {'videos': [], 'keywords': keywords}
+        topics[label]['videos'].append({'title': title, 'url': url, 'thumb': thumb or ''})
     return topics
 
 
@@ -73,14 +80,18 @@ def find_relevant_video(message, topics_with_videos):
     msg_lower = message.lower()
     best_topic = None
     best_score = 0
-    for label, videos in topics_with_videos.items():
-        label_words = label.lower().split()
-        score = sum(1 for w in label_words if w in msg_lower)
+    for label, data in topics_with_videos.items():
+        keywords = data['keywords']
+        # Точное совпадение тега даёт 10 очков, частичное — 1
+        score = 0
+        for kw in keywords:
+            if kw in msg_lower:
+                score += 10 if kw == msg_lower.strip() else (5 if len(kw) > 4 else 1)
         if score > best_score:
             best_score = score
             best_topic = label
     if best_score > 0 and best_topic:
-        return topics_with_videos[best_topic][0]
+        return topics_with_videos[best_topic]['videos'][0]
     return None
 
 

@@ -20,6 +20,7 @@ export interface DBTopic {
   icon: string;
   sort_order: number;
   is_active: boolean;
+  tags: string;
   messages: DBMessage[];
 }
 

@@ -299,7 +299,12 @@ export default function ChatBot() {
     setIsTyping(true);
     setNewMessageIds(prev => new Set([...prev, userMsg.id]));
 
-    const topic = dbTopics.find(t => t.label === option);
+    const optLower = option.toLowerCase();
+    const topic = dbTopics.find(t => {
+      if (t.label.toLowerCase() === optLower) return true;
+      if (!t.tags) return false;
+      return t.tags.split(',').map(s => s.trim().toLowerCase()).some(tag => tag && optLower.includes(tag));
+    });
     if (topic) {
       const topicMsgs = dbTopicToMessages(topic);
       let delay = 800;

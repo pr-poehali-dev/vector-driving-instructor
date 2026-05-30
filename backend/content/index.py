@@ -45,7 +45,7 @@ def is_admin(cur, token):
 
 def get_topics_data(cur):
     cur.execute(
-        f"""SELECT id, slug, label, icon, sort_order, is_active
+        f"""SELECT id, slug, label, icon, sort_order, is_active, tags
             FROM {SCHEMA}.chat_topics
             WHERE is_active=TRUE
             ORDER BY sort_order, id"""
@@ -72,7 +72,7 @@ def get_topics_data(cur):
 
 def get_all_topics_admin(cur):
     cur.execute(
-        f"""SELECT id, slug, label, icon, sort_order, is_active
+        f"""SELECT id, slug, label, icon, sort_order, is_active, tags
             FROM {SCHEMA}.chat_topics
             ORDER BY sort_order, id"""
     )
@@ -136,6 +136,7 @@ def handler(event: dict, context) -> dict:
             icon = (body.get('icon') or 'BookOpen').strip()
             is_active = body.get('is_active', True)
             sort_order = body.get('sort_order', 0)
+            tags = (body.get('tags') or '').strip()
             if not label:
                 return resp({'error': 'Название темы обязательно'}, 400)
 
@@ -145,17 +146,17 @@ def handler(event: dict, context) -> dict:
             if topic_id:
                 cur.execute(
                     f"""UPDATE {SCHEMA}.chat_topics
-                        SET label=%s, icon=%s, is_active=%s, sort_order=%s
+                        SET label=%s, icon=%s, is_active=%s, sort_order=%s, tags=%s
                         WHERE id=%s
-                        RETURNING id, slug, label, icon, sort_order, is_active""",
-                    (label, icon, is_active, sort_order, topic_id)
+                        RETURNING id, slug, label, icon, sort_order, is_active, tags""",
+                    (label, icon, is_active, sort_order, tags, topic_id)
                 )
             else:
                 cur.execute(
-                    f"""INSERT INTO {SCHEMA}.chat_topics (slug, label, icon, is_active, sort_order)
-                        VALUES (%s, %s, %s, %s, %s)
-                        RETURNING id, slug, label, icon, sort_order, is_active""",
-                    (slug, label, icon, is_active, sort_order)
+                    f"""INSERT INTO {SCHEMA}.chat_topics (slug, label, icon, is_active, sort_order, tags)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                        RETURNING id, slug, label, icon, sort_order, is_active, tags""",
+                    (slug, label, icon, is_active, sort_order, tags)
                 )
             row = cur.fetchone()
             conn.commit()

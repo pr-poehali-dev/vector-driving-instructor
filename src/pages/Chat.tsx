@@ -188,7 +188,12 @@ export default function ChatPage() {
 
   // ─── Topics mode ────────────────────────────────────────────────────────────
   const handleOptionSelect = (option: string) => {
-    const topic = dbTopics.find(t => t.label === option);
+    const optLower = option.toLowerCase();
+    const topic = dbTopics.find(t => {
+      if (t.label.toLowerCase() === optLower) return true;
+      if (!t.tags) return false;
+      return t.tags.split(',').map(s => s.trim().toLowerCase()).some(tag => tag && optLower.includes(tag));
+    });
     const userMsg: ChatMessage = { id: `user-${Date.now()}`, role: 'user', text: option };
     setMessages(prev => [...prev, userMsg]);
     setCurrentOptions([]);
