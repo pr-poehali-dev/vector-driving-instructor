@@ -4,7 +4,7 @@ import ChatBot from "@/components/ChatBot";
 import Icon from "@/components/ui/icon";
 
 const HERO_IMAGE =
-  "https://optim.tildacdn.com/tild6662-3533-4331-b465-383763383535/-/format/webp/Frame_37-2.jpg.webp";
+  "https://cdn.poehali.dev/projects/370344a9-a9ba-49da-84a7-a1af7d9aae57/bucket/1349b49a-d81f-4438-a10d-edb89ee10114.jpg";
 const INSTRUCTOR_IMAGE =
   "https://cdn.poehali.dev/projects/370344a9-a9ba-49da-84a7-a1af7d9aae57/files/d6afaec1-319a-4ed5-a659-10842afd4ad7.jpg";
 
