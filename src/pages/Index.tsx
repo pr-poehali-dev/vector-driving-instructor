@@ -105,7 +105,7 @@ export default function Index() {
             href="tel:+73522509335"
             className="text-white font-semibold hover:text-[#E8002D] transition-colors flex items-center gap-1.5"
           >
-            <Icon name="Phone" size={12} />8 (3522) 509-33-5
+            <Icon name="Phone" size={12} />8 (3522) 50-93-35
           </a>
         </div>
       </div>
