@@ -7,23 +7,36 @@ import { getTopics, DBTopic } from '@/api/content';
 
 const AI_URL = 'https://functions.poehali.dev/75e85bcd-a1d8-49cf-9700-e0da694a7ed8';
 
+function WatermarkLayer({ name }: { name: string }) {
+  if (!name) return null;
+  return (
+    <div className="absolute inset-0 pointer-events-none select-none" style={{ zIndex: 2147483647 }}>
+      <div className="absolute top-3 left-3">
+        <span className="text-white/25 text-xs font-medium" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)', letterSpacing: '0.05em', userSelect: 'none' }}>{name}</span>
+      </div>
+      <div className="absolute bottom-3 right-3">
+        <span className="text-white/25 text-xs font-medium" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)', letterSpacing: '0.05em', userSelect: 'none' }}>{name}</span>
+      </div>
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rotate-[-30deg]">
+        <span className="text-white/10 text-sm font-medium whitespace-nowrap" style={{ userSelect: 'none' }}>{name}</span>
+      </div>
+    </div>
+  );
+}
+
 interface VideoPlayerProps { url: string; title: string; thumb: string; studentName?: string }
 
 function VideoPlayer({ url, title, thumb, studentName }: VideoPlayerProps) {
   const [playing, setPlaying] = useState(false);
-  const watermark = studentName || '';
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const isDirectVideo = /\.(mp4|webm|ogg|mov)(\?|$)/i.test(url);
+  const watermark = studentName || '';
 
-  const Watermarks = watermark ? (
-    <>
-      <div className="absolute inset-0 pointer-events-none z-10 flex items-end justify-end p-3" style={{ userSelect: 'none' }}>
-        <span className="text-white/30 text-xs font-medium select-none" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.5)', letterSpacing: '0.05em' }}>{watermark}</span>
-      </div>
-      <div className="absolute top-3 left-3 pointer-events-none z-10" style={{ userSelect: 'none' }}>
-        <span className="text-white/20 text-xs font-medium select-none" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.5)', letterSpacing: '0.05em' }}>{watermark}</span>
-      </div>
-    </>
-  ) : null;
+  const handleFullscreen = () => {
+    if (wrapperRef.current) {
+      if (wrapperRef.current.requestFullscreen) wrapperRef.current.requestFullscreen();
+    }
+  };
 
   return (
     <div className="mt-2 rounded-lg overflow-hidden border border-white/20" onContextMenu={e => e.preventDefault()}>
@@ -46,7 +59,7 @@ function VideoPlayer({ url, title, thumb, studentName }: VideoPlayerProps) {
           </div>
         </div>
       ) : (
-        <div className="relative w-full bg-black" style={{ aspectRatio: '16/9' }} onContextMenu={e => e.preventDefault()}>
+        <div ref={wrapperRef} className="relative w-full bg-black" style={{ aspectRatio: '16/9' }} onContextMenu={e => e.preventDefault()}>
           {isDirectVideo ? (
             <video
               className="w-full h-full"
@@ -63,11 +76,77 @@ function VideoPlayer({ url, title, thumb, studentName }: VideoPlayerProps) {
               src={`${url}?autoplay=1&rel=0&modestbranding=1&iv_load_policy=3`}
               title={title}
               className="w-full h-full"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; fullscreen"
-              allowFullScreen
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope"
             />
           )}
-          {Watermarks}
+          <WatermarkLayer name={watermark} />
+          {!isDirectVideo && (
+            <button
+              onClick={handleFullscreen}
+              className="absolute bottom-2 right-2 z-50 bg-black/50 hover:bg-black/70 text-white rounded p-1 transition-colors"
+              title="На весь экран"
+            >
+              <Icon name="Maximize" size={14} />
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ImageViewer({ src, caption, studentName }: { src: string; caption: string; studentName?: string }) {
+  const [fullscreen, setFullscreen] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const watermark = studentName || '';
+
+  const openFullscreen = () => {
+    if (wrapperRef.current?.requestFullscreen) {
+      wrapperRef.current.requestFullscreen();
+      setFullscreen(true);
+    }
+  };
+
+  useEffect(() => {
+    const onFsChange = () => {
+      if (!document.fullscreenElement) setFullscreen(false);
+    };
+    document.addEventListener('fullscreenchange', onFsChange);
+    return () => document.removeEventListener('fullscreenchange', onFsChange);
+  }, []);
+
+  return (
+    <div
+      ref={wrapperRef}
+      className="mt-2 rounded-lg overflow-hidden select-none relative"
+      onContextMenu={e => e.preventDefault()}
+      onDragStart={e => e.preventDefault()}
+      style={fullscreen ? { background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' } : {}}
+    >
+      <img
+        src={src}
+        alt={caption}
+        className={fullscreen ? 'max-w-full max-h-full object-contain' : 'w-full'}
+        draggable={false}
+        style={{ pointerEvents: 'none', userSelect: 'none' }}
+      />
+      <WatermarkLayer name={watermark} />
+      {!fullscreen && (
+        <button
+          onClick={openFullscreen}
+          className="absolute bottom-2 right-2 bg-black/50 hover:bg-black/70 text-white rounded p-1 transition-colors"
+          style={{ zIndex: 10 }}
+          title="На весь экран"
+        >
+          <Icon name="Maximize" size={14} />
+        </button>
+      )}
+      {caption && !fullscreen && (
+        <p className="text-xs text-gray-500 mt-1 italic px-1 pb-1">{caption}</p>
+      )}
+      {caption && fullscreen && (
+        <div className="absolute bottom-6 left-0 right-0 text-center pointer-events-none select-none">
+          <span className="text-white/60 text-xs italic">{caption}</span>
         </div>
       )}
     </div>
@@ -91,19 +170,7 @@ function MessageBubble({ message, isNew, studentName }: { message: ChatMessage; 
         }`}>
           {message.text}
           {message.image && (
-            <div
-              className="mt-2 rounded-lg overflow-hidden select-none"
-              onContextMenu={e => e.preventDefault()}
-              onDragStart={e => e.preventDefault()}
-            >
-              <img
-                src={message.image.src}
-                alt={message.image.caption}
-                className="w-full pointer-events-none"
-                draggable={false}
-              />
-              <p className="text-xs text-gray-500 mt-1 italic">{message.image.caption}</p>
-            </div>
+            <ImageViewer src={message.image.src} caption={message.image.caption} studentName={studentName} />
           )}
           {message.video && (
             <VideoPlayer url={message.video.url} title={message.video.title} thumb={message.video.thumb} studentName={studentName} />
