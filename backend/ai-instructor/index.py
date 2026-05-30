@@ -13,7 +13,7 @@ CORS = {
     'Access-Control-Allow-Headers': 'Content-Type, X-Auth-Token',
 }
 
-FOLDER_ID = os.environ.get('YANDEX_FOLDER_ID', 'b1g0sotnrm9uvrj7aeu6')
+FOLDER_ID = os.environ.get('YANDEX_FOLDER_ID', '')
 
 SYSTEM_PROMPT = """Ты — опытный инструктор по вождению автошколы «Вектор» (г. Курган).
 Помогай ученикам изучать ПДД и технику вождения.
