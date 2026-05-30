@@ -12,11 +12,30 @@ interface VideoPlayerProps { url: string; title: string; thumb: string; studentN
 function VideoPlayer({ url, title, thumb, studentName }: VideoPlayerProps) {
   const [playing, setPlaying] = useState(false);
   const watermark = studentName || '';
+  const isDirectVideo = /\.(mp4|webm|ogg|mov)(\?|$)/i.test(url);
+
+  const Watermarks = watermark ? (
+    <>
+      <div className="absolute inset-0 pointer-events-none z-10 flex items-end justify-end p-3" style={{ userSelect: 'none' }}>
+        <span className="text-white/30 text-xs font-medium select-none" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.5)', letterSpacing: '0.05em' }}>{watermark}</span>
+      </div>
+      <div className="absolute top-3 left-3 pointer-events-none z-10" style={{ userSelect: 'none' }}>
+        <span className="text-white/20 text-xs font-medium select-none" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.5)', letterSpacing: '0.05em' }}>{watermark}</span>
+      </div>
+    </>
+  ) : null;
+
   return (
     <div className="mt-2 rounded-lg overflow-hidden border border-white/20" onContextMenu={e => e.preventDefault()}>
       {!playing ? (
         <div className="relative cursor-pointer group" onClick={() => setPlaying(true)}>
-          <img src={thumb} alt={title} className="w-full h-36 object-cover" onContextMenu={e => e.preventDefault()} />
+          {thumb ? (
+            <img src={thumb} alt={title} className="w-full h-36 object-cover" onContextMenu={e => e.preventDefault()} />
+          ) : (
+            <div className="w-full h-36 bg-gray-800 flex items-center justify-center">
+              <Icon name="Video" size={32} className="text-white/40" />
+            </div>
+          )}
           <div className="absolute inset-0 bg-black/40 flex items-center justify-center group-hover:bg-black/50 transition-colors">
             <div className="w-12 h-12 rounded-full bg-[#E8002D] flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
               <Icon name="Play" size={20} className="text-white ml-1" />
@@ -27,40 +46,28 @@ function VideoPlayer({ url, title, thumb, studentName }: VideoPlayerProps) {
           </div>
         </div>
       ) : (
-        <div className="relative w-full" style={{ aspectRatio: '16/9' }} onContextMenu={e => e.preventDefault()}>
-          <iframe
-            src={`${url}?autoplay=1&rel=0&modestbranding=1&iv_load_policy=3`}
-            title={title}
-            className="w-full h-full"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; fullscreen"
-            allowFullScreen
-          />
-          {watermark && (
-            <div
-              className="absolute inset-0 pointer-events-none z-10 flex items-end justify-end p-3"
-              style={{ userSelect: 'none' }}
+        <div className="relative w-full bg-black" style={{ aspectRatio: '16/9' }} onContextMenu={e => e.preventDefault()}>
+          {isDirectVideo ? (
+            <video
+              className="w-full h-full"
+              autoPlay
+              controls
+              controlsList="nodownload noremoteplayback"
+              disablePictureInPicture
+              playsInline
             >
-              <span
-                className="text-white/30 text-xs font-medium select-none"
-                style={{ textShadow: '0 1px 3px rgba(0,0,0,0.5)', letterSpacing: '0.05em' }}
-              >
-                {watermark}
-              </span>
-            </div>
+              <source src={url} />
+            </video>
+          ) : (
+            <iframe
+              src={`${url}?autoplay=1&rel=0&modestbranding=1&iv_load_policy=3`}
+              title={title}
+              className="w-full h-full"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; fullscreen"
+              allowFullScreen
+            />
           )}
-          {watermark && (
-            <div
-              className="absolute top-3 left-3 pointer-events-none z-10"
-              style={{ userSelect: 'none' }}
-            >
-              <span
-                className="text-white/20 text-xs font-medium select-none"
-                style={{ textShadow: '0 1px 3px rgba(0,0,0,0.5)', letterSpacing: '0.05em' }}
-              >
-                {watermark}
-              </span>
-            </div>
-          )}
+          {Watermarks}
         </div>
       )}
     </div>
