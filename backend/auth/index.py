@@ -1,12 +1,5 @@
 """
-Авторизация учеников, администратора и менеджеров автошколы Вектор. v3
-action=admin-login    — вход администратора (password)
-action=admin-me       — проверка сессии администратора
-action=manager-login  — вход менеджера (login + password)
-action=manager-me     — проверка сессии менеджера + права
-action=login          — вход ученика
-action=me             — проверка сессии ученика
-action=logout         — выход
+Авторизация учеников, администратора и менеджеров автошколы Вектор. v4
 """
 import json
 import os
@@ -27,16 +20,20 @@ def get_conn():
     return psycopg2.connect(os.environ['DATABASE_URL'])
 
 
-def hash_password(password: str) -> str:
-    return hashlib.sha256(password.encode()).hexdigest()
+def hash_pw(p):
+    return hashlib.sha256(p.encode()).hexdigest()
 
 
-def make_token() -> str:
+def make_token():
     return secrets.token_hex(32)
 
 
-def json_resp(data, status=200):
+def ok(data, status=200):
     return {'statusCode': status, 'headers': {**CORS, 'Content-Type': 'application/json'}, 'body': json.dumps(data, ensure_ascii=False)}
+
+
+def err(msg, status=400):
+    return ok({'error': msg}, status)
 
 
 def handler(event: dict, context) -> dict:
@@ -60,114 +57,83 @@ def handler(event: dict, context) -> dict:
     try:
         # ── Вход администратора ──────────────────────────────────────────────
         if action == 'admin-login':
-            password = (body.get('password', '') or '').strip()
-            admin_pw = (os.environ.get('ADMIN_PASSWORD', '') or '').strip()
-            # Проверяем обычный пароль
-            pw_match = admin_pw and password == admin_pw
-            # Проверяем сохранённый пароль или одноразовый reset-токен из БД
-            reset_match = False
-            if not pw_match and password:
-                cur.execute(
-                    f"SELECT id, token FROM {SCHEMA}.admin_reset_tokens WHERE token=%s AND expires_at > NOW()",
-                    (password,)
-                )
-                row = cur.fetchone()
-                if not row:
-                    # Проверяем сохранённый пароль через PWD: префикс
-                    cur.execute(
-                        f"SELECT id FROM {SCHEMA}.admin_reset_tokens WHERE token=%s AND expires_at > NOW()",
-                        (f'PWD:{password}',)
-                    )
-                    row = cur.fetchone()
-                if row:
-                    token_val = row['token'] if row else ''
-                    # Одноразовые (без PWD:) — удаляем после использования
-                    if not token_val.startswith('PWD:'):
-                        cur.execute(f"UPDATE {SCHEMA}.admin_reset_tokens SET expires_at=NOW() WHERE token=%s", (token_val,))
-                    reset_match = True
-            if not pw_match and not reset_match:
-                return json_resp({'error': 'Неверный пароль'}, 401)
-            new_token = make_token()
-            cur.execute(
-                f"INSERT INTO {SCHEMA}.admin_sessions (token) VALUES (%s) RETURNING token",
-                (new_token,)
-            )
-            conn.commit()
-            return json_resp({'token': new_token, 'role': 'admin'})
+            password = (body.get('password') or '').strip()
+            if not password:
+                return err('Введите пароль')
 
-        # ── Смена пароля администратора (только с активной сессией) ────────────
-        if action == 'admin-set-password':
-            if not token:
-                return json_resp({'error': 'Нет токена'}, 401)
-            cur.execute(
-                f"SELECT id FROM {SCHEMA}.admin_sessions WHERE token=%s AND expires_at > NOW()",
-                (token,)
-            )
-            if not cur.fetchone():
-                return json_resp({'error': 'Сессия истекла'}, 401)
-            new_password = (body.get('new_password', '') or '').strip()
-            if len(new_password) < 6:
-                return json_resp({'error': 'Пароль минимум 6 символов'}, 400)
-            # Сохраняем в БД как fallback (основной приоритет — секрет)
-            cur.execute(
-                f"""INSERT INTO {SCHEMA}.admin_reset_tokens (token, expires_at)
-                    VALUES (%s, NOW() + INTERVAL '10 years')
-                    ON CONFLICT (token) DO UPDATE SET expires_at = NOW() + INTERVAL '10 years'""",
-                (f'PWD:{new_password}',)
-            )
-            conn.commit()
-            return json_resp({'ok': True, 'hint': 'Пароль сохранён. Также обновите секрет ADMIN_PASSWORD в Ядро → Секреты.'})
+            # 1. Проверяем через секрет ADMIN_PASSWORD
+            admin_pw = (os.environ.get('ADMIN_PASSWORD') or '').strip()
+            if admin_pw and password == admin_pw:
+                new_token = make_token()
+                cur.execute(f"INSERT INTO {SCHEMA}.admin_sessions (token) VALUES (%s)", (new_token,))
+                conn.commit()
+                return ok({'token': new_token, 'role': 'admin'})
+
+            # 2. Проверяем через таблицу admin_passwords (установленный через интерфейс)
+            cur.execute(f"SELECT password_hash FROM {SCHEMA}.admin_passwords ORDER BY id DESC LIMIT 1")
+            row = cur.fetchone()
+            if row and row['password_hash'] == hash_pw(password):
+                new_token = make_token()
+                cur.execute(f"INSERT INTO {SCHEMA}.admin_sessions (token) VALUES (%s)", (new_token,))
+                conn.commit()
+                return ok({'token': new_token, 'role': 'admin'})
+
+            return err('Неверный пароль', 401)
 
         # ── Проверка сессии администратора ───────────────────────────────────
         if action == 'admin-me':
             if not token:
-                return json_resp({'error': 'Нет токена'}, 401)
-            cur.execute(
-                f"SELECT id FROM {SCHEMA}.admin_sessions WHERE token=%s AND expires_at > NOW()",
-                (token,)
-            )
+                return err('Нет токена', 401)
+            cur.execute(f"SELECT id FROM {SCHEMA}.admin_sessions WHERE token=%s AND expires_at > NOW()", (token,))
             if not cur.fetchone():
-                return json_resp({'error': 'Сессия истекла'}, 401)
-            return json_resp({'role': 'admin'})
+                return err('Сессия истекла', 401)
+            return ok({'role': 'admin'})
+
+        # ── Смена пароля администратора ──────────────────────────────────────
+        if action == 'admin-set-password':
+            if not token:
+                return err('Нет токена', 401)
+            cur.execute(f"SELECT id FROM {SCHEMA}.admin_sessions WHERE token=%s AND expires_at > NOW()", (token,))
+            if not cur.fetchone():
+                return err('Сессия истекла', 401)
+            new_password = (body.get('new_password') or '').strip()
+            if len(new_password) < 6:
+                return err('Пароль минимум 6 символов')
+            pw_hash = hash_pw(new_password)
+            cur.execute(f"""
+                INSERT INTO {SCHEMA}.admin_passwords (password_hash)
+                VALUES (%s)
+            """, (pw_hash,))
+            conn.commit()
+            return ok({'ok': True})
 
         # ── Вход менеджера ───────────────────────────────────────────────────
         if action == 'manager-login':
-            login = body.get('login', '').strip().lower()
-            password = body.get('password', '')
+            login = (body.get('login') or '').strip().lower()
+            password = (body.get('password') or '').strip()
             if not login or not password:
-                return json_resp({'error': 'Введите логин и пароль'}, 400)
-            pw_hash = hash_password(password)
+                return err('Введите логин и пароль')
             cur.execute(
                 f"""SELECT id, name, can_students, can_content, can_ai, can_stats
                     FROM {SCHEMA}.managers
                     WHERE login=%s AND password_hash=%s AND is_active=TRUE""",
-                (login, pw_hash)
+                (login, hash_pw(password))
             )
             mgr = cur.fetchone()
             if not mgr:
-                return json_resp({'error': 'Неверный логин или пароль'}, 401)
+                return err('Неверный логин или пароль', 401)
             new_token = make_token()
-            cur.execute(
-                f"INSERT INTO {SCHEMA}.manager_sessions (manager_id, token) VALUES (%s, %s)",
-                (mgr['id'], new_token)
-            )
+            cur.execute(f"INSERT INTO {SCHEMA}.manager_sessions (manager_id, token) VALUES (%s, %s)", (mgr['id'], new_token))
             conn.commit()
-            return json_resp({
-                'token': new_token,
-                'role': 'manager',
-                'name': mgr['name'],
-                'permissions': {
-                    'students': mgr['can_students'],
-                    'content': mgr['can_content'],
-                    'ai': mgr['can_ai'],
-                    'stats': mgr['can_stats'],
-                }
+            return ok({
+                'token': new_token, 'role': 'manager', 'name': mgr['name'],
+                'permissions': {'students': mgr['can_students'], 'content': mgr['can_content'], 'ai': mgr['can_ai'], 'stats': mgr['can_stats']}
             })
 
         # ── Проверка сессии менеджера ────────────────────────────────────────
         if action == 'manager-me':
             if not token:
-                return json_resp({'error': 'Нет токена'}, 401)
+                return err('Нет токена', 401)
             cur.execute(
                 f"""SELECT m.id, m.name, m.can_students, m.can_content, m.can_ai, m.can_stats
                     FROM {SCHEMA}.manager_sessions ms
@@ -177,44 +143,34 @@ def handler(event: dict, context) -> dict:
             )
             mgr = cur.fetchone()
             if not mgr:
-                return json_resp({'error': 'Сессия истекла'}, 401)
-            return json_resp({
-                'role': 'manager',
-                'name': mgr['name'],
-                'permissions': {
-                    'students': mgr['can_students'],
-                    'content': mgr['can_content'],
-                    'ai': mgr['can_ai'],
-                    'stats': mgr['can_stats'],
-                }
+                return err('Сессия истекла', 401)
+            return ok({
+                'role': 'manager', 'name': mgr['name'],
+                'permissions': {'students': mgr['can_students'], 'content': mgr['can_content'], 'ai': mgr['can_ai'], 'stats': mgr['can_stats']}
             })
 
         # ── Вход ученика ─────────────────────────────────────────────────────
         if action == 'login':
-            login = body.get('login', '').strip().lower()
-            password = body.get('password', '')
+            login = (body.get('login') or '').strip().lower()
+            password = (body.get('password') or '').strip()
             if not login or not password:
-                return json_resp({'error': 'Введите логин и пароль'}, 400)
-            pw_hash = hash_password(password)
+                return err('Введите логин и пароль')
             cur.execute(
                 f"SELECT id, name FROM {SCHEMA}.students WHERE login=%s AND password_hash=%s AND is_active=TRUE",
-                (login, pw_hash)
+                (login, hash_pw(password))
             )
             student = cur.fetchone()
             if not student:
-                return json_resp({'error': 'Неверный логин или пароль'}, 401)
+                return err('Неверный логин или пароль', 401)
             new_token = make_token()
-            cur.execute(
-                f"INSERT INTO {SCHEMA}.sessions (student_id, token) VALUES (%s, %s) RETURNING token",
-                (student['id'], new_token)
-            )
+            cur.execute(f"INSERT INTO {SCHEMA}.sessions (student_id, token) VALUES (%s, %s)", (student['id'], new_token))
             conn.commit()
-            return json_resp({'token': new_token, 'name': student['name'], 'role': 'student'})
+            return ok({'token': new_token, 'name': student['name'], 'role': 'student'})
 
         # ── Проверка сессии ученика ──────────────────────────────────────────
         if action == 'me':
             if not token:
-                return json_resp({'error': 'Нет токена'}, 401)
+                return err('Нет токена', 401)
             cur.execute(
                 f"""SELECT s.name, s.id FROM {SCHEMA}.sessions sess
                     JOIN {SCHEMA}.students s ON s.id = sess.student_id
@@ -223,8 +179,8 @@ def handler(event: dict, context) -> dict:
             )
             row = cur.fetchone()
             if not row:
-                return json_resp({'error': 'Сессия истекла'}, 401)
-            return json_resp({'name': row['name'], 'id': row['id'], 'role': 'student'})
+                return err('Сессия истекла', 401)
+            return ok({'name': row['name'], 'id': row['id'], 'role': 'student'})
 
         # ── Выход ────────────────────────────────────────────────────────────
         if action == 'logout':
@@ -232,9 +188,9 @@ def handler(event: dict, context) -> dict:
                 cur.execute(f"UPDATE {SCHEMA}.sessions SET expires_at=NOW() WHERE token=%s", (token,))
                 cur.execute(f"UPDATE {SCHEMA}.manager_sessions SET expires_at=NOW() WHERE token=%s", (token,))
                 conn.commit()
-            return json_resp({'ok': True})
+            return ok({'ok': True})
 
-        return json_resp({'error': 'Unknown action'}, 400)
+        return err('Unknown action')
 
     finally:
         cur.close()
