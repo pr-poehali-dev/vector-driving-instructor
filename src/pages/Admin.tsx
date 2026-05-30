@@ -452,7 +452,7 @@ function ChangePasswordScreen({ onDone, inline }: { onDone: () => void; inline?:
     setLoading(true); setError('');
     try {
       const token = localStorage.getItem('vector_admin_token') || '';
-      const res = await fetch('https://functions.poehali.dev/91d1428e-bbd8-4752-8935-f887499c26bb', {
+      const res = await fetch('https://functions.poehali.dev/849f6202-7a80-4e16-b5e9-c559a0f01023', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Auth-Token': token },
         body: JSON.stringify({ action: 'admin-set-password', new_password: newPw }),

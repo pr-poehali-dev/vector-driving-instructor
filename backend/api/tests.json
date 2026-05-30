@@ -1,0 +1,44 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS returns 200",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Admin login wrong password",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "admin-login", "password": "wrongpass"},
+      "expectedStatus": 401,
+      "expectedBody": {"error": "string"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Get topics public",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "get_topics"},
+      "expectedStatus": 200
+    },
+    {
+      "name": "Students list no token",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "students-list"},
+      "expectedStatus": 403,
+      "expectedBody": {"error": "string"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Manager login missing fields",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "manager-login"},
+      "expectedStatus": 400,
+      "expectedBody": {"error": "string"},
+      "bodyMatcher": "partial"
+    }
+  ]
+}

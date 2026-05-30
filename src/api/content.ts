@@ -1,4 +1,4 @@
-const CONTENT_URL = 'https://functions.poehali.dev/85d0acd8-7f20-430d-9c1e-30408a0c2dd9';
+const API_URL = 'https://functions.poehali.dev/849f6202-7a80-4e16-b5e9-c559a0f01023';
 
 export interface DBMessage {
   id: number;
@@ -24,21 +24,18 @@ export interface DBTopic {
   messages: DBMessage[];
 }
 
+function adminToken() { return localStorage.getItem('vector_admin_token') || ''; }
+function accessToken() {
+  return localStorage.getItem('vector_admin_token') || localStorage.getItem('vector_manager_token') || '';
+}
+
 async function call(body: object, token?: string) {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (token) headers['X-Auth-Token'] = token;
-  const res = await fetch(CONTENT_URL, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body),
-  });
+  const res = await fetch(API_URL, { method: 'POST', headers, body: JSON.stringify(body) });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Ошибка сервера');
   return data;
-}
-
-function adminToken() {
-  return localStorage.getItem('vector_admin_token') || '';
 }
 
 export const getTopics = () => call({ action: 'get_topics' });
@@ -61,10 +58,6 @@ export const reorderTopics = (order: { id: number; sort_order: number }[]) =>
 
 export const reorderMessages = (order: { id: number; sort_order: number }[]) =>
   call({ action: 'reorder_messages', order }, adminToken());
-
-function accessToken() {
-  return localStorage.getItem('vector_admin_token') || localStorage.getItem('vector_manager_token') || '';
-}
 
 export const getLogsStudents = () =>
   call({ action: 'logs_students' }, accessToken());
