@@ -8,6 +8,10 @@ import {
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
+function isDirectVideoUrl(url: string): boolean {
+  return /\.(mp4|webm|ogg|mov)(\?|$)/i.test(url);
+}
+
 function ytIdFromUrl(url: string): string {
   const m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([^&?/]+)/);
   return m ? m[1] : '';
@@ -22,6 +26,18 @@ function ytEmbedUrl(raw: string): string {
 function ytThumb(embedUrl: string): string {
   const id = ytIdFromUrl(embedUrl);
   return id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : '';
+}
+
+function resolveVideoUrl(raw: string): string {
+  if (!raw) return '';
+  if (isDirectVideoUrl(raw)) return raw;
+  return ytEmbedUrl(raw);
+}
+
+function resolveVideoThumb(raw: string): string {
+  if (!raw) return '';
+  if (isDirectVideoUrl(raw)) return '';
+  return ytThumb(ytEmbedUrl(raw));
 }
 
 // ─── Message form modal ───────────────────────────────────────────────────────
@@ -52,8 +68,8 @@ function MessageForm({ topicId, msg, nextOrder, onClose, onSaved }: MsgFormProps
     setError('');
     setLoading(true);
     try {
-      const embedUrl = mediaType === 'video' ? ytEmbedUrl(videoRaw) : null;
-      const thumb = embedUrl ? ytThumb(embedUrl) : null;
+      const embedUrl = mediaType === 'video' ? resolveVideoUrl(videoRaw) : null;
+      const thumb = embedUrl ? resolveVideoThumb(videoRaw) : null;
       const options = optionsRaw.split('\n').map(s => s.trim()).filter(Boolean);
       const payload = {
         id: msg?.id,
@@ -134,17 +150,17 @@ function MessageForm({ topicId, msg, nextOrder, onClose, onSaved }: MsgFormProps
             <div className="flex flex-col gap-3 p-4 bg-gray-50 rounded-xl">
               <div>
                 <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
-                  Ссылка на YouTube *
+                  Ссылка на видео *
                 </label>
                 <input
                   type="text"
                   value={videoRaw}
                   onChange={e => setVideoRaw(e.target.value)}
-                  placeholder="https://youtube.com/watch?v=... или embed/..."
+                  placeholder="YouTube: https://youtube.com/watch?v=...  или  прямая ссылка .mp4"
                   className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-[#E8002D]"
                 />
                 <p className="text-xs text-gray-400 mt-1">
-                  Вставьте обычную ссылку — например, из браузера при просмотре видео
+                  YouTube-ссылка или прямая ссылка на видеофайл (.mp4, .webm и др.)
                 </p>
               </div>
               <div>
@@ -159,18 +175,28 @@ function MessageForm({ topicId, msg, nextOrder, onClose, onSaved }: MsgFormProps
                   className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-[#E8002D]"
                 />
               </div>
-              {videoRaw && ytIdFromUrl(ytEmbedUrl(videoRaw)) && (
+              {videoRaw && (
                 <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-gray-100">
-                  <img
-                    src={ytThumb(ytEmbedUrl(videoRaw))}
-                    alt="preview"
-                    className="w-20 h-14 object-cover rounded-lg"
-                    onError={e => (e.currentTarget.style.display = 'none')}
-                  />
-                  <div>
-                    <p className="text-xs font-semibold text-green-600">✓ Видео найдено</p>
-                    <p className="text-xs text-gray-400 mt-0.5">Превью загрузится автоматически</p>
-                  </div>
+                  {isDirectVideoUrl(videoRaw) ? (
+                    <div className="w-20 h-14 bg-gray-100 rounded-lg flex items-center justify-center">
+                      <Icon name="Video" size={20} className="text-gray-400" />
+                    </div>
+                  ) : ytIdFromUrl(ytEmbedUrl(videoRaw)) ? (
+                    <img
+                      src={ytThumb(ytEmbedUrl(videoRaw))}
+                      alt="preview"
+                      className="w-20 h-14 object-cover rounded-lg"
+                      onError={e => (e.currentTarget.style.display = 'none')}
+                    />
+                  ) : null}
+                  {(isDirectVideoUrl(videoRaw) || ytIdFromUrl(ytEmbedUrl(videoRaw))) && (
+                    <div>
+                      <p className="text-xs font-semibold text-green-600">✓ Видео найдено</p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {isDirectVideoUrl(videoRaw) ? 'Прямая ссылка на файл' : 'Превью загрузится автоматически'}
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
