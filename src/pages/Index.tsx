@@ -528,7 +528,7 @@ export default function Index() {
               style={{ background: "#E8002D", fontWeight: 700 }}
             >
               <Icon name="MessageCircle" size={18} />
-              Попробовать бесплатно
+              Открыть Инструктора
             </button>
           </div>
         </div>
@@ -591,7 +591,7 @@ export default function Index() {
                   className="font-montserrat text-3xl text-[#1a1a1a] leading-none"
                   style={{ fontWeight: 900 }}
                 >
-                  9 лет
+                  10 лет
                 </div>
                 <div className="text-gray-500 text-xs mt-1">
                   Федеральная академия
@@ -686,13 +686,13 @@ export default function Index() {
               {
                 icon: "MapPin",
                 label: "Адрес",
-                value: "г. Курган\nул. Станционная, 49",
+                value: "г. Курган\​4-й микрорайон, 32",
               },
               {
                 icon: "Phone",
-                label: "Телефон (бесплатно)",
-                value: "8 (800) 505-63-77",
-                href: "tel:88005056377",
+                label: "Телефон ",
+                value: "8 (3522) 50-93-35",
+                href: "tel:83522509335",
               },
               {
                 icon: "Clock",
@@ -734,7 +734,7 @@ export default function Index() {
             ))}
           </div>
           <a
-            href="tel:88005056377"
+            href="tel:83522509335"
             className="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl text-white font-montserrat transition-all hover:opacity-90"
             style={{ background: "#1a1a1a", fontWeight: 600 }}
           >
