@@ -28,14 +28,22 @@ interface VideoPlayerProps { url: string; title: string; thumb: string; studentN
 
 function VideoPlayer({ url, title, thumb, studentName }: VideoPlayerProps) {
   const [playing, setPlaying] = useState(false);
+  const [isFs, setIsFs] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const isDirectVideo = /\.(mp4|webm|ogg|mov)(\?|$)/i.test(url);
   const watermark = studentName || '';
 
+  useEffect(() => {
+    const onFsChange = () => setIsFs(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', onFsChange);
+    return () => document.removeEventListener('fullscreenchange', onFsChange);
+  }, []);
+
   const handleFullscreen = () => {
-    if (wrapperRef.current) {
-      if (wrapperRef.current.requestFullscreen) wrapperRef.current.requestFullscreen();
-    }
+    if (wrapperRef.current?.requestFullscreen) wrapperRef.current.requestFullscreen();
+  };
+  const handleExitFullscreen = () => {
+    if (document.exitFullscreen) document.exitFullscreen();
   };
 
   return (
@@ -59,13 +67,18 @@ function VideoPlayer({ url, title, thumb, studentName }: VideoPlayerProps) {
           </div>
         </div>
       ) : (
-        <div ref={wrapperRef} className="relative w-full bg-black" style={{ aspectRatio: '16/9' }} onContextMenu={e => e.preventDefault()}>
+        <div
+          ref={wrapperRef}
+          className="relative w-full bg-black"
+          style={isFs ? { width: '100vw', height: '100vh' } : { aspectRatio: '16/9' }}
+          onContextMenu={e => e.preventDefault()}
+        >
           {isDirectVideo ? (
             <video
               className="w-full h-full"
               autoPlay
               controls
-              controlsList="nodownload noremoteplayback"
+              controlsList="nodownload noremoteplayback nofullscreen"
               disablePictureInPicture
               playsInline
             >
@@ -80,15 +93,14 @@ function VideoPlayer({ url, title, thumb, studentName }: VideoPlayerProps) {
             />
           )}
           <WatermarkLayer name={watermark} />
-          {!isDirectVideo && (
-            <button
-              onClick={handleFullscreen}
-              className="absolute bottom-2 right-2 z-50 bg-black/50 hover:bg-black/70 text-white rounded p-1 transition-colors"
-              title="На весь экран"
-            >
-              <Icon name="Maximize" size={14} />
-            </button>
-          )}
+          <button
+            onClick={isFs ? handleExitFullscreen : handleFullscreen}
+            className="absolute bottom-2 right-2 bg-black/60 hover:bg-black/80 text-white rounded p-1.5 transition-colors"
+            style={{ zIndex: 2147483646 }}
+            title={isFs ? 'Свернуть' : 'На весь экран'}
+          >
+            <Icon name={isFs ? 'Minimize' : 'Maximize'} size={14} />
+          </button>
         </div>
       )}
     </div>
