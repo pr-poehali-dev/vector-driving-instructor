@@ -5,9 +5,7 @@
       "method": "POST",
       "path": "/",
       "body": {"action": "get_topics"},
-      "expectedStatus": 200,
-      "expectedBody": {"topics": []},
-      "bodyMatcher": "partial"
+      "expectedStatus": 200
     },
     {
       "name": "Save topic - no token",

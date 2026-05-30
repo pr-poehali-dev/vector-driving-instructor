@@ -168,8 +168,8 @@ def handler(event: dict, context) -> dict:
             topic_id = body.get('id')
             if not topic_id:
                 return resp({'error': 'Не указан id'}, 400)
-            cur.execute(f"UPDATE {SCHEMA}.chat_messages SET topic_id=NULL WHERE topic_id=%s", (topic_id,))
-            cur.execute(f"UPDATE {SCHEMA}.chat_topics SET is_active=FALSE WHERE id=%s", (topic_id,))
+            cur.execute(f"DELETE FROM {SCHEMA}.chat_messages WHERE topic_id=%s", (topic_id,))
+            cur.execute(f"DELETE FROM {SCHEMA}.chat_topics WHERE id=%s", (topic_id,))
             conn.commit()
             return resp({'ok': True})
 
