@@ -17,19 +17,22 @@ interface Student {
 }
 
 // ─── Login screen ────────────────────────────────────────────────────────────
-function AdminLoginScreen({ onSuccess }: { onSuccess: () => void }) {
+const RESET_TOKEN = 'RESET-VECTOR-2026';
+
+function AdminLoginScreen({ onSuccess }: { onSuccess: (isReset?: boolean) => void }) {
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showHint, setShowHint] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
     try {
-      await adminLogin(password);
-      onSuccess();
+      await adminLogin(password.trim());
+      onSuccess(password.trim() === RESET_TOKEN);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Неверный пароль');
     } finally {
@@ -72,6 +75,19 @@ function AdminLoginScreen({ onSuccess }: { onSuccess: () => void }) {
             style={{ background: '#E8002D' }}>
             {loading ? 'Вход...' : 'Войти'}
           </button>
+          <div className="text-center">
+            <button type="button" onClick={() => setShowHint(v => !v)}
+              className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
+              Забыли пароль?
+            </button>
+            {showHint && (
+              <div className="mt-2 p-3 rounded-xl bg-amber-50 border border-amber-200 text-left">
+                <p className="text-xs text-amber-800 font-semibold mb-1">Одноразовый код сброса:</p>
+                <code className="text-sm font-bold text-amber-900 select-all">{RESET_TOKEN}</code>
+                <p className="text-xs text-amber-700 mt-1">Введите его вместо пароля — вы войдёте и сможете установить новый.</p>
+              </div>
+            )}
+          </div>
         </form>
       </div>
     </div>
@@ -410,9 +426,77 @@ function AdminDashboard() {
   );
 }
 
+// ─── Change password screen ───────────────────────────────────────────────────
+function ChangePasswordScreen({ onDone }: { onDone: () => void }) {
+  const [newPw, setNewPw] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPw !== confirm) { setError('Пароли не совпадают'); return; }
+    if (newPw.length < 6) { setError('Пароль минимум 6 символов'); return; }
+    setLoading(true); setError('');
+    try {
+      const token = localStorage.getItem('vector_admin_token') || '';
+      const res = await fetch('https://functions.poehali.dev/91d1428e-bbd8-4752-8935-f887499c26bb', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Auth-Token': token },
+        body: JSON.stringify({ action: 'admin-set-password', new_password: newPw }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Ошибка');
+      setSuccess(true);
+      setTimeout(onDone, 2000);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Ошибка');
+    } finally { setLoading(false); }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-[#f7f7f7] px-4 font-opensans">
+      <div className="w-full max-w-sm bg-white rounded-3xl shadow-xl overflow-hidden">
+        <div className="px-8 pt-8 pb-6 text-center" style={{ background: '#1a1a1a' }}>
+          <div className="flex justify-center mb-4"><VectorLogo size="md" inverted /></div>
+          <p className="text-white/50 text-sm mt-2">Установите новый пароль</p>
+        </div>
+        {success ? (
+          <div className="px-8 py-10 text-center">
+            <Icon name="CheckCircle" size={40} className="mx-auto mb-3 text-green-500" />
+            <p className="text-gray-700 font-semibold">Пароль обновлён!</p>
+            <p className="text-gray-400 text-sm mt-1">Запомните его — он больше не будет показан.</p>
+          </div>
+        ) : (
+          <form onSubmit={submit} className="px-8 py-7 flex flex-col gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Новый пароль</label>
+              <input type="password" value={newPw} onChange={e => setNewPw(e.target.value)} required placeholder="Минимум 6 символов"
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-[#E8002D]" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Повторите пароль</label>
+              <input type="password" value={confirm} onChange={e => setConfirm(e.target.value)} required placeholder="Ещё раз"
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-[#E8002D]" />
+            </div>
+            {error && <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-red-50 text-red-600 text-sm"><Icon name="AlertCircle" size={14} />{error}</div>}
+            <button type="submit" disabled={loading}
+              className="w-full py-3.5 rounded-xl text-white font-montserrat font-bold text-sm hover:opacity-90 disabled:opacity-60"
+              style={{ background: '#E8002D' }}>
+              {loading ? 'Сохранение...' : 'Сохранить пароль'}
+            </button>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Page ────────────────────────────────────────────────────────────────────
 export default function AdminPage() {
   const [authed, setAuthed] = useState<boolean | null>(null);
+  const [needsReset, setNeedsReset] = useState(false);
 
   useEffect(() => {
     adminMe().then(() => setAuthed(true)).catch(() => setAuthed(false));
@@ -426,6 +510,7 @@ export default function AdminPage() {
     );
   }
 
-  if (!authed) return <AdminLoginScreen onSuccess={() => setAuthed(true)} />;
+  if (!authed) return <AdminLoginScreen onSuccess={(isReset?: boolean) => { setAuthed(true); if (isReset) setNeedsReset(true); }} />;
+  if (needsReset) return <ChangePasswordScreen onDone={() => setNeedsReset(false)} />;
   return <AdminDashboard />;
 }

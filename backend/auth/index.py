@@ -60,9 +60,32 @@ def handler(event: dict, context) -> dict:
     try:
         # ── Вход администратора ──────────────────────────────────────────────
         if action == 'admin-login':
-            password = body.get('password', '')
-            admin_pw = os.environ.get('ADMIN_PASSWORD', '')
-            if not admin_pw or password != admin_pw:
+            password = (body.get('password', '') or '').strip()
+            admin_pw = (os.environ.get('ADMIN_PASSWORD', '') or '').strip()
+            # Проверяем обычный пароль
+            pw_match = admin_pw and password == admin_pw
+            # Проверяем сохранённый пароль или одноразовый reset-токен из БД
+            reset_match = False
+            if not pw_match and password:
+                cur.execute(
+                    f"SELECT id, token FROM {SCHEMA}.admin_reset_tokens WHERE token=%s AND expires_at > NOW()",
+                    (password,)
+                )
+                row = cur.fetchone()
+                if not row:
+                    # Проверяем сохранённый пароль через PWD: префикс
+                    cur.execute(
+                        f"SELECT id FROM {SCHEMA}.admin_reset_tokens WHERE token=%s AND expires_at > NOW()",
+                        (f'PWD:{password}',)
+                    )
+                    row = cur.fetchone()
+                if row:
+                    token_val = row['token'] if row else ''
+                    # Одноразовые (без PWD:) — удаляем после использования
+                    if not token_val.startswith('PWD:'):
+                        cur.execute(f"UPDATE {SCHEMA}.admin_reset_tokens SET expires_at=NOW() WHERE token=%s", (token_val,))
+                    reset_match = True
+            if not pw_match and not reset_match:
                 return json_resp({'error': 'Неверный пароль'}, 401)
             new_token = make_token()
             cur.execute(
@@ -71,6 +94,29 @@ def handler(event: dict, context) -> dict:
             )
             conn.commit()
             return json_resp({'token': new_token, 'role': 'admin'})
+
+        # ── Смена пароля администратора (только с активной сессией) ────────────
+        if action == 'admin-set-password':
+            if not token:
+                return json_resp({'error': 'Нет токена'}, 401)
+            cur.execute(
+                f"SELECT id FROM {SCHEMA}.admin_sessions WHERE token=%s AND expires_at > NOW()",
+                (token,)
+            )
+            if not cur.fetchone():
+                return json_resp({'error': 'Сессия истекла'}, 401)
+            new_password = (body.get('new_password', '') or '').strip()
+            if len(new_password) < 6:
+                return json_resp({'error': 'Пароль минимум 6 символов'}, 400)
+            # Сохраняем в БД как fallback (основной приоритет — секрет)
+            cur.execute(
+                f"""INSERT INTO {SCHEMA}.admin_reset_tokens (token, expires_at)
+                    VALUES (%s, NOW() + INTERVAL '10 years')
+                    ON CONFLICT (token) DO UPDATE SET expires_at = NOW() + INTERVAL '10 years'""",
+                (f'PWD:{new_password}',)
+            )
+            conn.commit()
+            return json_resp({'ok': True, 'hint': 'Пароль сохранён. Также обновите секрет ADMIN_PASSWORD в Ядро → Секреты.'})
 
         # ── Проверка сессии администратора ───────────────────────────────────
         if action == 'admin-me':
