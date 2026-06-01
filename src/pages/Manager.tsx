@@ -230,6 +230,9 @@ export default function ManagerPage() {
     p.stats && { key: 'stats', label: 'Статистика', icon: 'BarChart2' },
   ].filter(Boolean) as { key: string; label: string; icon: string }[];
 
+  // Автоматически переключаем на первый доступный таб
+  const activeTab = tabs.find(t => t.key === tab) ? tab : (tabs[0]?.key as typeof tab) ?? 'students';
+
   return (
     <div className="min-h-screen bg-[#f7f7f7] font-opensans">
       <header style={{ background: '#1a1a1a' }} className="px-6 py-4 flex items-center justify-between">
@@ -253,7 +256,7 @@ export default function ManagerPage() {
             {tabs.map(t => (
               <button key={t.key} onClick={() => setTab(t.key as typeof tab)}
                 className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                  tab === t.key ? 'bg-[#1a1a1a] text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                  activeTab === t.key ? 'bg-[#1a1a1a] text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'
                 }`}>
                 <Icon name={t.icon} size={14} fallback="Settings" />{t.label}
               </button>
@@ -261,10 +264,10 @@ export default function ManagerPage() {
           </div>
         )}
 
-        {tab === 'students' && p.students && <StudentsPanel />}
-        {tab === 'content' && p.content && <ContentEditor />}
-        {tab === 'ai' && p.ai && <AiSettings />}
-        {tab === 'stats' && p.stats && <StatsPanel />}
+        {activeTab === 'students' && p.students && <StudentsPanel />}
+        {activeTab === 'content' && p.content && <ContentEditor />}
+        {activeTab === 'ai' && p.ai && <AiSettings />}
+        {activeTab === 'stats' && p.stats && <StatsPanel />}
 
         {tabs.length === 0 && (
           <div className="bg-white rounded-2xl p-12 text-center shadow-sm border border-gray-100">
