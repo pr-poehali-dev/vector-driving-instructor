@@ -39,25 +39,25 @@ async function call(body: object, token?: string) {
 }
 
 export const getTopics = () => call({ action: 'get_topics' });
-export const getAllTopicsAdmin = () => call({ action: 'get_all_topics' }, adminToken());
+export const getAllTopicsAdmin = () => call({ action: 'get_all_topics' }, accessToken());
 
 export const saveTopic = (d: Partial<DBTopic>) =>
-  call({ action: 'save_topic', ...d }, adminToken());
+  call({ action: 'save_topic', ...d }, accessToken());
 
 export const deleteTopic = (id: number) =>
-  call({ action: 'delete_topic', id }, adminToken());
+  call({ action: 'delete_topic', id }, accessToken());
 
 export const saveMessage = (d: Partial<DBMessage> & { topic_id?: number }) =>
-  call({ action: 'save_message', ...d }, adminToken());
+  call({ action: 'save_message', ...d }, accessToken());
 
 export const deleteMessage = (id: number) =>
-  call({ action: 'delete_message', id }, adminToken());
+  call({ action: 'delete_message', id }, accessToken());
 
 export const reorderTopics = (order: { id: number; sort_order: number }[]) =>
-  call({ action: 'reorder_topics', order }, adminToken());
+  call({ action: 'reorder_topics', order }, accessToken());
 
 export const reorderMessages = (order: { id: number; sort_order: number }[]) =>
-  call({ action: 'reorder_messages', order }, adminToken());
+  call({ action: 'reorder_messages', order }, accessToken());
 
 export const getLogsStudents = () =>
   call({ action: 'logs_students' }, accessToken());
