@@ -210,8 +210,8 @@ export default function ManagerPage() {
 
   useEffect(() => {
     managerMe()
-      .then(s => { setSession(s); setChecking(false); })
-      .catch(() => setChecking(false));
+      .then(s => { console.log('manager-me response:', JSON.stringify(s)); setSession(s); setChecking(false); })
+      .catch((e) => { console.log('manager-me error:', e.message); setChecking(false); });
   }, []);
 
   if (checking) return (
@@ -222,13 +222,15 @@ export default function ManagerPage() {
 
   if (!session) return <LoginScreen onSuccess={s => setSession(s)} />;
 
-  const p = session.permissions;
+  const p = session.permissions ?? {};
+  console.log('session:', JSON.stringify(session), 'permissions:', JSON.stringify(p));
   const tabs = [
     p.students && { key: 'students', label: 'Ученики', icon: 'Users' },
     p.content && { key: 'content', label: 'Контент бота', icon: 'MessageSquare' },
     p.ai && { key: 'ai', label: 'AI-инструктор', icon: 'Brain' },
     p.stats && { key: 'stats', label: 'Статистика', icon: 'BarChart2' },
   ].filter(Boolean) as { key: string; label: string; icon: string }[];
+  console.log('tabs:', JSON.stringify(tabs));
 
   // Автоматически переключаем на первый доступный таб
   const activeTab = tabs.find(t => t.key === tab) ? tab : (tabs[0]?.key as typeof tab) ?? 'students';
