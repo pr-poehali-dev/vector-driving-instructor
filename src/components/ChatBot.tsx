@@ -5,6 +5,7 @@ import StudentLogin from '@/components/StudentLogin';
 import { studentMe, studentLogout } from '@/api/auth';
 import { getTopics, DBTopic } from '@/api/content';
 import { getAiSettings, sendAiChat } from '@/api/ai';
+import Video360Player from '@/components/Video360Player';
 
 function WatermarkLayer({ name }: { name: string }) {
   if (!name) return null;
@@ -180,7 +181,9 @@ function MessageBubble({ message, isNew, studentName }: { message: ChatMessage; 
             <ImageViewer src={message.image.src} caption={message.image.caption} studentName={studentName} />
           )}
           {message.video && (
-            <VideoPlayer url={message.video.url} title={message.video.title} thumb={message.video.thumb} studentName={studentName} />
+            message.video.is360
+              ? <Video360Player videoUrl={message.video.url} title={message.video.title} />
+              : <VideoPlayer url={message.video.url} title={message.video.title} thumb={message.video.thumb} studentName={studentName} />
           )}
         </div>
       </div>

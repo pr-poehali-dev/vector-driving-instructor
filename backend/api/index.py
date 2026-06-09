@@ -107,7 +107,7 @@ def fetch_topics(cur, only_active=True):
     for t in topics:
         cur.execute(
             f"""SELECT id, sort_order, text, video_title, video_url, video_thumb,
-                       image_url, image_caption, options
+                       image_url, image_caption, options, is_360
                 FROM {SCHEMA}.chat_messages WHERE topic_id=%s ORDER BY sort_order, id""",
             (t['id'],)
         )
@@ -449,21 +449,22 @@ def handler(event: dict, context) -> dict:
             image_url = body.get('image_url') or None
             image_caption = body.get('image_caption') or None
             options = json.dumps(body.get('options') or [], ensure_ascii=False)
+            is_360 = bool(body.get('is_360', False))
             if mid:
                 cur.execute(
                     f"""UPDATE {SCHEMA}.chat_messages SET text=%s, sort_order=%s, video_title=%s, video_url=%s,
-                        video_thumb=%s, image_url=%s, image_caption=%s, options=%s WHERE id=%s
-                        RETURNING id, topic_id, sort_order, text, video_title, video_url, video_thumb, image_url, image_caption, options""",
-                    (text, sort_order, video_title, video_url, video_thumb, image_url, image_caption, options, mid)
+                        video_thumb=%s, image_url=%s, image_caption=%s, options=%s, is_360=%s WHERE id=%s
+                        RETURNING id, topic_id, sort_order, text, video_title, video_url, video_thumb, image_url, image_caption, options, is_360""",
+                    (text, sort_order, video_title, video_url, video_thumb, image_url, image_caption, options, is_360, mid)
                 )
             else:
                 if not tid:
                     return err('Не указана тема')
                 cur.execute(
-                    f"""INSERT INTO {SCHEMA}.chat_messages (topic_id, sort_order, text, video_title, video_url, video_thumb, image_url, image_caption, options)
-                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
-                        RETURNING id, topic_id, sort_order, text, video_title, video_url, video_thumb, image_url, image_caption, options""",
-                    (tid, sort_order, text, video_title, video_url, video_thumb, image_url, image_caption, options)
+                    f"""INSERT INTO {SCHEMA}.chat_messages (topic_id, sort_order, text, video_title, video_url, video_thumb, image_url, image_caption, options, is_360)
+                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                        RETURNING id, topic_id, sort_order, text, video_title, video_url, video_thumb, image_url, image_caption, options, is_360""",
+                    (tid, sort_order, text, video_title, video_url, video_thumb, image_url, image_caption, options, is_360)
                 )
             row = cur.fetchone()
             conn.commit()

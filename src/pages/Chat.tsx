@@ -6,6 +6,7 @@ import { studentMe, studentLogout } from '@/api/auth';
 import { getTopics, DBTopic } from '@/api/content';
 import { getAiSettings, sendAiChat } from '@/api/ai';
 import VectorLogo from '@/components/VectorLogo';
+import Video360Player from '@/components/Video360Player';
 
 // ─── Водяной знак ────────────────────────────────────────────────────────────
 function WatermarkLayer({ name }: { name: string }) {
@@ -93,7 +94,11 @@ function MessageBubble({ message, isNew, studentName }: { message: ChatMessage; 
         }`}>
           {message.text}
           {message.image && <ImageViewer src={message.image.src} caption={message.image.caption} studentName={studentName} />}
-          {message.video && <VideoPlayer url={message.video.url} title={message.video.title} thumb={message.video.thumb} studentName={studentName} />}
+          {message.video && (
+            message.video.is360
+              ? <Video360Player videoUrl={message.video.url} title={message.video.title} />
+              : <VideoPlayer url={message.video.url} title={message.video.title} thumb={message.video.thumb} studentName={studentName} />
+          )}
         </div>
       </div>
     </div>
@@ -120,7 +125,7 @@ function dbTopicToMessages(topic: DBTopic): ChatMessage[] {
     id: `db-${m.id}`,
     role: 'instructor' as const,
     text: m.text,
-    video: m.video_url ? { title: m.video_title || '', url: m.video_url, thumb: m.video_thumb || '' } : undefined,
+    video: m.video_url ? { title: m.video_title || '', url: m.video_url, thumb: m.video_thumb || '', is360: m.is_360 } : undefined,
     image: m.image_url ? { src: m.image_url, caption: m.image_caption || '' } : undefined,
     options: m.options?.length ? m.options : undefined,
   }));

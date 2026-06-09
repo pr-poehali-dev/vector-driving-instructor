@@ -2,7 +2,7 @@ export interface ChatMessage {
   id: string;
   role: 'instructor' | 'user';
   text: string;
-  video?: { title: string; url: string; thumb: string };
+  video?: { title: string; url: string; thumb: string; is360?: boolean };
   image?: { src: string; caption: string };
   options?: string[];
   delay?: number;
