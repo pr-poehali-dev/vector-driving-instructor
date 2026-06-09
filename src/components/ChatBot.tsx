@@ -210,7 +210,7 @@ function dbTopicToMessages(topic: DBTopic): ChatMessage[] {
     id: `db-${m.id}`,
     role: 'instructor' as const,
     text: m.text,
-    video: m.video_url ? { title: m.video_title || '', url: m.video_url, thumb: m.video_thumb || '' } : undefined,
+    video: m.video_url ? { title: m.video_title || '', url: m.video_url, thumb: m.video_thumb || '', is360: m.is_360 } : undefined,
     image: m.image_url ? { src: m.image_url, caption: m.image_caption || '' } : undefined,
     options: m.options?.length ? m.options : undefined,
   }));
