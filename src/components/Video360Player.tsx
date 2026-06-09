@@ -109,7 +109,13 @@ export default function Video360Player({ videoUrl, title }: Props) {
     animate();
 
     // Play (muted — браузер разрешит)
-    video.play().catch(err => console.error('360 video play error:', err));
+    console.log('[360] starting play, src=', videoUrl);
+    video.addEventListener('loadeddata', () => console.log('[360] video loadeddata, readyState=', video.readyState));
+    video.addEventListener('error', (e) => console.error('[360] video error:', video.error, e));
+    video.addEventListener('playing', () => console.log('[360] video playing!'));
+    video.play()
+      .then(() => console.log('[360] play() resolved'))
+      .catch(err => console.error('[360] play() rejected:', err));
 
     // Resize
     function onResize() {
