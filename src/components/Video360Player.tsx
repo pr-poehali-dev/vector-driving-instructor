@@ -17,81 +17,102 @@ export default function Video360Player({ videoUrl, title }: Props) {
     const mount = mountRef.current;
     if (!mount) return;
 
-    console.log('[360] init, mount size:', mount.clientWidth, mount.clientHeight);
+    // Небольшая задержка чтобы React успел отрисовать и убрать оверлей
+    const timer = setTimeout(() => {
+      const w = mount.offsetWidth || 320;
+      const h = mount.offsetHeight || 240;
 
-    const video = document.createElement('video');
-    video.src = videoUrl;
-    video.crossOrigin = 'anonymous';
-    video.loop = true;
-    video.playsInline = true;
-    video.muted = true;
-    videoRef.current = video;
+      const video = document.createElement('video');
+      video.src = videoUrl;
+      video.crossOrigin = 'anonymous';
+      video.loop = true;
+      video.playsInline = true;
+      video.muted = true;
+      videoRef.current = video;
 
-    const w = mount.clientWidth || mount.offsetWidth || 320;
-    const h = mount.clientHeight || mount.offsetHeight || 240;
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(w, h);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.domElement.style.display = 'block';
+      renderer.domElement.style.width = '100%';
+      renderer.domElement.style.height = '100%';
+      mount.appendChild(renderer.domElement);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(w, h);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    mount.appendChild(renderer.domElement);
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(75, w / h, 0.1, 1000);
 
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(75, w / h, 0.1, 1000);
+      const texture = new THREE.VideoTexture(video);
+      texture.minFilter = THREE.LinearFilter;
+      texture.magFilter = THREE.LinearFilter;
 
-    const texture = new THREE.VideoTexture(video);
-    texture.minFilter = THREE.LinearFilter;
-    texture.magFilter = THREE.LinearFilter;
+      const geo = new THREE.SphereGeometry(500, 60, 40);
+      geo.scale(-1, 1, 1);
+      const mat = new THREE.MeshBasicMaterial({ map: texture });
+      scene.add(new THREE.Mesh(geo, mat));
 
-    const geo = new THREE.SphereGeometry(500, 60, 40);
-    geo.scale(-1, 1, 1);
-    const mat = new THREE.MeshBasicMaterial({ map: texture });
-    scene.add(new THREE.Mesh(geo, mat));
+      let lon = 0, lat = 0, isDragging = false, px = 0, py = 0;
+      const el = renderer.domElement;
+      el.style.cursor = 'grab';
 
-    let lon = 0, lat = 0, isDragging = false, px = 0, py = 0;
-    const el = renderer.domElement;
-    el.style.cursor = 'grab';
-    el.style.display = 'block';
+      const onDown = (e: PointerEvent) => {
+        isDragging = true; px = e.clientX; py = e.clientY;
+        el.setPointerCapture(e.pointerId); el.style.cursor = 'grabbing';
+      };
+      const onMove = (e: PointerEvent) => {
+        if (!isDragging) return;
+        lon -= (e.clientX - px) * 0.25;
+        lat = Math.max(-85, Math.min(85, lat + (e.clientY - py) * 0.25));
+        px = e.clientX; py = e.clientY;
+      };
+      const onUp = () => { isDragging = false; el.style.cursor = 'grab'; };
 
-    const onDown = (e: PointerEvent) => { isDragging = true; px = e.clientX; py = e.clientY; el.setPointerCapture(e.pointerId); el.style.cursor = 'grabbing'; };
-    const onMove = (e: PointerEvent) => { if (!isDragging) return; lon -= (e.clientX - px) * 0.25; lat = Math.max(-85, Math.min(85, lat + (e.clientY - py) * 0.25)); px = e.clientX; py = e.clientY; };
-    const onUp = () => { isDragging = false; el.style.cursor = 'grab'; };
+      el.addEventListener('pointerdown', onDown);
+      el.addEventListener('pointermove', onMove);
+      el.addEventListener('pointerup', onUp);
+      el.addEventListener('pointerleave', onUp);
 
-    el.addEventListener('pointerdown', onDown);
-    el.addEventListener('pointermove', onMove);
-    el.addEventListener('pointerup', onUp);
-    el.addEventListener('pointerleave', onUp);
+      let animId: number;
+      const tick = () => {
+        animId = requestAnimationFrame(tick);
+        if (video.readyState >= 2) texture.needsUpdate = true;
+        const phi = THREE.MathUtils.degToRad(90 - lat);
+        const theta = THREE.MathUtils.degToRad(lon);
+        camera.lookAt(
+          500 * Math.sin(phi) * Math.cos(theta),
+          500 * Math.cos(phi),
+          500 * Math.sin(phi) * Math.sin(theta),
+        );
+        renderer.render(scene, camera);
+      };
+      tick();
 
-    let animId: number;
-    const tick = () => {
-      animId = requestAnimationFrame(tick);
-      if (video.readyState >= 2) texture.needsUpdate = true;
-      const phi = THREE.MathUtils.degToRad(90 - lat);
-      const theta = THREE.MathUtils.degToRad(lon);
-      camera.lookAt(500 * Math.sin(phi) * Math.cos(theta), 500 * Math.cos(phi), 500 * Math.sin(phi) * Math.sin(theta));
-      renderer.render(scene, camera);
-    };
-    tick();
+      video.play().catch(() => {});
 
-    video.play()
-      .then(() => console.log('[360] playing'))
-      .catch(e => console.error('[360] play error:', e));
+      const onResize = () => {
+        const nw = mount.offsetWidth; const nh = mount.offsetHeight;
+        camera.aspect = nw / nh; camera.updateProjectionMatrix(); renderer.setSize(nw, nh);
+      };
+      window.addEventListener('resize', onResize);
 
-    const onResize = () => {
-      const nw = mount.clientWidth; const nh = mount.clientHeight;
-      camera.aspect = nw / nh; camera.updateProjectionMatrix(); renderer.setSize(nw, nh);
-    };
-    window.addEventListener('resize', onResize);
+      // сохраняем cleanup
+      mount.dataset.cleanup = 'set';
+      (mount as unknown as { _cleanup: () => void })._cleanup = () => {
+        cancelAnimationFrame(animId);
+        window.removeEventListener('resize', onResize);
+        el.removeEventListener('pointerdown', onDown);
+        el.removeEventListener('pointermove', onMove);
+        el.removeEventListener('pointerup', onUp);
+        el.removeEventListener('pointerleave', onUp);
+        video.pause(); video.src = '';
+        renderer.dispose(); geo.dispose(); mat.dispose(); texture.dispose();
+        if (mount.contains(el)) mount.removeChild(el);
+      };
+    }, 50);
 
     return () => {
-      cancelAnimationFrame(animId);
-      window.removeEventListener('resize', onResize);
-      el.removeEventListener('pointerdown', onDown);
-      el.removeEventListener('pointermove', onMove);
-      el.removeEventListener('pointerup', onUp);
-      el.removeEventListener('pointerleave', onUp);
-      video.pause(); video.src = '';
-      renderer.dispose(); geo.dispose(); mat.dispose(); texture.dispose();
-      if (mount.contains(el)) mount.removeChild(el);
+      clearTimeout(timer);
+      const m = mountRef.current as unknown as { _cleanup?: () => void };
+      m?._cleanup?.();
     };
   }, [started, videoUrl]);
 
@@ -118,12 +139,13 @@ export default function Video360Player({ videoUrl, title }: Props) {
         )}
       </div>
 
-      {/* mount всегда в DOM — чтобы размеры были корректны */}
-      <div ref={mountRef} style={{ width: '100%', height: '240px', position: 'relative', background: '#111' }}>
+      <div
+        ref={mountRef}
+        style={{ width: '100%', height: '240px', position: 'relative', background: '#111' }}
+      >
         {!started && (
           <div
             className="absolute inset-0 flex flex-col items-center justify-center gap-2 cursor-pointer"
-            style={{ background: '#111' }}
             onClick={() => setStarted(true)}
           >
             <div className="w-14 h-14 rounded-full bg-[#E8002D] flex items-center justify-center shadow-lg hover:scale-110 transition-transform">
