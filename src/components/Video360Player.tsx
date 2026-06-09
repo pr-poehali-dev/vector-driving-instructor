@@ -8,35 +8,29 @@ interface Props {
 
 export default function Video360Player({ videoUrl, title }: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
+  const videoElRef = useRef<HTMLVideoElement>(null);
   const [started, setStarted] = useState(false);
   const [muted, setMuted] = useState(true);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
     if (!started) return;
     const mount = mountRef.current;
-    if (!mount) return;
+    const video = videoElRef.current;
+    if (!mount || !video) return;
 
-    // Небольшая задержка чтобы React успел отрисовать и убрать оверлей
     const timer = setTimeout(() => {
       const w = mount.offsetWidth || 320;
       const h = mount.offsetHeight || 240;
 
-      const video = document.createElement('video');
-      video.src = videoUrl;
-      video.crossOrigin = 'anonymous';
-      video.loop = true;
-      video.playsInline = true;
-      video.muted = true;
-      videoRef.current = video;
-
       const renderer = new THREE.WebGLRenderer({ antialias: true });
       renderer.setSize(w, h);
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      renderer.domElement.style.display = 'block';
-      renderer.domElement.style.width = '100%';
-      renderer.domElement.style.height = '100%';
-      mount.appendChild(renderer.domElement);
+      const canvas = renderer.domElement;
+      canvas.style.position = 'absolute';
+      canvas.style.top = '0'; canvas.style.left = '0';
+      canvas.style.width = '100%'; canvas.style.height = '100%';
+      canvas.style.cursor = 'grab';
+      mount.appendChild(canvas);
 
       const scene = new THREE.Scene();
       const camera = new THREE.PerspectiveCamera(75, w / h, 0.1, 1000);
@@ -51,12 +45,10 @@ export default function Video360Player({ videoUrl, title }: Props) {
       scene.add(new THREE.Mesh(geo, mat));
 
       let lon = 0, lat = 0, isDragging = false, px = 0, py = 0;
-      const el = renderer.domElement;
-      el.style.cursor = 'grab';
 
       const onDown = (e: PointerEvent) => {
         isDragging = true; px = e.clientX; py = e.clientY;
-        el.setPointerCapture(e.pointerId); el.style.cursor = 'grabbing';
+        canvas.setPointerCapture(e.pointerId); canvas.style.cursor = 'grabbing';
       };
       const onMove = (e: PointerEvent) => {
         if (!isDragging) return;
@@ -64,12 +56,12 @@ export default function Video360Player({ videoUrl, title }: Props) {
         lat = Math.max(-85, Math.min(85, lat + (e.clientY - py) * 0.25));
         px = e.clientX; py = e.clientY;
       };
-      const onUp = () => { isDragging = false; el.style.cursor = 'grab'; };
+      const onUp = () => { isDragging = false; canvas.style.cursor = 'grab'; };
 
-      el.addEventListener('pointerdown', onDown);
-      el.addEventListener('pointermove', onMove);
-      el.addEventListener('pointerup', onUp);
-      el.addEventListener('pointerleave', onUp);
+      canvas.addEventListener('pointerdown', onDown);
+      canvas.addEventListener('pointermove', onMove);
+      canvas.addEventListener('pointerup', onUp);
+      canvas.addEventListener('pointerleave', onUp);
 
       let animId: number;
       const tick = () => {
@@ -86,39 +78,34 @@ export default function Video360Player({ videoUrl, title }: Props) {
       };
       tick();
 
-      video.play().catch(() => {});
-
       const onResize = () => {
         const nw = mount.offsetWidth; const nh = mount.offsetHeight;
-        camera.aspect = nw / nh; camera.updateProjectionMatrix(); renderer.setSize(nw, nh);
+        camera.aspect = nw / nh; camera.updateProjectionMatrix();
+        renderer.setSize(nw, nh);
       };
       window.addEventListener('resize', onResize);
 
-      // сохраняем cleanup
-      mount.dataset.cleanup = 'set';
-      (mount as unknown as { _cleanup: () => void })._cleanup = () => {
+      (mount as unknown as { _destroy: () => void })._destroy = () => {
         cancelAnimationFrame(animId);
         window.removeEventListener('resize', onResize);
-        el.removeEventListener('pointerdown', onDown);
-        el.removeEventListener('pointermove', onMove);
-        el.removeEventListener('pointerup', onUp);
-        el.removeEventListener('pointerleave', onUp);
-        video.pause(); video.src = '';
+        canvas.removeEventListener('pointerdown', onDown);
+        canvas.removeEventListener('pointermove', onMove);
+        canvas.removeEventListener('pointerup', onUp);
+        canvas.removeEventListener('pointerleave', onUp);
         renderer.dispose(); geo.dispose(); mat.dispose(); texture.dispose();
-        if (mount.contains(el)) mount.removeChild(el);
+        if (mount.contains(canvas)) mount.removeChild(canvas);
       };
-    }, 50);
+    }, 100);
 
     return () => {
       clearTimeout(timer);
-      const m = mountRef.current as unknown as { _cleanup?: () => void };
-      m?._cleanup?.();
+      (mountRef.current as unknown as { _destroy?: () => void })?._destroy?.();
     };
-  }, [started, videoUrl]);
+  }, [started]);
 
   const toggleMute = () => {
-    if (!videoRef.current) return;
-    videoRef.current.muted = !muted;
+    if (!videoElRef.current) return;
+    videoElRef.current.muted = !muted;
     setMuted(m => !m);
   };
 
@@ -139,10 +126,18 @@ export default function Video360Player({ videoUrl, title }: Props) {
         )}
       </div>
 
-      <div
-        ref={mountRef}
-        style={{ width: '100%', height: '240px', position: 'relative', background: '#111' }}
-      >
+      <div ref={mountRef} style={{ width: '100%', height: '240px', position: 'relative', background: '#111' }}>
+        {/* Видео тег в DOM без crossOrigin — обходит CORS ограничения WebGL */}
+        <video
+          ref={videoElRef}
+          src={videoUrl}
+          loop
+          playsInline
+          muted={muted}
+          autoPlay={started}
+          style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
+        />
+
         {!started && (
           <div
             className="absolute inset-0 flex flex-col items-center justify-center gap-2 cursor-pointer"
