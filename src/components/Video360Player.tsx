@@ -7,172 +7,124 @@ interface Props {
 }
 
 export default function Video360Player({ videoUrl, title }: Props) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const cleanupRef = useRef<(() => void) | null>(null);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const mountRef = useRef<HTMLDivElement>(null);
   const [started, setStarted] = useState(false);
   const [muted, setMuted] = useState(true);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
-    return () => { cleanupRef.current?.(); };
-  }, []);
+    if (!started) return;
+    const mount = mountRef.current;
+    if (!mount) return;
 
-  function startPlayer() {
-    if (!containerRef.current || started) return;
-    setStarted(true);
+    console.log('[360] init, mount size:', mount.clientWidth, mount.clientHeight);
 
-    const container = containerRef.current;
-    const rect = container.getBoundingClientRect();
-    const w = rect.width || 320;
-    const h = rect.height || 240;
-
-    // Video
     const video = document.createElement('video');
     video.src = videoUrl;
     video.crossOrigin = 'anonymous';
     video.loop = true;
     video.playsInline = true;
-    video.muted = true; // обязательно для autoplay в браузере
-    video.style.display = 'none';
-    document.body.appendChild(video);
+    video.muted = true;
     videoRef.current = video;
 
-    // Renderer
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setSize(w, h);
-    renderer.domElement.style.display = 'block';
-    container.appendChild(renderer.domElement);
+    const w = mount.clientWidth || mount.offsetWidth || 320;
+    const h = mount.clientHeight || mount.offsetHeight || 240;
 
-    // Scene
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(w, h);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    mount.appendChild(renderer.domElement);
+
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, w / h, 0.1, 1000);
-    camera.position.set(0, 0, 0.001);
 
-    // Texture from video
     const texture = new THREE.VideoTexture(video);
-    texture.colorSpace = THREE.SRGBColorSpace;
     texture.minFilter = THREE.LinearFilter;
     texture.magFilter = THREE.LinearFilter;
 
-    // Inside-out sphere = equirectangular 360
-    const geometry = new THREE.SphereGeometry(500, 64, 32);
-    geometry.scale(-1, 1, 1);
-    const material = new THREE.MeshBasicMaterial({ map: texture });
-    scene.add(new THREE.Mesh(geometry, material));
+    const geo = new THREE.SphereGeometry(500, 60, 40);
+    geo.scale(-1, 1, 1);
+    const mat = new THREE.MeshBasicMaterial({ map: texture });
+    scene.add(new THREE.Mesh(geo, mat));
 
-    // Drag controls
-    let isDragging = false;
-    let prevX = 0, prevY = 0;
-    let lon = 0, lat = 0;
-
+    let lon = 0, lat = 0, isDragging = false, px = 0, py = 0;
     const el = renderer.domElement;
     el.style.cursor = 'grab';
+    el.style.display = 'block';
 
-    function onDown(e: PointerEvent) {
-      isDragging = true;
-      prevX = e.clientX; prevY = e.clientY;
-      el.setPointerCapture(e.pointerId);
-      el.style.cursor = 'grabbing';
-    }
-    function onMove(e: PointerEvent) {
-      if (!isDragging) return;
-      lon -= (e.clientX - prevX) * 0.25;
-      lat += (e.clientY - prevY) * 0.25;
-      lat = Math.max(-85, Math.min(85, lat));
-      prevX = e.clientX; prevY = e.clientY;
-    }
-    function onUp() { isDragging = false; el.style.cursor = 'grab'; }
+    const onDown = (e: PointerEvent) => { isDragging = true; px = e.clientX; py = e.clientY; el.setPointerCapture(e.pointerId); el.style.cursor = 'grabbing'; };
+    const onMove = (e: PointerEvent) => { if (!isDragging) return; lon -= (e.clientX - px) * 0.25; lat = Math.max(-85, Math.min(85, lat + (e.clientY - py) * 0.25)); px = e.clientX; py = e.clientY; };
+    const onUp = () => { isDragging = false; el.style.cursor = 'grab'; };
 
     el.addEventListener('pointerdown', onDown);
     el.addEventListener('pointermove', onMove);
     el.addEventListener('pointerup', onUp);
     el.addEventListener('pointerleave', onUp);
 
-    // Render loop
     let animId: number;
-    function animate() {
-      animId = requestAnimationFrame(animate);
-      // Критично: без этого VideoTexture не обновляется — экран чёрный
-      if (video.readyState >= video.HAVE_CURRENT_DATA) {
-        texture.needsUpdate = true;
-      }
+    const tick = () => {
+      animId = requestAnimationFrame(tick);
+      if (video.readyState >= 2) texture.needsUpdate = true;
       const phi = THREE.MathUtils.degToRad(90 - lat);
       const theta = THREE.MathUtils.degToRad(lon);
-      camera.lookAt(
-        500 * Math.sin(phi) * Math.cos(theta),
-        500 * Math.cos(phi),
-        500 * Math.sin(phi) * Math.sin(theta),
-      );
+      camera.lookAt(500 * Math.sin(phi) * Math.cos(theta), 500 * Math.cos(phi), 500 * Math.sin(phi) * Math.sin(theta));
       renderer.render(scene, camera);
-    }
-    animate();
+    };
+    tick();
 
-    // Play (muted — браузер разрешит)
-    console.log('[360] starting play, src=', videoUrl);
-    video.addEventListener('loadeddata', () => console.log('[360] video loadeddata, readyState=', video.readyState));
-    video.addEventListener('error', (e) => console.error('[360] video error:', video.error, e));
-    video.addEventListener('playing', () => console.log('[360] video playing!'));
     video.play()
-      .then(() => console.log('[360] play() resolved'))
-      .catch(err => console.error('[360] play() rejected:', err));
+      .then(() => console.log('[360] playing'))
+      .catch(e => console.error('[360] play error:', e));
 
-    // Resize
-    function onResize() {
-      const r = container.getBoundingClientRect();
-      camera.aspect = r.width / r.height;
-      camera.updateProjectionMatrix();
-      renderer.setSize(r.width, r.height);
-    }
+    const onResize = () => {
+      const nw = mount.clientWidth; const nh = mount.clientHeight;
+      camera.aspect = nw / nh; camera.updateProjectionMatrix(); renderer.setSize(nw, nh);
+    };
     window.addEventListener('resize', onResize);
 
-    cleanupRef.current = () => {
+    return () => {
       cancelAnimationFrame(animId);
       window.removeEventListener('resize', onResize);
       el.removeEventListener('pointerdown', onDown);
       el.removeEventListener('pointermove', onMove);
       el.removeEventListener('pointerup', onUp);
       el.removeEventListener('pointerleave', onUp);
-      video.pause(); video.remove();
-      renderer.dispose(); geometry.dispose(); material.dispose(); texture.dispose();
-      if (container.contains(el)) container.removeChild(el);
+      video.pause(); video.src = '';
+      renderer.dispose(); geo.dispose(); mat.dispose(); texture.dispose();
+      if (mount.contains(el)) mount.removeChild(el);
     };
-  }
+  }, [started, videoUrl]);
 
-  function toggleMute() {
+  const toggleMute = () => {
     if (!videoRef.current) return;
-    const newMuted = !muted;
-    videoRef.current.muted = newMuted;
-    setMuted(newMuted);
-  }
+    videoRef.current.muted = !muted;
+    setMuted(m => !m);
+  };
 
   return (
     <div className="mt-2 rounded-xl overflow-hidden bg-black select-none">
-      {title && (
-        <div className="px-3 py-2 bg-black/80 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="text-xs font-bold text-[#E8002D] uppercase tracking-wide flex-shrink-0">360°</span>
-            <span className="text-sm text-white font-medium truncate">{title}</span>
-          </div>
-          {started && (
-            <button
-              onClick={toggleMute}
-              className="flex-shrink-0 text-white/60 hover:text-white transition-colors"
-              title={muted ? 'Включить звук' : 'Выключить звук'}
-            >
-              {muted
-                ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
-                : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-              }
-            </button>
-          )}
+      <div className="px-3 py-2 bg-black/80 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-xs font-bold text-[#E8002D] uppercase tracking-wide flex-shrink-0">360°</span>
+          {title && <span className="text-sm text-white font-medium truncate">{title}</span>}
         </div>
-      )}
-      <div ref={containerRef} style={{ width: '100%', height: '240px', position: 'relative' }}>
+        {started && (
+          <button onClick={toggleMute} className="flex-shrink-0 text-white/60 hover:text-white transition-colors">
+            {muted
+              ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+              : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+            }
+          </button>
+        )}
+      </div>
+
+      {/* mount всегда в DOM — чтобы размеры были корректны */}
+      <div ref={mountRef} style={{ width: '100%', height: '240px', position: 'relative', background: '#111' }}>
         {!started && (
           <div
-            className="absolute inset-0 flex flex-col items-center justify-center gap-2 cursor-pointer bg-gray-900"
-            onClick={startPlayer}
+            className="absolute inset-0 flex flex-col items-center justify-center gap-2 cursor-pointer"
+            style={{ background: '#111' }}
+            onClick={() => setStarted(true)}
           >
             <div className="w-14 h-14 rounded-full bg-[#E8002D] flex items-center justify-center shadow-lg hover:scale-110 transition-transform">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
