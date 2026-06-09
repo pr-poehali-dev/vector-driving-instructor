@@ -93,6 +93,10 @@ export default function Video360Player({ videoUrl, title }: Props) {
     let animId: number;
     function animate() {
       animId = requestAnimationFrame(animate);
+      // Критично: без этого VideoTexture не обновляется — экран чёрный
+      if (video.readyState >= video.HAVE_CURRENT_DATA) {
+        texture.needsUpdate = true;
+      }
       const phi = THREE.MathUtils.degToRad(90 - lat);
       const theta = THREE.MathUtils.degToRad(lon);
       camera.lookAt(
