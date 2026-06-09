@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Viewer } from '@photo-sphere-viewer/core';
+import { EquirectangularVideoAdapter } from '@photo-sphere-viewer/equirectangular-video-adapter';
 import { VideoPlugin } from '@photo-sphere-viewer/video-plugin';
 import '@photo-sphere-viewer/core/index.css';
 import '@photo-sphere-viewer/video-plugin/index.css';
@@ -18,14 +19,12 @@ export default function Video360Player({ videoUrl, title }: Props) {
 
     viewerRef.current = new Viewer({
       container: containerRef.current,
+      adapter: [EquirectangularVideoAdapter, { autoplay: false, muted: false }],
+      panorama: { source: videoUrl },
       plugins: [
-        [VideoPlugin, {
-          src: videoUrl,
-          autoplay: false,
-          muted: false,
-        }],
+        [VideoPlugin, { autoplay: false, muted: false }],
       ],
-      navbar: ['video-play', 'video-volume', 'caption', 'fullscreen'],
+      navbar: ['video-play', 'video-volume', 'fullscreen'],
       loadingImg: undefined,
       touchmoveTwoFingers: false,
       mousewheelCtrlKey: false,
@@ -45,7 +44,7 @@ export default function Video360Player({ videoUrl, title }: Props) {
           <span className="text-sm text-white font-medium truncate">{title}</span>
         </div>
       )}
-      <div ref={containerRef} style={{ width: '100%', height: '240px' }} />
+      <div ref={containerRef} style={{ width: '100%', height: '260px' }} />
     </div>
   );
 }

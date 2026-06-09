@@ -7,6 +7,7 @@
       "dependencies": {
         "@hookform/resolvers": "^3.9.0",
         "@photo-sphere-viewer/core": "^5.14.1",
+        "@photo-sphere-viewer/equirectangular-video-adapter": "^5.14.1",
         "@photo-sphere-viewer/video-plugin": "^5.14.1",
         "@radix-ui/react-accordion": "^1.2.0",
         "@radix-ui/react-alert-dialog": "^1.1.1",
@@ -245,6 +246,8 @@
     "@oxc-project/types": ["@oxc-project/types@0.92.0", "", {}, "sha512-PDLfCbwgXjGdTBxzcuDOUxJYNBl6P8dOp3eDKWw54dYvqONan9rwGDRQU0zrkdEMiItfXQQUOI17uOcMX5Zm7A=="],
 
     "@photo-sphere-viewer/core": ["@photo-sphere-viewer/core@5.14.1", "", { "dependencies": { "three": "^0.179.0" } }, "sha512-qrwUudrX9YZms4c2shlY/H3jUP0oh9FyGEqIDr/95ulNZgKbhQ6C/i8zDQ4j8ooFR4+z5FDORQtGvLgPyX8VCA=="],
+
+    "@photo-sphere-viewer/equirectangular-video-adapter": ["@photo-sphere-viewer/equirectangular-video-adapter@5.14.1", "", { "peerDependencies": { "@photo-sphere-viewer/core": "5.14.1", "@photo-sphere-viewer/video-plugin": "5.14.1" } }, "sha512-rZ6igEy1TEfgHB8Ak/8N0rZNYQLbNEGLVmhwNxDMWESCJ9nrNx3tJHFn7k6eZYjj9zJA73xF5YdY6XWUCpZDzg=="],
 
     "@photo-sphere-viewer/video-plugin": ["@photo-sphere-viewer/video-plugin@5.14.1", "", { "peerDependencies": { "@photo-sphere-viewer/core": "5.14.1" } }, "sha512-7yItXiD+eS/+9lgtaE9+wXSIpdYVU0kBsBN4vNtChaoJZF3JB8WUXjYLbszKp1yhwsvZ6eNxDcMBUgYdK6CrQA=="],
 
