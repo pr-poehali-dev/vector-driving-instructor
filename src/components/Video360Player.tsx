@@ -7,101 +7,81 @@ interface Props {
 
 export default function Video360Player({ videoUrl, title }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const [started, setStarted] = useState(false);
   const [muted, setMuted] = useState(true);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  const drag = useRef({ isDown: false, startX: 0, startY: 0, lon: 0, lat: 0, curLon: 0, curLat: 0 });
 
   useEffect(() => {
-    if (!started || !canvasRef.current) return;
-
+    if (!started) return;
     const canvas = canvasRef.current;
+    const video = videoRef.current;
+    if (!canvas || !video) return;
+
     const ctx = canvas.getContext('2d')!;
-
-    const video = document.createElement('video');
-    video.src = videoUrl;
-    video.loop = true;
-    video.muted = true;
-    video.playsInline = true;
-    videoRef.current = video;
-
-    // Угол обзора в градусах (по горизонтали)
-    let lon = 0; // горизонтальный угол (0..360)
-    let lat = 0; // вертикальный угол (-60..60)
-    let isDown = false;
-    let startX = 0, startY = 0, startLon = 0, startLat = 0;
-
-    const W = canvas.width;
-    const H = canvas.height;
+    const d = drag.current;
 
     let raf: number;
-
     const draw = () => {
       raf = requestAnimationFrame(draw);
-      if (video.readyState < 2) return;
 
       const vw = video.videoWidth;
       const vh = video.videoHeight;
-      if (!vw || !vh) return;
+      const W = canvas.width;
+      const H = canvas.height;
 
-      // Equirectangular: берём фрагмент из видео по текущему углу
-      // lon 0..360 → x по всей ширине видео
-      // lat -60..60 → y по части высоты видео
+      if (!vw || !vh || video.readyState < 2) {
+        ctx.fillStyle = '#111';
+        ctx.fillRect(0, 0, W, H);
+        return;
+      }
 
-      const fovH = 90; // угол обзора 90°
+      const fovH = 90;
       const fovV = (fovH * H) / W;
-
-      // Вычисляем фрагмент источника
       const srcW = (fovH / 360) * vw;
       const srcH = (fovV / 180) * vh;
 
-      // Центр по lon (с wrap-around) и lat
-      const cx = ((lon % 360) / 360) * vw;
-      const cy = ((90 - lat) / 180) * vh;
-
+      const cx = (((d.curLon % 360) + 360) % 360 / 360) * vw;
+      const cy = ((90 - d.curLat) / 180) * vh;
       const sx = cx - srcW / 2;
-      const sy = cy - srcH / 2;
+      const sy = Math.max(0, Math.min(vh - srcH, cy - srcH / 2));
 
-      // Сначала заливаем чёрным
       ctx.fillStyle = '#000';
       ctx.fillRect(0, 0, W, H);
 
       if (sx >= 0 && sx + srcW <= vw) {
-        // Простой случай — без wrap-around
         ctx.drawImage(video, sx, sy, srcW, srcH, 0, 0, W, H);
       } else {
-        // Wrap-around по горизонтали
-        const leftW = vw - ((sx % vw + vw) % vw);
+        const sxWrap = ((sx % vw) + vw) % vw;
+        const leftW = vw - sxWrap;
         const rightW = srcW - leftW;
-        const scaleX = W / srcW;
-        ctx.drawImage(video, (sx % vw + vw) % vw, sy, leftW, srcH, 0, 0, leftW * scaleX, H);
-        ctx.drawImage(video, 0, sy, rightW, srcH, leftW * scaleX, 0, rightW * scaleX, H);
+        const scale = W / srcW;
+        ctx.drawImage(video, sxWrap, sy, leftW, srcH, 0, 0, leftW * scale, H);
+        ctx.drawImage(video, 0, sy, rightW, srcH, leftW * scale, 0, rightW * scale, H);
       }
     };
 
     const onDown = (e: PointerEvent) => {
-      isDown = true;
-      startX = e.clientX; startY = e.clientY;
-      startLon = lon; startLat = lat;
+      d.isDown = true;
+      d.startX = e.clientX; d.startY = e.clientY;
+      d.lon = d.curLon; d.lat = d.curLat;
       canvas.setPointerCapture(e.pointerId);
       canvas.style.cursor = 'grabbing';
     };
     const onMove = (e: PointerEvent) => {
-      if (!isDown) return;
-      lon = startLon - (e.clientX - startX) * 0.3;
-      lat = Math.max(-60, Math.min(60, startLat + (e.clientY - startY) * 0.2));
+      if (!d.isDown) return;
+      d.curLon = d.lon - (e.clientX - d.startX) * 0.3;
+      d.curLat = Math.max(-60, Math.min(60, d.lat + (e.clientY - d.startY) * 0.2));
     };
-    const onUp = () => { isDown = false; canvas.style.cursor = 'grab'; };
+    const onUp = () => { d.isDown = false; canvas.style.cursor = 'grab'; };
 
     canvas.addEventListener('pointerdown', onDown);
     canvas.addEventListener('pointermove', onMove);
     canvas.addEventListener('pointerup', onUp);
     canvas.addEventListener('pointercancel', onUp);
 
-    video.addEventListener('canplay', () => {
-      video.play().catch(() => {});
-      draw();
-    }, { once: true });
-    video.load();
+    draw();
 
     return () => {
       cancelAnimationFrame(raf);
@@ -109,11 +89,14 @@ export default function Video360Player({ videoUrl, title }: Props) {
       canvas.removeEventListener('pointermove', onMove);
       canvas.removeEventListener('pointerup', onUp);
       canvas.removeEventListener('pointercancel', onUp);
-      video.pause();
-      video.src = '';
-      videoRef.current = null;
     };
-  }, [started, videoUrl]);
+  }, [started]);
+
+  const handlePlay = () => {
+    // play() вызываем синхронно из клика — доверенный жест браузера
+    videoRef.current?.play().catch(() => {});
+    setStarted(true);
+  };
 
   const toggleMute = () => {
     if (!videoRef.current) return;
@@ -139,16 +122,27 @@ export default function Video360Player({ videoUrl, title }: Props) {
       </div>
 
       <div style={{ width: '100%', height: 240, position: 'relative', background: '#111' }}>
+        {/* Видео тег в DOM с самого начала — play() вызывается синхронно из клика */}
+        <video
+          ref={videoRef}
+          src={videoUrl}
+          loop
+          muted
+          playsInline
+          style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none', top: 0, left: 0 }}
+        />
+
         <canvas
           ref={canvasRef}
           width={640}
           height={240}
           style={{ width: '100%', height: '100%', display: started ? 'block' : 'none', cursor: 'grab' }}
         />
+
         {!started && (
           <div
             className="absolute inset-0 flex flex-col items-center justify-center gap-3 cursor-pointer"
-            onClick={() => setStarted(true)}
+            onClick={handlePlay}
           >
             <div className="w-14 h-14 rounded-full bg-[#E8002D] flex items-center justify-center shadow-xl hover:scale-110 transition-transform">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
