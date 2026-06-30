@@ -35,8 +35,9 @@ export default function Video360Player({ videoUrl, title }: Props) {
         ctx.fillStyle = '#111';
         ctx.fillRect(0, 0, W, H);
         ctx.fillStyle = '#fff';
-        ctx.font = '12px sans-serif';
-        ctx.fillText(`readyState: ${video.readyState} | vw: ${vw} | vh: ${vh}`, 10, 20);
+        ctx.font = 'bold 28px sans-serif';
+        ctx.fillText(`readyState: ${video.readyState}`, 10, 60);
+        ctx.fillText(`vw: ${vw}  vh: ${vh}`, 10, 110);
         return;
       }
 
