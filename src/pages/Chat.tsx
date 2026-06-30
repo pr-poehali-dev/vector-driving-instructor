@@ -303,7 +303,7 @@ export default function ChatPage() {
               <p className="text-gray-400 text-sm mt-1">Чат доступен только для учеников автошколы</p>
             </div>
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-              <StudentLogin onSuccess={name => { setStudentName(name); setAuthState('ok'); }} />
+              <StudentLogin onSuccess={name => { setStudentName(name); setAuthState('ok'); studentMe().then(d => setStudentId(d.id || null)).catch(() => {}); }} />
             </div>
           </div>
         </div>

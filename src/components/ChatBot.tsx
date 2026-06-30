@@ -416,7 +416,7 @@ export default function ChatBot() {
                   <Icon name="X" size={16} />
                 </button>
               </div>
-              <StudentLogin onSuccess={name => { setStudentName(name); setAuthState('ok'); }} />
+              <StudentLogin onSuccess={name => { setStudentName(name); setAuthState('ok'); studentMe().then(d => setStudentId(d.id || null)).catch(() => {}); }} />
             </div>
           </div>
         )}
