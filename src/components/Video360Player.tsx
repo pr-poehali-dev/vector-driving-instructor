@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import * as THREE from 'three';
 
 interface Props {
   videoUrl: string;
@@ -7,61 +6,77 @@ interface Props {
 }
 
 export default function Video360Player({ videoUrl, title }: Props) {
-  const mountRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [started, setStarted] = useState(false);
   const [muted, setMuted] = useState(true);
-  const stateRef = useRef<{ video: HTMLVideoElement; toggleMute: () => void } | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
-    if (!started || !mountRef.current) return;
+    if (!started || !canvasRef.current) return;
 
-    const mount = mountRef.current;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d')!;
 
-    // 1. Создаём видео
     const video = document.createElement('video');
     video.src = videoUrl;
     video.loop = true;
     video.muted = true;
     video.playsInline = true;
-    video.setAttribute('playsinline', '');
-    video.setAttribute('webkit-playsinline', '');
+    videoRef.current = video;
 
-    stateRef.current = {
-      video,
-      toggleMute: () => {
-        video.muted = !video.muted;
-        setMuted(video.muted);
-      },
+    // Угол обзора в градусах (по горизонтали)
+    let lon = 0; // горизонтальный угол (0..360)
+    let lat = 0; // вертикальный угол (-60..60)
+    let isDown = false;
+    let startX = 0, startY = 0, startLon = 0, startLat = 0;
+
+    const W = canvas.width;
+    const H = canvas.height;
+
+    let raf: number;
+
+    const draw = () => {
+      raf = requestAnimationFrame(draw);
+      if (video.readyState < 2) return;
+
+      const vw = video.videoWidth;
+      const vh = video.videoHeight;
+      if (!vw || !vh) return;
+
+      // Equirectangular: берём фрагмент из видео по текущему углу
+      // lon 0..360 → x по всей ширине видео
+      // lat -60..60 → y по части высоты видео
+
+      const fovH = 90; // угол обзора 90°
+      const fovV = (fovH * H) / W;
+
+      // Вычисляем фрагмент источника
+      const srcW = (fovH / 360) * vw;
+      const srcH = (fovV / 180) * vh;
+
+      // Центр по lon (с wrap-around) и lat
+      const cx = ((lon % 360) / 360) * vw;
+      const cy = ((90 - lat) / 180) * vh;
+
+      const sx = cx - srcW / 2;
+      const sy = cy - srcH / 2;
+
+      // Сначала заливаем чёрным
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, W, H);
+
+      if (sx >= 0 && sx + srcW <= vw) {
+        // Простой случай — без wrap-around
+        ctx.drawImage(video, sx, sy, srcW, srcH, 0, 0, W, H);
+      } else {
+        // Wrap-around по горизонтали
+        const leftW = vw - ((sx % vw + vw) % vw);
+        const rightW = srcW - leftW;
+        const scaleX = W / srcW;
+        ctx.drawImage(video, (sx % vw + vw) % vw, sy, leftW, srcH, 0, 0, leftW * scaleX, H);
+        ctx.drawImage(video, 0, sy, rightW, srcH, leftW * scaleX, 0, rightW * scaleX, H);
+      }
     };
-
-    // 2. Three.js
-    const W = mount.offsetWidth || 300;
-    const H = 240;
-
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(W, H);
-    const canvas = renderer.domElement;
-    canvas.style.display = 'block';
-    canvas.style.cursor = 'grab';
-    mount.appendChild(canvas);
-
-    const camera = new THREE.PerspectiveCamera(75, W / H, 1, 1100);
-    const scene = new THREE.Scene();
-
-    // Сфера вывернута наизнанку — equirectangular проекция
-    const geo = new THREE.SphereGeometry(500, 60, 40);
-    geo.scale(-1, 1, 1);
-
-    // Текстура из видео
-    const tex = new THREE.VideoTexture(video);
-    tex.minFilter = THREE.LinearFilter;
-
-    const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: tex }));
-    scene.add(mesh);
-
-    // 3. Управление мышью / тачем
-    let lon = 0, lat = 0;
-    let isDown = false, startX = 0, startY = 0, startLon = 0, startLat = 0;
 
     const onDown = (e: PointerEvent) => {
       isDown = true;
@@ -73,7 +88,7 @@ export default function Video360Player({ videoUrl, title }: Props) {
     const onMove = (e: PointerEvent) => {
       if (!isDown) return;
       lon = startLon - (e.clientX - startX) * 0.3;
-      lat = Math.max(-85, Math.min(85, startLat + (e.clientY - startY) * 0.3));
+      lat = Math.max(-60, Math.min(60, startLat + (e.clientY - startY) * 0.2));
     };
     const onUp = () => { isDown = false; canvas.style.cursor = 'grab'; };
 
@@ -82,25 +97,10 @@ export default function Video360Player({ videoUrl, title }: Props) {
     canvas.addEventListener('pointerup', onUp);
     canvas.addEventListener('pointercancel', onUp);
 
-    // 4. Рендер-цикл
-    let raf: number;
-    const render = () => {
-      raf = requestAnimationFrame(render);
-      tex.needsUpdate = true;
-      const phi = THREE.MathUtils.degToRad(90 - lat);
-      const theta = THREE.MathUtils.degToRad(lon);
-      camera.lookAt(
-        Math.sin(phi) * Math.cos(theta),
-        Math.cos(phi),
-        Math.sin(phi) * Math.sin(theta),
-      );
-      renderer.render(scene, camera);
-    };
-    render();
-
-    // 5. Запускаем видео — ждём canplay
-    const onCanPlay = () => { video.play().catch(() => {}); };
-    video.addEventListener('canplay', onCanPlay, { once: true });
+    video.addEventListener('canplay', () => {
+      video.play().catch(() => {});
+      draw();
+    }, { once: true });
     video.load();
 
     return () => {
@@ -111,27 +111,25 @@ export default function Video360Player({ videoUrl, title }: Props) {
       canvas.removeEventListener('pointercancel', onUp);
       video.pause();
       video.src = '';
-      renderer.dispose();
-      geo.dispose();
-      tex.dispose();
-      if (mount.contains(canvas)) mount.removeChild(canvas);
-      stateRef.current = null;
+      videoRef.current = null;
     };
   }, [started, videoUrl]);
 
+  const toggleMute = () => {
+    if (!videoRef.current) return;
+    videoRef.current.muted = !videoRef.current.muted;
+    setMuted(videoRef.current.muted);
+  };
+
   return (
     <div className="mt-2 rounded-xl overflow-hidden bg-[#111] select-none">
-      {/* Шапка */}
       <div className="px-3 py-2 bg-black/80 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-[10px] font-bold text-[#E8002D] uppercase tracking-widest flex-shrink-0">360°</span>
           {title && <span className="text-sm text-white font-medium truncate">{title}</span>}
         </div>
         {started && (
-          <button
-            onClick={() => stateRef.current?.toggleMute()}
-            className="flex-shrink-0 text-white/50 hover:text-white transition-colors p-1"
-          >
+          <button onClick={toggleMute} className="flex-shrink-0 text-white/50 hover:text-white transition-colors p-1">
             {muted
               ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
               : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
@@ -140,11 +138,16 @@ export default function Video360Player({ videoUrl, title }: Props) {
         )}
       </div>
 
-      {/* Контейнер */}
-      <div ref={mountRef} style={{ width: '100%', height: 240, position: 'relative' }}>
+      <div style={{ width: '100%', height: 240, position: 'relative', background: '#111' }}>
+        <canvas
+          ref={canvasRef}
+          width={640}
+          height={240}
+          style={{ width: '100%', height: '100%', display: started ? 'block' : 'none', cursor: 'grab' }}
+        />
         {!started && (
           <div
-            className="absolute inset-0 flex flex-col items-center justify-center gap-3 cursor-pointer bg-[#111]"
+            className="absolute inset-0 flex flex-col items-center justify-center gap-3 cursor-pointer"
             onClick={() => setStarted(true)}
           >
             <div className="w-14 h-14 rounded-full bg-[#E8002D] flex items-center justify-center shadow-xl hover:scale-110 transition-transform">
