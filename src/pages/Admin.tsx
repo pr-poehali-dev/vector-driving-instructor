@@ -6,6 +6,7 @@ import ContentEditor from '@/components/admin/ContentEditor';
 import AiSettings from '@/components/admin/AiSettings';
 import ManagersEditor from '@/components/admin/ManagersEditor';
 import ChatLogs from '@/components/admin/ChatLogs';
+import ActivityLog from '@/components/admin/ActivityLog';
 
 interface Student {
   id: number;
@@ -14,6 +15,22 @@ interface Student {
   is_active: boolean;
   notes: string;
   created_at: string;
+  last_seen: string | null;
+}
+
+function fmtDate(iso: string | null): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  const diffH = Math.floor(diffMin / 60);
+  const diffD = Math.floor(diffH / 24);
+  if (diffMin < 2) return 'только что';
+  if (diffMin < 60) return `${diffMin} мин. назад`;
+  if (diffH < 24) return `${diffH} ч. назад`;
+  if (diffD < 7) return `${diffD} д. назад`;
+  return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit' });
 }
 
 // ─── Login screen ────────────────────────────────────────────────────────────
@@ -238,7 +255,7 @@ function EditStudentModal({ student, onClose, onUpdated }: { student: Student; o
 
 // ─── Main dashboard ──────────────────────────────────────────────────────────
 function AdminDashboard() {
-  const [tab, setTab] = useState<'students' | 'content'>('students');
+  const [tab, setTab] = useState<'students' | 'content' | 'ai' | 'managers' | 'logs' | 'activity'>('students');
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -294,6 +311,7 @@ function AdminDashboard() {
             { key: 'ai', label: 'AI-инструктор', icon: 'Brain' },
             { key: 'managers', label: 'Менеджеры', icon: 'UserCog' },
             { key: 'logs', label: 'Переписка', icon: 'MessagesSquare' },
+            { key: 'activity', label: 'Журнал', icon: 'ClipboardList' },
           ] as const).map(t => (
             <button
               key={t.key}
@@ -314,6 +332,7 @@ function AdminDashboard() {
         {tab === 'ai' && <AiSettings />}
         {tab === 'managers' && <ManagersEditor />}
         {tab === 'logs' && <ChatLogs />}
+        {tab === 'activity' && <ActivityLog />}
 
         {tab === 'students' && <>
         {/* Stats */}
@@ -376,22 +395,23 @@ function AdminDashboard() {
             <div className="divide-y divide-gray-50">
               {/* Table head */}
               <div className="grid grid-cols-12 px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">
-                <div className="col-span-4">Имя</div>
-                <div className="col-span-3">Логин</div>
+                <div className="col-span-3">Имя</div>
+                <div className="col-span-2">Логин</div>
                 <div className="col-span-2 hidden sm:block">Заметка</div>
                 <div className="col-span-2">Статус</div>
+                <div className="col-span-2 hidden sm:block">Последний вход</div>
                 <div className="col-span-1"></div>
               </div>
               {filtered.map(s => (
                 <div key={s.id} className="grid grid-cols-12 px-5 py-4 items-center hover:bg-gray-50 transition-colors">
-                  <div className="col-span-4 flex items-center gap-3">
+                  <div className="col-span-3 flex items-center gap-3">
                     <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
                       style={{ background: s.is_active ? '#1a1a1a' : '#d1d5db' }}>
                       {s.name[0]}
                     </div>
                     <span className="text-sm font-medium text-gray-800 truncate">{s.name}</span>
                   </div>
-                  <div className="col-span-3 text-sm text-gray-500 font-mono truncate">{s.login}</div>
+                  <div className="col-span-2 text-sm text-gray-500 font-mono truncate">{s.login}</div>
                   <div className="col-span-2 hidden sm:block text-xs text-gray-400 truncate">{s.notes || '—'}</div>
                   <div className="col-span-2">
                     <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold ${
@@ -401,6 +421,7 @@ function AdminDashboard() {
                       {s.is_active ? 'Активен' : 'Заблок.'}
                     </span>
                   </div>
+                  <div className="col-span-2 hidden sm:block text-xs text-gray-400">{fmtDate(s.last_seen)}</div>
                   <div className="col-span-1 flex justify-end">
                     <button onClick={() => setEditStudent(s)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
                       <Icon name="Pencil" size={14} />

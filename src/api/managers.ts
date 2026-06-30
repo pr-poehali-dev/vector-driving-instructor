@@ -13,6 +13,7 @@ export interface Manager {
   can_stats: boolean;
   is_active: boolean;
   created_at: string;
+  last_seen: string | null;
 }
 
 export interface ManagerPermissions {

@@ -97,6 +97,25 @@ def is_admin_or_manager(cur, token, perm=None):
         return bool(mgr[perm])
     return mgr is not None
 
+def write_activity(cur, token, action, target_type=None, target_id=None, target_name=None, details=None):
+    if is_admin(cur, token):
+        cur.execute(
+            f"INSERT INTO {SCHEMA}.activity_log (actor_type, actor_name, action, target_type, target_id, target_name, details) VALUES ('admin', 'Администратор', %s, %s, %s, %s, %s)",
+            (action, target_type, target_id, target_name, details)
+        )
+    else:
+        mgr = get_manager(cur, token)
+        if mgr:
+            cur.execute(
+                f"SELECT name FROM {SCHEMA}.managers WHERE id=%s", (mgr['id'],)
+            )
+            row = cur.fetchone()
+            name = row['name'] if row else 'Менеджер'
+            cur.execute(
+                f"INSERT INTO {SCHEMA}.activity_log (actor_type, actor_id, actor_name, action, target_type, target_id, target_name, details) VALUES ('manager', %s, %s, %s, %s, %s, %s, %s)",
+                (mgr['id'], name, action, target_type, target_id, target_name, details)
+            )
+
 
 # ── Topics helpers ────────────────────────────────────────────────────────────
 
@@ -197,6 +216,7 @@ def handler(event: dict, context) -> dict:
                 return err('Неверный логин или пароль', 401)
             t = make_token()
             cur.execute(f"INSERT INTO {SCHEMA}.manager_sessions (manager_id, token) VALUES (%s, %s)", (mgr['id'], t))
+            cur.execute(f"UPDATE {SCHEMA}.managers SET last_seen=NOW() WHERE id=%s", (mgr['id'],))
             conn.commit()
             return ok({'token': t, 'role': 'manager', 'name': mgr['name'],
                        'permissions': {'students': mgr['can_students'], 'content': mgr['can_content'],
@@ -206,7 +226,7 @@ def handler(event: dict, context) -> dict:
             if not token:
                 return err('Нет токена', 401)
             cur.execute(
-                f"""SELECT m.name, m.can_students, m.can_content, m.can_ai, m.can_stats
+                f"""SELECT m.id, m.name, m.can_students, m.can_content, m.can_ai, m.can_stats
                     FROM {SCHEMA}.manager_sessions ms
                     JOIN {SCHEMA}.managers m ON m.id=ms.manager_id
                     WHERE ms.token=%s AND ms.expires_at > NOW() AND m.is_active=TRUE""",
@@ -215,6 +235,8 @@ def handler(event: dict, context) -> dict:
             mgr = cur.fetchone()
             if not mgr:
                 return err('Сессия истекла', 401)
+            cur.execute(f"UPDATE {SCHEMA}.managers SET last_seen=NOW() WHERE id=%s", (mgr['id'],))
+            conn.commit()
             return ok({'role': 'manager', 'name': mgr['name'],
                        'permissions': {'students': mgr['can_students'], 'content': mgr['can_content'],
                                        'ai': mgr['can_ai'], 'stats': mgr['can_stats']}})
@@ -233,8 +255,9 @@ def handler(event: dict, context) -> dict:
                 return err('Неверный логин или пароль', 401)
             t = make_token()
             cur.execute(f"INSERT INTO {SCHEMA}.sessions (student_id, token) VALUES (%s, %s)", (s['id'], t))
+            cur.execute(f"UPDATE {SCHEMA}.students SET last_seen=NOW() WHERE id=%s", (s['id'],))
             conn.commit()
-            return ok({'token': t, 'name': s['name'], 'role': 'student'})
+            return ok({'token': t, 'name': s['name'], 'id': s['id'], 'role': 'student'})
 
         if action == 'me':
             if not token:
@@ -248,6 +271,8 @@ def handler(event: dict, context) -> dict:
             row = cur.fetchone()
             if not row:
                 return err('Сессия истекла', 401)
+            cur.execute(f"UPDATE {SCHEMA}.students SET last_seen=NOW() WHERE id=%s", (row['id'],))
+            conn.commit()
             return ok({'name': row['name'], 'id': row['id'], 'role': 'student'})
 
         if action == 'logout':
@@ -264,7 +289,7 @@ def handler(event: dict, context) -> dict:
         if action == 'students-list':
             if not is_admin_or_manager(cur, token, 'can_students'):
                 return err('Доступ запрещён', 403)
-            cur.execute(f"SELECT id, name, login, is_active, notes, created_at FROM {SCHEMA}.students ORDER BY created_at DESC")
+            cur.execute(f"SELECT id, name, login, is_active, notes, created_at, last_seen FROM {SCHEMA}.students ORDER BY created_at DESC")
             return ok({'students': [dict(r) for r in cur.fetchall()]})
 
         if action == 'students-add':
@@ -283,6 +308,8 @@ def handler(event: dict, context) -> dict:
                 (name, login, hash_pw(password), notes)
             )
             row = cur.fetchone()
+            conn.commit()
+            write_activity(cur, token, 'add_student', 'student', row['id'], row['name'], f"Логин: {row['login']}")
             conn.commit()
             return ok({'student': dict(row)}, 201)
 
@@ -304,13 +331,20 @@ def handler(event: dict, context) -> dict:
                 return err('Нет данных')
             values.append(sid)
             cur.execute(
-                f"UPDATE {SCHEMA}.students SET {', '.join(fields)} WHERE id=%s RETURNING id, name, login, is_active, notes, created_at",
+                f"UPDATE {SCHEMA}.students SET {', '.join(fields)} WHERE id=%s RETURNING id, name, login, is_active, notes, created_at, last_seen",
                 values
             )
             row = cur.fetchone()
             conn.commit()
             if not row:
                 return err('Не найден', 404)
+            changes = []
+            if 'name' in body: changes.append(f"Имя: {body['name']}")
+            if 'is_active' in body: changes.append('Активирован' if body['is_active'] else 'Заблокирован')
+            if body.get('password'): changes.append('Пароль изменён')
+            if 'notes' in body: changes.append('Заметка обновлена')
+            write_activity(cur, token, 'update_student', 'student', row['id'], row['name'], '; '.join(changes))
+            conn.commit()
             return ok({'student': dict(row)})
 
         # ══════════════════════════════════════════════════════════════════════
@@ -320,7 +354,7 @@ def handler(event: dict, context) -> dict:
         if action == 'managers-list':
             if not is_admin(cur, token):
                 return err('Доступ запрещён', 403)
-            cur.execute(f"SELECT id, name, login, can_students, can_content, can_ai, can_stats, is_active, created_at FROM {SCHEMA}.managers ORDER BY created_at DESC")
+            cur.execute(f"SELECT id, name, login, can_students, can_content, can_ai, can_stats, is_active, created_at, last_seen FROM {SCHEMA}.managers ORDER BY created_at DESC")
             return ok({'managers': [dict(r) for r in cur.fetchall()]})
 
         if action == 'managers-add':
@@ -346,6 +380,13 @@ def handler(event: dict, context) -> dict:
             )
             row = cur.fetchone()
             conn.commit()
+            perms = []
+            if body.get('can_students'): perms.append('ученики')
+            if body.get('can_content'): perms.append('контент')
+            if body.get('can_ai'): perms.append('AI')
+            if body.get('can_stats'): perms.append('статистика')
+            write_activity(cur, token, 'add_manager', 'manager', row['id'], row['name'], f"Логин: {row['login']}, доступы: {', '.join(perms) or 'нет'}")
+            conn.commit()
             return ok({'manager': dict(row)})
 
         if action == 'managers-update':
@@ -368,10 +409,18 @@ def handler(event: dict, context) -> dict:
                 return err('Нет данных')
             values.append(mid)
             cur.execute(
-                f"UPDATE {SCHEMA}.managers SET {', '.join(fields)} WHERE id=%s RETURNING id, name, login, can_students, can_content, can_ai, can_stats, is_active, created_at",
+                f"UPDATE {SCHEMA}.managers SET {', '.join(fields)} WHERE id=%s RETURNING id, name, login, can_students, can_content, can_ai, can_stats, is_active, created_at, last_seen",
                 values
             )
             row = cur.fetchone()
+            conn.commit()
+            changes = []
+            if 'name' in body: changes.append(f"Имя: {body['name']}")
+            if 'is_active' in body: changes.append('Активирован' if body['is_active'] else 'Заблокирован')
+            if body.get('password'): changes.append('Пароль изменён')
+            for p, label in [('can_students','ученики'),('can_content','контент'),('can_ai','AI'),('can_stats','статистика')]:
+                if p in body: changes.append(f"{'✓' if body[p] else '✗'} {label}")
+            write_activity(cur, token, 'update_manager', 'manager', row['id'], row['name'], '; '.join(changes))
             conn.commit()
             return ok({'manager': dict(row)})
 
@@ -381,8 +430,13 @@ def handler(event: dict, context) -> dict:
             mid = body.get('id')
             if not mid:
                 return err('Не указан id')
+            cur.execute(f"SELECT name FROM {SCHEMA}.managers WHERE id=%s", (mid,))
+            mgr_row = cur.fetchone()
             cur.execute(f"UPDATE {SCHEMA}.managers SET is_active=FALSE WHERE id=%s", (mid,))
             conn.commit()
+            if mgr_row:
+                write_activity(cur, token, 'remove_manager', 'manager', mid, mgr_row['name'], 'Менеджер деактивирован')
+                conn.commit()
             return ok({'ok': True})
 
         # ══════════════════════════════════════════════════════════════════════
@@ -421,6 +475,8 @@ def handler(event: dict, context) -> dict:
                 )
             row = cur.fetchone()
             conn.commit()
+            write_activity(cur, token, 'update_topic' if tid else 'add_topic', 'topic', row['id'], row['label'], None)
+            conn.commit()
             return ok({'topic': dict(row)})
 
         if action == 'delete_topic':
@@ -429,9 +485,14 @@ def handler(event: dict, context) -> dict:
             tid = body.get('id')
             if not tid:
                 return err('Не указан id')
+            cur.execute(f"SELECT label FROM {SCHEMA}.chat_topics WHERE id=%s", (tid,))
+            t_row = cur.fetchone()
             cur.execute(f"DELETE FROM {SCHEMA}.chat_messages WHERE topic_id=%s", (tid,))
             cur.execute(f"DELETE FROM {SCHEMA}.chat_topics WHERE id=%s", (tid,))
             conn.commit()
+            if t_row:
+                write_activity(cur, token, 'delete_topic', 'topic', tid, t_row['label'], None)
+                conn.commit()
             return ok({'ok': True})
 
         if action == 'save_message':
@@ -467,6 +528,11 @@ def handler(event: dict, context) -> dict:
                 )
             row = cur.fetchone()
             conn.commit()
+            cur.execute(f"SELECT label FROM {SCHEMA}.chat_topics WHERE id=%s", (row['topic_id'],))
+            t_row = cur.fetchone()
+            topic_label = t_row['label'] if t_row else f"тема #{row['topic_id']}"
+            write_activity(cur, token, 'update_message' if mid else 'add_message', 'message', row['id'], topic_label, text[:80])
+            conn.commit()
             msg = dict(row)
             msg['options'] = json.loads(msg['options']) if isinstance(msg['options'], str) else (msg['options'] or [])
             return ok({'message': msg})
@@ -477,8 +543,13 @@ def handler(event: dict, context) -> dict:
             mid = body.get('id')
             if not mid:
                 return err('Не указан id')
+            cur.execute(f"SELECT cm.id, ct.label FROM {SCHEMA}.chat_messages cm JOIN {SCHEMA}.chat_topics ct ON ct.id=cm.topic_id WHERE cm.id=%s", (mid,))
+            dm_row = cur.fetchone()
             cur.execute(f"DELETE FROM {SCHEMA}.chat_messages WHERE id=%s", (mid,))
             conn.commit()
+            if dm_row:
+                write_activity(cur, token, 'delete_message', 'message', mid, dm_row['label'], None)
+                conn.commit()
             return ok({'ok': True})
 
         if action == 'reorder_topics':
@@ -537,6 +608,16 @@ def handler(event: dict, context) -> dict:
                 FROM {SCHEMA}.chat_logs
             """)
             return ok({'stats': dict(cur.fetchone())})
+
+        if action == 'activity_log':
+            if not is_admin(cur, token):
+                return err('Доступ запрещён', 403)
+            limit = min(int(body.get('limit', 100)), 500)
+            cur.execute(
+                f"SELECT id, actor_type, actor_id, actor_name, action, target_type, target_id, target_name, details, created_at FROM {SCHEMA}.activity_log ORDER BY created_at DESC LIMIT %s",
+                (limit,)
+            )
+            return ok({'entries': [dict(r) for r in cur.fetchall()]})
 
         return err('Unknown action')
 

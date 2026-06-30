@@ -2,6 +2,20 @@ import { useState, useEffect } from 'react';
 import Icon from '@/components/ui/icon';
 import { Manager, getManagers, addManager, updateManager, removeManager } from '@/api/managers';
 
+function fmtDate(iso: string | null): string {
+  if (!iso) return 'не заходил';
+  const d = new Date(iso);
+  const now = new Date();
+  const diffMin = Math.floor((now.getTime() - d.getTime()) / 60000);
+  const diffH = Math.floor(diffMin / 60);
+  const diffD = Math.floor(diffH / 24);
+  if (diffMin < 2) return 'только что';
+  if (diffMin < 60) return `${diffMin} мин. назад`;
+  if (diffH < 24) return `${diffH} ч. назад`;
+  if (diffD < 7) return `${diffD} д. назад`;
+  return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit' });
+}
+
 const PERM_LABELS = [
   { key: 'can_students', label: 'Ученики', desc: 'Добавлять и редактировать учеников', icon: 'Users' },
   { key: 'can_content', label: 'Контент бота', desc: 'Темы и сообщения чат-бота', icon: 'MessageSquare' },
@@ -193,6 +207,10 @@ export default function ManagersEditor() {
                   <div>
                     <p className="font-semibold text-sm text-[#1a1a1a]">{m.name}</p>
                     <p className="text-xs text-gray-400">@{m.login}</p>
+                    <p className="text-xs text-gray-300 mt-0.5 flex items-center gap-1">
+                      <Icon name="Clock" size={10} />
+                      {fmtDate(m.last_seen)}
+                    </p>
                   </div>
                 </div>
                 <div className="flex gap-2">
