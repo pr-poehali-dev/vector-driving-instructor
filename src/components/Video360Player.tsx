@@ -34,6 +34,9 @@ export default function Video360Player({ videoUrl, title }: Props) {
       if (!vw || !vh || video.readyState < 2) {
         ctx.fillStyle = '#111';
         ctx.fillRect(0, 0, W, H);
+        ctx.fillStyle = '#fff';
+        ctx.font = '12px sans-serif';
+        ctx.fillText(`readyState: ${video.readyState} | vw: ${vw} | vh: ${vh}`, 10, 20);
         return;
       }
 
@@ -123,13 +126,15 @@ export default function Video360Player({ videoUrl, title }: Props) {
 
       <div style={{ width: '100%', height: 240, position: 'relative', background: '#111' }}>
         {/* Видео тег в DOM с самого начала — play() вызывается синхронно из клика */}
+        {/* Видео должно иметь реальные размеры — иначе браузер не декодирует кадры */}
         <video
           ref={videoRef}
           src={videoUrl}
           loop
           muted
           playsInline
-          style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none', top: 0, left: 0 }}
+          crossOrigin="anonymous"
+          style={{ position: 'absolute', width: '100%', height: '100%', opacity: 0, pointerEvents: 'none', top: 0, left: 0, objectFit: 'cover' }}
         />
 
         <canvas
