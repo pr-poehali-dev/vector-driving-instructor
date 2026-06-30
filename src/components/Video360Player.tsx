@@ -133,7 +133,7 @@ export default function Video360Player({ videoUrl, title }: Props) {
           loop
           muted
           playsInline
-          crossOrigin="anonymous"
+
           style={{ position: 'absolute', width: '100%', height: '100%', opacity: 0, pointerEvents: 'none', top: 0, left: 0, objectFit: 'cover' }}
         />
 
