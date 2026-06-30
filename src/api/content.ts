@@ -11,7 +11,6 @@ export interface DBMessage {
   image_url: string | null;
   image_caption: string | null;
   options: string[];
-  is_360: boolean;
 }
 
 export interface DBTopic {

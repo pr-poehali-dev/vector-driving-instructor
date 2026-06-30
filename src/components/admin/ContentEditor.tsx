@@ -57,7 +57,6 @@ function MessageForm({ topicId, msg, nextOrder, onClose, onSaved }: MsgFormProps
   );
   const [videoRaw, setVideoRaw] = useState(msg?.video_url || '');
   const [videoTitle, setVideoTitle] = useState(msg?.video_title || '');
-  const [is360, setIs360] = useState(msg?.is_360 || false);
   const [imageUrl, setImageUrl] = useState(msg?.image_url || '');
   const [imageCaption, setImageCaption] = useState(msg?.image_caption || '');
   const [optionsRaw, setOptionsRaw] = useState((msg?.options || []).join('\n'));
@@ -83,7 +82,6 @@ function MessageForm({ topicId, msg, nextOrder, onClose, onSaved }: MsgFormProps
         image_url: mediaType === 'image' ? imageUrl : null,
         image_caption: mediaType === 'image' ? imageCaption : null,
         options,
-        is_360: mediaType === 'video' ? is360 : false,
       };
       const data = await saveMessage(payload);
       onSaved(data.message);
@@ -177,18 +175,7 @@ function MessageForm({ topicId, msg, nextOrder, onClose, onSaved }: MsgFormProps
                   className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-[#E8002D]"
                 />
               </div>
-              <label className="flex items-center gap-3 cursor-pointer select-none">
-                <div
-                  onClick={() => setIs360(v => !v)}
-                  className={`w-10 h-6 rounded-full transition-colors flex-shrink-0 flex items-center ${is360 ? 'bg-[#E8002D]' : 'bg-gray-200'}`}
-                >
-                  <div className={`w-5 h-5 bg-white rounded-full shadow transition-transform mx-0.5 ${is360 ? 'translate-x-4' : 'translate-x-0'}`} />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-[#1a1a1a]">360° видео</p>
-                  <p className="text-xs text-gray-400">Ученик сможет вращать камеру мышью или пальцем</p>
-                </div>
-              </label>
+
               {videoRaw && (
                 <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-gray-100">
                   {isDirectVideoUrl(videoRaw) ? (
