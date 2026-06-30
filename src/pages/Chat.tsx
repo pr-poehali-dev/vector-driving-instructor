@@ -6,7 +6,7 @@ import { studentMe, studentLogout } from '@/api/auth';
 import { getTopics, DBTopic } from '@/api/content';
 import { getAiSettings, sendAiChat } from '@/api/ai';
 import VectorLogo from '@/components/VectorLogo';
-import Video360Player from '@/components/Video360Player';
+
 
 // ─── Водяной знак ────────────────────────────────────────────────────────────
 function WatermarkLayer({ name }: { name: string }) {
@@ -95,9 +95,7 @@ function MessageBubble({ message, isNew, studentName }: { message: ChatMessage; 
           {message.text}
           {message.image && <ImageViewer src={message.image.src} caption={message.image.caption} studentName={studentName} />}
           {message.video && (
-            message.video.is360
-              ? <Video360Player videoUrl={message.video.url} title={message.video.title} />
-              : <VideoPlayer url={message.video.url} title={message.video.title} thumb={message.video.thumb} studentName={studentName} />
+            <VideoPlayer url={message.video.url} title={message.video.title} thumb={message.video.thumb} studentName={studentName} />
           )}
         </div>
       </div>
