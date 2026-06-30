@@ -85,7 +85,12 @@ export default function Video360Player({ videoUrl, title }: Props) {
     canvas.addEventListener('pointerup', onUp);
     canvas.addEventListener('pointercancel', onUp);
 
-    draw();
+    // Ждём метаданные — только тогда videoWidth/videoHeight будут заполнены
+    if (video.videoWidth > 0) {
+      draw();
+    } else {
+      video.addEventListener('loadedmetadata', draw, { once: true });
+    }
 
     return () => {
       cancelAnimationFrame(raf);
@@ -135,7 +140,7 @@ export default function Video360Player({ videoUrl, title }: Props) {
           muted
           playsInline
 
-          style={{ position: 'absolute', width: '100%', height: '100%', opacity: 0, pointerEvents: 'none', top: 0, left: 0, objectFit: 'cover' }}
+          style={{ position: 'absolute', width: '100%', height: '100%', visibility: 'hidden', pointerEvents: 'none', top: 0, left: 0, objectFit: 'cover' }}
         />
 
         <canvas
