@@ -18,7 +18,7 @@ function ytIdFromUrl(url: string): string {
 }
 
 function ytEmbedUrl(raw: string): string {
-  if (raw.includes('embed/')) return raw;
+  if (raw.includes('youtube.com/embed/')) return raw;
   const id = ytIdFromUrl(raw);
   return id ? `https://www.youtube.com/embed/${id}` : raw;
 }
@@ -28,15 +28,28 @@ function ytThumb(embedUrl: string): string {
   return id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : '';
 }
 
+function rtIdFromUrl(url: string): string {
+  const m = url.match(/rutube\.ru\/(?:video|play\/embed)\/([a-zA-Z0-9]+)/);
+  return m ? m[1] : '';
+}
+
+function rtEmbedUrl(raw: string): string {
+  if (raw.includes('rutube.ru/play/embed/')) return raw;
+  const id = rtIdFromUrl(raw);
+  return id ? `https://rutube.ru/play/embed/${id}` : raw;
+}
+
 function resolveVideoUrl(raw: string): string {
   if (!raw) return '';
   if (isDirectVideoUrl(raw)) return raw;
+  if (raw.includes('rutube.ru')) return rtEmbedUrl(raw);
   return ytEmbedUrl(raw);
 }
 
 function resolveVideoThumb(raw: string): string {
   if (!raw) return '';
   if (isDirectVideoUrl(raw)) return '';
+  if (raw.includes('rutube.ru')) return '';
   return ytThumb(ytEmbedUrl(raw));
 }
 
@@ -156,11 +169,11 @@ function MessageForm({ topicId, msg, nextOrder, onClose, onSaved }: MsgFormProps
                   type="text"
                   value={videoRaw}
                   onChange={e => setVideoRaw(e.target.value)}
-                  placeholder="YouTube: https://youtube.com/watch?v=...  или  прямая ссылка .mp4"
+                  placeholder="YouTube, Rutube: https://rutube.ru/video/...  или прямая ссылка .mp4"
                   className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-[#E8002D]"
                 />
                 <p className="text-xs text-gray-400 mt-1">
-                  YouTube-ссылка или прямая ссылка на видеофайл (.mp4, .webm и др.)
+                  YouTube, Rutube или прямая ссылка на видеофайл (.mp4, .webm и др.)
                 </p>
               </div>
               <div>

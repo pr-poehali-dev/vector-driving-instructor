@@ -35,9 +35,18 @@ function VideoPlayer({ url, title, thumb, studentName }: { url: string; title: s
     const m = u.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([^&?/\s]{11})/);
     return m ? m[1] : null;
   };
+  const getRtId = (u: string) => {
+    const m = u.match(/rutube\.ru\/(?:video|play\/embed)\/([a-zA-Z0-9]+)/);
+    return m ? m[1] : null;
+  };
   const ytId = getYtId(url);
-  const isVideo = /\.(mp4|webm|ogg)(\?|$)/i.test(url);
-  const embedUrl = ytId ? `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0` : null;
+  const rtId = getRtId(url);
+  const isVideo = /\.(mp4|webm|ogg|mov)(\?|$)/i.test(url);
+  const embedUrl = ytId
+    ? `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0`
+    : rtId
+    ? `https://rutube.ru/play/embed/${rtId}`
+    : null;
 
   const player = (
     <div className={`relative bg-black rounded-xl overflow-hidden mt-2.5 ${isFs ? 'fixed inset-0 z-[9999] rounded-none m-0' : ''}`}

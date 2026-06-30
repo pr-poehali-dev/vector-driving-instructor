@@ -86,7 +86,7 @@ function VideoPlayer({ url, title, thumb, studentName }: VideoPlayerProps) {
             </video>
           ) : (
             <iframe
-              src={`${url}?autoplay=1&rel=0&modestbranding=1&iv_load_policy=3`}
+              src={url.includes('rutube.ru') ? url : `${url}?autoplay=1&rel=0&modestbranding=1&iv_load_policy=3`}
               title={title}
               className="w-full h-full"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope"
