@@ -39,6 +39,13 @@
       "expectedStatus": 400,
       "expectedBody": {"error": "string"},
       "bodyMatcher": "partial"
+    },
+    {
+      "name": "Get site settings public",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "get_site_settings"},
+      "expectedStatus": 200
     }
   ]
 }

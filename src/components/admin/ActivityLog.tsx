@@ -28,6 +28,7 @@ const ACTION_META: Record<string, { label: string; icon: string; color: string }
   add_message:    { label: 'Добавил сообщение',    icon: 'MessageSquarePlus', color: '#16a34a' },
   update_message: { label: 'Изменил сообщение',    icon: 'MessageSquare', color: '#2563eb' },
   delete_message: { label: 'Удалил сообщение',     icon: 'Trash2',      color: '#E8002D' },
+  update_site_settings: { label: 'Изменил настройки сайта', icon: 'Settings', color: '#d97706' },
 };
 
 function fmtDateFull(iso: string): string {

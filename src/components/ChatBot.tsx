@@ -5,6 +5,7 @@ import StudentLogin from '@/components/StudentLogin';
 import { studentMe, studentLogout } from '@/api/auth';
 import { getTopics, DBTopic } from '@/api/content';
 import { getAiSettings, sendAiChat } from '@/api/ai';
+import { getSiteSettings } from '@/api/siteSettings';
 
 
 function WatermarkLayer({ name }: { name: string }) {
@@ -263,10 +264,26 @@ export default function ChatBot() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState('');
   const [aiWelcome, setAiWelcome] = useState('');
+  const [chatTopicsEnabled, setChatTopicsEnabled] = useState(true);
+  const [chatAiEnabled, setChatAiEnabled] = useState(true);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const aiInputRef = useRef<HTMLInputElement>(null);
+
+  // Загружаем настройки чата (какие боты включены)
+  useEffect(() => {
+    getSiteSettings()
+      .then(s => {
+        setChatTopicsEnabled(s.chat_topics_enabled);
+        setChatAiEnabled(s.chat_ai_enabled);
+        if (!s.chat_topics_enabled && s.chat_ai_enabled) setMode('ai');
+        if (s.chat_topics_enabled && !s.chat_ai_enabled) setMode('topics');
+      })
+      .catch(() => {})
+      .finally(() => setSettingsLoaded(true));
+  }, []);
 
   // Загружаем темы из БД
   useEffect(() => {
@@ -426,6 +443,8 @@ export default function ChatBot() {
     </button>
   );
 
+  if (settingsLoaded && !chatTopicsEnabled && !chatAiEnabled) return null;
+
   if (authState === 'checking') return floatingBtn;
 
   // ─── Login screen ─────────────────────────────────────────────────────────────
@@ -492,29 +511,31 @@ export default function ChatBot() {
         </div>
 
         {/* Mode switcher */}
-        <div className="flex gap-1 px-3 py-2 bg-[#111] flex-shrink-0">
-          <button
-            onClick={() => setMode('topics')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              mode === 'topics' ? 'bg-white text-[#1a1a1a]' : 'text-white/50 hover:text-white/80'
-            }`}
-          >
-            <Icon name="BookOpen" size={12} />
-            Темы
-          </button>
-          <button
-            onClick={() => setMode('ai')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              mode === 'ai' ? 'bg-purple-500 text-white' : 'text-white/50 hover:text-white/80'
-            }`}
-          >
-            <Icon name="Sparkles" size={12} />
-            AI-инструктор
-          </button>
-        </div>
+        {chatTopicsEnabled && chatAiEnabled && (
+          <div className="flex gap-1 px-3 py-2 bg-[#111] flex-shrink-0">
+            <button
+              onClick={() => setMode('topics')}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                mode === 'topics' ? 'bg-white text-[#1a1a1a]' : 'text-white/50 hover:text-white/80'
+              }`}
+            >
+              <Icon name="BookOpen" size={12} />
+              Темы
+            </button>
+            <button
+              onClick={() => setMode('ai')}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                mode === 'ai' ? 'bg-purple-500 text-white' : 'text-white/50 hover:text-white/80'
+              }`}
+            >
+              <Icon name="Sparkles" size={12} />
+              AI-инструктор
+            </button>
+          </div>
+        )}
 
         {/* ── Topics mode ── */}
-        {mode === 'topics' && (
+        {mode === 'topics' && chatTopicsEnabled && (
           <>
             <div ref={scrollRef} className="flex-1 overflow-y-auto chat-scroll bg-[#f4f6fa] px-3 py-4 flex flex-col gap-3">
               {messages.map(msg => (
@@ -558,7 +579,7 @@ export default function ChatBot() {
         )}
 
         {/* ── AI mode ── */}
-        {mode === 'ai' && (
+        {mode === 'ai' && chatAiEnabled && (
           <>
             <div ref={scrollRef} className="flex-1 overflow-y-auto chat-scroll bg-[#f4f6fa] px-3 py-4 flex flex-col gap-3">
               {aiMessages.map(msg => (

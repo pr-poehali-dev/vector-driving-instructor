@@ -37,6 +37,10 @@ action=reorder_messages    order=[{id,sort_order}]
 action=logs_students
 action=logs_history        student_id, limit?
 action=logs_stats
+
+=== SITE SETTINGS ===
+action=get_site_settings   (публичный)
+action=save_site_settings  chat_topics_enabled?, chat_ai_enabled?, maintenance_mode?
 """
 import json
 import os
@@ -618,6 +622,44 @@ def handler(event: dict, context) -> dict:
                 (limit,)
             )
             return ok({'entries': [dict(r) for r in cur.fetchall()]})
+
+        # ══════════════════════════════════════════════════════════════════════
+        # SITE SETTINGS
+        # ══════════════════════════════════════════════════════════════════════
+
+        if action == 'get_site_settings':
+            cur.execute(f"SELECT chat_topics_enabled, chat_ai_enabled, maintenance_mode FROM {SCHEMA}.site_settings ORDER BY id DESC LIMIT 1")
+            row = cur.fetchone()
+            if not row:
+                return ok({'chat_topics_enabled': True, 'chat_ai_enabled': True, 'maintenance_mode': False})
+            return ok(dict(row))
+
+        if action == 'save_site_settings':
+            if not is_admin(cur, token):
+                return err('Доступ запрещён', 403)
+            fields, values = [], []
+            for f in ['chat_topics_enabled', 'chat_ai_enabled', 'maintenance_mode']:
+                if f in body:
+                    fields.append(f'{f}=%s')
+                    values.append(bool(body[f]))
+            if not fields:
+                return err('Нет данных')
+            fields.append('updated_at=NOW()')
+            cur.execute(f"SELECT id FROM {SCHEMA}.site_settings ORDER BY id DESC LIMIT 1")
+            row = cur.fetchone()
+            if row:
+                cur.execute(f"UPDATE {SCHEMA}.site_settings SET {', '.join(fields)} WHERE id=%s", values + [row['id']])
+            else:
+                cur.execute(f"INSERT INTO {SCHEMA}.site_settings (chat_topics_enabled, chat_ai_enabled, maintenance_mode) VALUES (TRUE, TRUE, FALSE)")
+            conn.commit()
+            changes = []
+            if 'chat_topics_enabled' in body: changes.append(f"Бот с темами: {'вкл' if body['chat_topics_enabled'] else 'выкл'}")
+            if 'chat_ai_enabled' in body: changes.append(f"AI-инструктор: {'вкл' if body['chat_ai_enabled'] else 'выкл'}")
+            if 'maintenance_mode' in body: changes.append(f"Техработы: {'вкл' if body['maintenance_mode'] else 'выкл'}")
+            write_activity(cur, token, 'update_site_settings', 'settings', None, 'Настройки сайта', '; '.join(changes))
+            conn.commit()
+            cur.execute(f"SELECT chat_topics_enabled, chat_ai_enabled, maintenance_mode FROM {SCHEMA}.site_settings ORDER BY id DESC LIMIT 1")
+            return ok(dict(cur.fetchone()))
 
         return err('Unknown action')
 

@@ -5,6 +5,7 @@ import StudentLogin from '@/components/StudentLogin';
 import { studentMe, studentLogout } from '@/api/auth';
 import { getTopics, DBTopic } from '@/api/content';
 import { getAiSettings, sendAiChat } from '@/api/ai';
+import { getSiteSettings } from '@/api/siteSettings';
 import VectorLogo from '@/components/VectorLogo';
 
 
@@ -201,6 +202,9 @@ export default function ChatPage() {
   const [aiError, setAiError] = useState('');
   const [aiWelcome, setAiWelcome] = useState('');
   const [studentId, setStudentId] = useState<number | null>(null);
+  const [chatTopicsEnabled, setChatTopicsEnabled] = useState(true);
+  const [chatAiEnabled, setChatAiEnabled] = useState(true);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -214,6 +218,18 @@ export default function ChatPage() {
 
   useEffect(() => {
     getAiSettings().then(s => { if (s.welcome_message) setAiWelcome(s.welcome_message); }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    getSiteSettings()
+      .then(s => {
+        setChatTopicsEnabled(s.chat_topics_enabled);
+        setChatAiEnabled(s.chat_ai_enabled);
+        if (!s.chat_topics_enabled && s.chat_ai_enabled) setMode('ai');
+        if (s.chat_topics_enabled && !s.chat_ai_enabled) setMode('topics');
+      })
+      .catch(() => {})
+      .finally(() => setSettingsLoaded(true));
   }, []);
 
   useEffect(() => {
@@ -331,6 +347,19 @@ export default function ChatPage() {
     );
   }
 
+  if (settingsLoaded && !chatTopicsEnabled && !chatAiEnabled) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#1a1a1a] px-6 text-center">
+        <VectorLogo size="md" inverted />
+        <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center my-6">
+          <Icon name="MessageCircleOff" size={28} className="text-white/40" fallback="XCircle" />
+        </div>
+        <h2 className="font-montserrat font-bold text-xl text-white mb-2">Чат временно недоступен</h2>
+        <p className="text-white/50 text-sm max-w-xs">Инструктор скоро вернётся на связь. Загляните чуть позже.</p>
+      </div>
+    );
+  }
+
   if (authState === 'login') {
     return (
       <div className="min-h-screen flex flex-col bg-[#f4f6fa]">
@@ -386,25 +415,27 @@ export default function ChatPage() {
       </div>
 
       {/* Переключатель режима */}
-      <div className="flex gap-1 px-3 py-2 flex-shrink-0" style={{ background: '#111' }}>
-        <button onClick={() => setMode('topics')}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition-all ${
-            mode === 'topics' ? 'bg-white text-[#1a1a1a]' : 'text-white/50 hover:text-white/80'
-          }`}>
-          <Icon name="BookOpen" size={14} />
-          Темы
-        </button>
-        <button onClick={() => setMode('ai')}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition-all ${
-            mode === 'ai' ? 'bg-purple-500 text-white' : 'text-white/50 hover:text-white/80'
-          }`}>
-          <Icon name="Sparkles" size={14} />
-          AI-инструктор
-        </button>
-      </div>
+      {chatTopicsEnabled && chatAiEnabled && (
+        <div className="flex gap-1 px-3 py-2 flex-shrink-0" style={{ background: '#111' }}>
+          <button onClick={() => setMode('topics')}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition-all ${
+              mode === 'topics' ? 'bg-white text-[#1a1a1a]' : 'text-white/50 hover:text-white/80'
+            }`}>
+            <Icon name="BookOpen" size={14} />
+            Темы
+          </button>
+          <button onClick={() => setMode('ai')}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition-all ${
+              mode === 'ai' ? 'bg-purple-500 text-white' : 'text-white/50 hover:text-white/80'
+            }`}>
+            <Icon name="Sparkles" size={14} />
+            AI-инструктор
+          </button>
+        </div>
+      )}
 
       {/* ── Режим тем ── */}
-      {mode === 'topics' && (
+      {mode === 'topics' && chatTopicsEnabled && (
         <>
           <div ref={scrollRef} className="flex-1 overflow-y-auto chat-scroll px-4 py-4 flex flex-col gap-3">
             {messages.map(msg => (
@@ -436,7 +467,7 @@ export default function ChatPage() {
       )}
 
       {/* ── AI режим ── */}
-      {mode === 'ai' && (
+      {mode === 'ai' && chatAiEnabled && (
         <>
           <div ref={scrollRef} className="flex-1 overflow-y-auto chat-scroll px-4 py-4 flex flex-col gap-3">
             {aiMessages.map(msg => (

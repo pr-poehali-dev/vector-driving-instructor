@@ -7,6 +7,7 @@ import AiSettings from '@/components/admin/AiSettings';
 import ManagersEditor from '@/components/admin/ManagersEditor';
 import ChatLogs from '@/components/admin/ChatLogs';
 import ActivityLog from '@/components/admin/ActivityLog';
+import SiteSettingsPanel from '@/components/admin/SiteSettingsPanel';
 
 interface Student {
   id: number;
@@ -255,7 +256,7 @@ function EditStudentModal({ student, onClose, onUpdated }: { student: Student; o
 
 // ─── Main dashboard ──────────────────────────────────────────────────────────
 function AdminDashboard() {
-  const [tab, setTab] = useState<'students' | 'content' | 'ai' | 'managers' | 'logs' | 'activity'>('students');
+  const [tab, setTab] = useState<'students' | 'content' | 'ai' | 'managers' | 'logs' | 'activity' | 'site'>('students');
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -312,6 +313,7 @@ function AdminDashboard() {
             { key: 'managers', label: 'Менеджеры', icon: 'UserCog' },
             { key: 'logs', label: 'Переписка', icon: 'MessagesSquare' },
             { key: 'activity', label: 'Журнал', icon: 'ClipboardList' },
+            { key: 'site', label: 'Сайт', icon: 'Settings' },
           ] as const).map(t => (
             <button
               key={t.key}
@@ -333,6 +335,7 @@ function AdminDashboard() {
         {tab === 'managers' && <ManagersEditor />}
         {tab === 'logs' && <ChatLogs />}
         {tab === 'activity' && <ActivityLog />}
+        {tab === 'site' && <SiteSettingsPanel />}
 
         {tab === 'students' && <>
         {/* Stats */}
