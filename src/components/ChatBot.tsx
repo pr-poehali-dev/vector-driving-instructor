@@ -35,7 +35,17 @@ function VideoPlayer({ url, title, thumb, studentName }: VideoPlayerProps) {
   const watermark = studentName || '';
 
   useEffect(() => {
-    const onFsChange = () => setIsFs(!!document.fullscreenElement);
+    const onFsChange = () => {
+      const fsEl = document.fullscreenElement as HTMLElement | null;
+      // Если в нативный fullscreen ушёл сам <video> (Android Chrome), а не наша обёртка —
+      // выходим из него и переключаемся на свой fullscreen с водяным знаком
+      if (fsEl && videoRef.current && fsEl === videoRef.current) {
+        document.exitFullscreen?.().catch(() => {});
+        setIsFs(true);
+        return;
+      }
+      setIsFs(!!fsEl);
+    };
     document.addEventListener('fullscreenchange', onFsChange);
     return () => document.removeEventListener('fullscreenchange', onFsChange);
   }, []);

@@ -35,6 +35,7 @@ function VideoPlayer({ url, title, thumb, studentName }: { url: string; title: s
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
+    // iOS Safari — нативный fullscreen видео вместо CSS
     const onNativeFs = () => {
       // @ts-expect-error webkit-only API on iOS Safari
       if (v.webkitDisplayingFullscreen && v.webkitExitFullscreen) {
@@ -44,7 +45,23 @@ function VideoPlayer({ url, title, thumb, studentName }: { url: string; title: s
       setIsFs(true);
     };
     v.addEventListener('webkitbeginfullscreen', onNativeFs);
-    return () => v.removeEventListener('webkitbeginfullscreen', onNativeFs);
+
+    // Android Chrome и др. — стандартный Fullscreen API на самом <video>
+    const onDocFsChange = () => {
+      const fsEl = document.fullscreenElement as HTMLElement | null;
+      if (fsEl && fsEl === v) {
+        document.exitFullscreen?.().catch(() => {});
+        setIsFs(true);
+      }
+    };
+    document.addEventListener('fullscreenchange', onDocFsChange);
+    v.addEventListener('fullscreenchange', onDocFsChange);
+
+    return () => {
+      v.removeEventListener('webkitbeginfullscreen', onNativeFs);
+      document.removeEventListener('fullscreenchange', onDocFsChange);
+      v.removeEventListener('fullscreenchange', onDocFsChange);
+    };
   }, [playing]);
 
   const getYtId = (u: string) => {
