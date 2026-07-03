@@ -7,6 +7,7 @@ import { getTopics, DBTopic } from '@/api/content';
 import { getAiSettings, sendAiChat } from '@/api/ai';
 import { getSiteSettings } from '@/api/siteSettings';
 import VectorLogo from '@/components/VectorLogo';
+import { useVoiceChat } from '@/hooks/useVoiceChat';
 
 
 // ─── Водяной знак ────────────────────────────────────────────────────────────
@@ -205,10 +206,15 @@ export default function ChatPage() {
   const [chatTopicsEnabled, setChatTopicsEnabled] = useState(true);
   const [chatAiEnabled, setChatAiEnabled] = useState(true);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [voiceMode, setVoiceMode] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const aiInputRef = useRef<HTMLInputElement>(null);
+
+  const voice = useVoiceChat({
+    onResult: (text) => { sendAiMessage(text); },
+  });
 
   useEffect(() => {
     studentMe()
@@ -320,6 +326,7 @@ export default function ChatPage() {
       const data = await sendAiChat(text, history, studentId, studentName);
       if (data.error) throw new Error(data.error);
       setAiMessages(prev => [...prev, { id: `ai-resp-${Date.now()}`, role: 'instructor', text: data.answer, video: data.video || null }]);
+      if (voiceMode) voice.speak(data.answer);
     } catch (err: unknown) {
       setAiError(err instanceof Error ? err.message : 'Ошибка соединения');
     } finally {
@@ -518,17 +525,52 @@ export default function ChatPage() {
             </div>
           )}
 
+          {voice.supported && (
+            <div className="flex items-center justify-between gap-2 px-4 py-2 bg-purple-50 border-t border-purple-100 flex-shrink-0">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <div
+                  onClick={() => { setVoiceMode(v => !v); voice.stopSpeaking(); }}
+                  className={`w-9 h-5 rounded-full relative transition-colors ${voiceMode ? 'bg-purple-500' : 'bg-gray-300'}`}
+                >
+                  <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all" style={{ left: voiceMode ? '18px' : '2px' }} />
+                </div>
+                <span className="text-xs font-medium text-purple-700">Голосовой режим</span>
+              </label>
+              {voice.isSpeaking && (
+                <button onClick={voice.stopSpeaking} className="flex items-center gap-1 text-xs text-purple-600 font-medium">
+                  <Icon name="Volume2" size={13} className="animate-pulse" />
+                  Остановить
+                </button>
+              )}
+            </div>
+          )}
+
           <div className="flex items-center gap-2 px-4 py-3 bg-white border-t border-gray-100 flex-shrink-0">
-            <input ref={aiInputRef} type="text" placeholder="Задайте любой вопрос про вождение..."
-              onKeyDown={handleAiKeyDown}
-              disabled={aiLoading}
-              className="flex-1 text-sm px-4 py-2.5 rounded-full bg-[#f4f6fa] border border-gray-200 outline-none focus:border-purple-300 disabled:opacity-60 transition-colors" />
-            <button disabled={aiLoading}
-              onClick={() => { if (aiInputRef.current?.value.trim()) { const v = aiInputRef.current.value.trim(); aiInputRef.current.value = ''; sendAiMessage(v); } }}
-              className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 disabled:opacity-60 transition-all"
-              style={{ background: '#7c3aed' }}>
-              <Icon name={aiLoading ? 'Loader' : 'Send'} size={15} className={`text-white ${aiLoading ? 'animate-spin' : ''}`} />
-            </button>
+            {voiceMode && voice.supported ? (
+              <button
+                onClick={() => voice.isListening ? voice.stopListening() : voice.startListening()}
+                disabled={aiLoading}
+                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-full font-semibold text-sm transition-all disabled:opacity-60 ${
+                  voice.isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-purple-500 text-white'
+                }`}
+              >
+                <Icon name={voice.isListening ? 'Square' : 'Mic'} size={16} />
+                {voice.isListening ? 'Слушаю... нажмите чтобы остановить' : 'Нажмите и говорите'}
+              </button>
+            ) : (
+              <>
+                <input ref={aiInputRef} type="text" placeholder="Задайте любой вопрос про вождение..."
+                  onKeyDown={handleAiKeyDown}
+                  disabled={aiLoading}
+                  className="flex-1 text-sm px-4 py-2.5 rounded-full bg-[#f4f6fa] border border-gray-200 outline-none focus:border-purple-300 disabled:opacity-60 transition-colors" />
+                <button disabled={aiLoading}
+                  onClick={() => { if (aiInputRef.current?.value.trim()) { const v = aiInputRef.current.value.trim(); aiInputRef.current.value = ''; sendAiMessage(v); } }}
+                  className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 disabled:opacity-60 transition-all"
+                  style={{ background: '#7c3aed' }}>
+                  <Icon name={aiLoading ? 'Loader' : 'Send'} size={15} className={`text-white ${aiLoading ? 'animate-spin' : ''}`} />
+                </button>
+              </>
+            )}
           </div>
         </>
       )}
