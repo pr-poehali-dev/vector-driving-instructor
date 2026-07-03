@@ -61,9 +61,17 @@ function VideoPlayer({ url, title, thumb, studentName }: { url: string; title: s
           {title && <p className="relative z-10 mt-2 text-white text-xs font-medium px-4 text-center" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.9)' }}>{title}</p>}
         </div>
       ) : embedUrl ? (
-        <iframe src={embedUrl} className="absolute inset-0 w-full h-full" allow="autoplay; fullscreen" allowFullScreen title={title} />
+        <iframe src={embedUrl} className="absolute inset-0 w-full h-full" allow="autoplay" title={title} />
       ) : isVideo ? (
-        <video src={url} autoPlay controls className="absolute inset-0 w-full h-full" />
+        <video
+          src={url}
+          autoPlay
+          controls
+          controlsList="nofullscreen nodownload noremoteplayback"
+          disablePictureInPicture
+          playsInline
+          className="absolute inset-0 w-full h-full"
+        />
       ) : null}
       <button onClick={() => setIsFs(f => !f)}
         className="absolute top-2 right-2 z-20 w-7 h-7 rounded-full bg-black/50 flex items-center justify-center text-white hover:bg-black/70 transition-colors"
