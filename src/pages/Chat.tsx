@@ -326,7 +326,6 @@ export default function ChatPage() {
       const data = await sendAiChat(text, history, studentId, studentName);
       if (data.error) throw new Error(data.error);
       setAiMessages(prev => [...prev, { id: `ai-resp-${Date.now()}`, role: 'instructor', text: data.answer, video: data.video || null }]);
-      if (voiceMode) voice.speak(data.answer);
     } catch (err: unknown) {
       setAiError(err instanceof Error ? err.message : 'Ошибка соединения');
     } finally {
@@ -526,22 +525,16 @@ export default function ChatPage() {
           )}
 
           {voice.supported && (
-            <div className="flex items-center justify-between gap-2 px-4 py-2 bg-purple-50 border-t border-purple-100 flex-shrink-0">
+            <div className="flex items-center gap-2 px-4 py-2 bg-purple-50 border-t border-purple-100 flex-shrink-0">
               <label className="flex items-center gap-2 cursor-pointer select-none">
                 <div
-                  onClick={() => { setVoiceMode(v => !v); voice.stopSpeaking(); }}
+                  onClick={() => setVoiceMode(v => !v)}
                   className={`w-9 h-5 rounded-full relative transition-colors ${voiceMode ? 'bg-purple-500' : 'bg-gray-300'}`}
                 >
                   <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all" style={{ left: voiceMode ? '18px' : '2px' }} />
                 </div>
                 <span className="text-xs font-medium text-purple-700">Голосовой режим</span>
               </label>
-              {voice.isSpeaking && (
-                <button onClick={voice.stopSpeaking} className="flex items-center gap-1 text-xs text-purple-600 font-medium">
-                  <Icon name="Volume2" size={13} className="animate-pulse" />
-                  Остановить
-                </button>
-              )}
             </div>
           )}
 

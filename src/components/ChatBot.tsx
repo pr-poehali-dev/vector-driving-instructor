@@ -420,7 +420,6 @@ export default function ChatBot() {
         text: data.answer,
         video: data.video || null,
       }]);
-      if (voiceMode) voice.speak(data.answer);
     } catch (err: unknown) {
       setAiError(err instanceof Error ? err.message : 'Ошибка соединения');
     } finally {
@@ -658,21 +657,16 @@ export default function ChatBot() {
             )}
 
             {voice.supported && (
-              <div className="flex items-center justify-between gap-2 px-3 py-1.5 bg-purple-50 border-t border-purple-100 flex-shrink-0">
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-50 border-t border-purple-100 flex-shrink-0">
                 <label className="flex items-center gap-2 cursor-pointer select-none">
                   <div
-                    onClick={() => { setVoiceMode(v => !v); voice.stopSpeaking(); }}
+                    onClick={() => setVoiceMode(v => !v)}
                     className={`w-8 h-[18px] rounded-full relative transition-colors ${voiceMode ? 'bg-purple-500' : 'bg-gray-300'}`}
                   >
                     <div className="absolute top-0.5 w-3.5 h-3.5 rounded-full bg-white shadow transition-all" style={{ left: voiceMode ? '16px' : '2px' }} />
                   </div>
                   <span className="text-xs font-medium text-purple-700">Голосовой режим</span>
                 </label>
-                {voice.isSpeaking && (
-                  <button onClick={voice.stopSpeaking} className="flex items-center gap-1 text-xs text-purple-600 font-medium">
-                    <Icon name="Volume2" size={12} className="animate-pulse" />
-                  </button>
-                )}
               </div>
             )}
 
