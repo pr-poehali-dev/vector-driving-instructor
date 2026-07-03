@@ -30,6 +30,7 @@ function VideoPlayer({ url, title, thumb, studentName }: VideoPlayerProps) {
   const [playing, setPlaying] = useState(false);
   const [isFs, setIsFs] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const isDirectVideo = /\.(mp4|webm|ogg|mov)(\?|$)/i.test(url);
   const watermark = studentName || '';
 
@@ -38,6 +39,21 @@ function VideoPlayer({ url, title, thumb, studentName }: VideoPlayerProps) {
     document.addEventListener('fullscreenchange', onFsChange);
     return () => document.removeEventListener('fullscreenchange', onFsChange);
   }, []);
+
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    const onNativeFs = () => {
+      // @ts-expect-error webkit-only API on iOS Safari
+      if (v.webkitDisplayingFullscreen && v.webkitExitFullscreen) {
+        // @ts-expect-error webkit-only API on iOS Safari
+        v.webkitExitFullscreen();
+      }
+      setIsFs(true);
+    };
+    v.addEventListener('webkitbeginfullscreen', onNativeFs);
+    return () => v.removeEventListener('webkitbeginfullscreen', onNativeFs);
+  }, [playing]);
 
   const handleFullscreen = () => {
     if (wrapperRef.current?.requestFullscreen) wrapperRef.current.requestFullscreen();
@@ -75,12 +91,14 @@ function VideoPlayer({ url, title, thumb, studentName }: VideoPlayerProps) {
         >
           {isDirectVideo ? (
             <video
+              ref={videoRef}
               className="w-full h-full"
               autoPlay
               controls
               controlsList="nodownload noremoteplayback nofullscreen"
               disablePictureInPicture
               playsInline
+              webkit-playsinline="true"
             >
               <source src={url} />
             </video>

@@ -30,6 +30,22 @@ function WatermarkLayer({ name }: { name: string }) {
 function VideoPlayer({ url, title, thumb, studentName }: { url: string; title: string; thumb: string; studentName?: string }) {
   const [playing, setPlaying] = useState(false);
   const [isFs, setIsFs] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    const onNativeFs = () => {
+      // @ts-expect-error webkit-only API on iOS Safari
+      if (v.webkitDisplayingFullscreen && v.webkitExitFullscreen) {
+        // @ts-expect-error webkit-only API on iOS Safari
+        v.webkitExitFullscreen();
+      }
+      setIsFs(true);
+    };
+    v.addEventListener('webkitbeginfullscreen', onNativeFs);
+    return () => v.removeEventListener('webkitbeginfullscreen', onNativeFs);
+  }, [playing]);
 
   const getYtId = (u: string) => {
     const m = u.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([^&?/\s]{11})/);
@@ -64,12 +80,15 @@ function VideoPlayer({ url, title, thumb, studentName }: { url: string; title: s
         <iframe src={embedUrl} className="absolute inset-0 w-full h-full" allow="autoplay" title={title} />
       ) : isVideo ? (
         <video
+          ref={videoRef}
           src={url}
           autoPlay
           controls
           controlsList="nofullscreen nodownload noremoteplayback"
           disablePictureInPicture
           playsInline
+          webkit-playsinline="true"
+          x-webkit-airplay="deny"
           className="absolute inset-0 w-full h-full"
         />
       ) : null}
