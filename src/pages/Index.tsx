@@ -102,10 +102,10 @@ export default function Index() {
             </span>
           </div>
           <a
-            href="tel:+73522509335"
+            href="tel:+79195915558"
             className="text-white font-semibold hover:text-[#E8002D] transition-colors flex items-center gap-1.5"
           >
-            <Icon name="Phone" size={12} />8 (3522) 50-93-35
+            <Icon name="Phone" size={12} />8 (919) 591-55-58
           </a>
         </div>
       </div>
@@ -691,8 +691,8 @@ export default function Index() {
               {
                 icon: "Phone",
                 label: "Телефон ",
-                value: "8 (3522) 50-93-35",
-                href: "tel:83522509335",
+                value: "8 (919) 591-55-58",
+                href: "tel:89195915558",
               },
               {
                 icon: "Clock",
