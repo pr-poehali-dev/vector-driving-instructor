@@ -168,8 +168,8 @@
 
 /* Мобильное приложение: без зума полей ввода, с учётом чёлки/выемки экрана */
 .chat-app-container {
+  height: 100vh;
   height: 100dvh;
-  height: -webkit-fill-available;
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
   overscroll-behavior: contain;

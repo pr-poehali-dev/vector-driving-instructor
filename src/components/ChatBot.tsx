@@ -675,6 +675,13 @@ export default function ChatBot() {
               </div>
             )}
 
+            {voiceMode && voice.error && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 border-t border-red-100 flex-shrink-0">
+                <Icon name="AlertCircle" size={12} className="text-red-500 flex-shrink-0" />
+                <span className="text-xs text-red-600">{voice.error}</span>
+              </div>
+            )}
+
             <div className="flex items-center gap-2 px-3 py-2.5 bg-white border-t border-gray-100 flex-shrink-0" style={{ paddingBottom: 'calc(0.625rem + env(safe-area-inset-bottom))' }}>
               {voiceMode && voice.supported ? (
                 <button

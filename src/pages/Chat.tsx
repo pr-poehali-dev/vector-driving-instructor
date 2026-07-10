@@ -538,6 +538,13 @@ export default function ChatPage() {
             </div>
           )}
 
+          {voiceMode && voice.error && (
+            <div className="flex items-center gap-2 px-4 py-2 bg-red-50 border-t border-red-100 flex-shrink-0">
+              <Icon name="AlertCircle" size={13} className="text-red-500 flex-shrink-0" />
+              <span className="text-xs text-red-600">{voice.error}</span>
+            </div>
+          )}
+
           <div className="flex items-center gap-2 px-4 py-3 bg-white border-t border-gray-100 flex-shrink-0" style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}>
             {voiceMode && voice.supported ? (
               <button
