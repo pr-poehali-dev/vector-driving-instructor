@@ -392,7 +392,7 @@ export default function ChatPage() {
 
   // ─── Основной чат ─────────────────────────────────────────────────────────────
   return (
-    <div className="h-[100dvh] flex flex-col bg-[#f4f6fa] font-opensans">
+    <div className="chat-app-container flex flex-col bg-[#f4f6fa] font-opensans">
 
       {/* Шапка */}
       <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0" style={{ background: '#1a1a1a' }}>
@@ -459,7 +459,7 @@ export default function ChatPage() {
             )}
             {currentOptions.length > 0 && !isTyping && <OptionButtons options={currentOptions} onSelect={handleOptionSelect} />}
           </div>
-          <div className="flex items-center gap-2 px-4 py-3 bg-white border-t border-gray-100 flex-shrink-0">
+          <div className="flex items-center gap-2 px-4 py-3 bg-white border-t border-gray-100 flex-shrink-0" style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}>
             <input ref={inputRef} type="text" placeholder="Введите тему или вопрос..."
               onKeyDown={e => { if (e.key === 'Enter' && inputRef.current?.value.trim()) { handleOptionSelect(inputRef.current.value.trim()); inputRef.current.value = ''; } }}
               className="flex-1 text-sm px-4 py-2.5 rounded-full bg-[#f4f6fa] border border-gray-200 outline-none focus:border-[#1a1a1a]/40 transition-colors" />
@@ -538,7 +538,7 @@ export default function ChatPage() {
             </div>
           )}
 
-          <div className="flex items-center gap-2 px-4 py-3 bg-white border-t border-gray-100 flex-shrink-0">
+          <div className="flex items-center gap-2 px-4 py-3 bg-white border-t border-gray-100 flex-shrink-0" style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}>
             {voiceMode && voice.supported ? (
               <button
                 onClick={() => voice.isListening ? voice.stopListening() : voice.startListening()}

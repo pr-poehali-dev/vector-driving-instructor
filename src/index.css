@@ -46,9 +46,17 @@
     @apply border-border;
   }
 
+  html {
+    height: -webkit-fill-available;
+  }
+
   body {
     @apply bg-background text-foreground;
     font-family: "Open Sans", sans-serif;
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+    overscroll-behavior-y: none;
+    -webkit-text-size-adjust: 100%;
   }
 
   h1,
@@ -156,4 +164,28 @@
 .chat-scroll::-webkit-scrollbar-thumb {
   background: #cbd5e0;
   border-radius: 2px;
+}
+
+/* Мобильное приложение: без зума полей ввода, с учётом чёлки/выемки экрана */
+.chat-app-container {
+  height: 100dvh;
+  height: -webkit-fill-available;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+
+.chat-app-container input,
+.chat-app-container textarea,
+.chat-app-container select {
+  font-size: 16px !important;
+}
+
+@media (min-width: 640px) {
+  .chat-app-container input,
+  .chat-app-container textarea,
+  .chat-app-container select {
+    font-size: 14px !important;
+  }
 }

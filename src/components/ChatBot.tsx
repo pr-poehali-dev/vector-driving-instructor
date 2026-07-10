@@ -482,13 +482,18 @@ export default function ChatBot() {
     <>
       {floatingBtn}
       <div
-        className={`fixed bottom-6 right-6 z-50 w-[370px] max-w-[calc(100vw-24px)] flex flex-col rounded-2xl shadow-2xl overflow-hidden transition-all duration-300 origin-bottom-right ${
+        className={`chat-app-container fixed inset-0 sm:inset-auto sm:bottom-6 sm:right-6 z-50 sm:w-[370px] sm:max-w-[calc(100vw-24px)] flex flex-col sm:rounded-2xl shadow-2xl overflow-hidden transition-all duration-300 origin-bottom-right ${
           isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-75 pointer-events-none'
         }`}
-        style={{ height: '560px', maxHeight: 'calc(100vh - 40px)' }}
+        style={{ '--chatbot-height': '560px' } as React.CSSProperties}
       >
+        <style>{`
+          @media (min-width: 640px) {
+            .chat-app-container { height: var(--chatbot-height) !important; max-height: calc(100vh - 40px); padding-top: 0; padding-bottom: 0; }
+          }
+        `}</style>
         {/* Header */}
-        <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0" style={{ background: '#1a1a1a' }}>
+        <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0" style={{ background: '#1a1a1a', paddingTop: 'calc(0.75rem + env(safe-area-inset-top))' }}>
           <div className="relative w-9 h-9 flex-shrink-0">
             <div className="w-9 h-9 rounded-full bg-[#E8002D] flex items-center justify-center text-white font-bold text-sm">И</div>
             {mode === 'ai' && (
@@ -670,7 +675,7 @@ export default function ChatBot() {
               </div>
             )}
 
-            <div className="flex items-center gap-2 px-3 py-2.5 bg-white border-t border-gray-100 flex-shrink-0">
+            <div className="flex items-center gap-2 px-3 py-2.5 bg-white border-t border-gray-100 flex-shrink-0" style={{ paddingBottom: 'calc(0.625rem + env(safe-area-inset-bottom))' }}>
               {voiceMode && voice.supported ? (
                 <button
                   onClick={() => voice.isListening ? voice.stopListening() : voice.startListening()}
