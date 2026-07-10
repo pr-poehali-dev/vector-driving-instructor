@@ -214,6 +214,14 @@ export default function ManagerPage() {
       .catch(() => setChecking(false));
   }, []);
 
+  useEffect(() => {
+    if (!session) return;
+    const interval = setInterval(() => {
+      managerMe().catch(() => {});
+    }, 3 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [session]);
+
   if (checking) return (
     <div className="min-h-screen flex items-center justify-center bg-[#f7f7f7]">
       <Icon name="Loader" size={28} className="animate-spin text-[#E8002D]" />

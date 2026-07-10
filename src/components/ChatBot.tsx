@@ -333,6 +333,14 @@ export default function ChatBot() {
   }, []);
 
   useEffect(() => {
+    if (authState !== 'ok') return;
+    const interval = setInterval(() => {
+      studentMe().catch(() => {});
+    }, 3 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [authState]);
+
+  useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }

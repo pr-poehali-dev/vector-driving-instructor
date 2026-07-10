@@ -223,6 +223,14 @@ export default function ChatPage() {
   }, []);
 
   useEffect(() => {
+    if (authState !== 'ok') return;
+    const interval = setInterval(() => {
+      studentMe().catch(() => {});
+    }, 3 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [authState]);
+
+  useEffect(() => {
     getAiSettings().then(s => { if (s.welcome_message) setAiWelcome(s.welcome_message); }).catch(() => {});
   }, []);
 

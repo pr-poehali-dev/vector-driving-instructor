@@ -99,8 +99,7 @@ export default function InstallAppSection() {
             src={TESLA_IMAGE}
             alt=""
             aria-hidden="true"
-            className="block w-14 sm:w-28 md:w-36 flex-shrink-0 drop-shadow-2xl"
-            style={{ transform: "scaleX(-1)" }}
+            className="block w-16 sm:w-40 md:w-56 lg:w-64 flex-shrink-0 drop-shadow-2xl animate-float-left"
           />
 
           <div
@@ -136,7 +135,7 @@ export default function InstallAppSection() {
           <img
             src={TESLA_IMAGE}
             alt="Tesla Model X автошколы Вектор"
-            className="block w-14 sm:w-28 md:w-36 flex-shrink-0 drop-shadow-2xl"
+            className="block w-16 sm:w-40 md:w-56 lg:w-64 flex-shrink-0 drop-shadow-2xl animate-float-right"
           />
         </div>
 

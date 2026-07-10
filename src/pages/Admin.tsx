@@ -561,6 +561,14 @@ export default function AdminPage() {
     adminMe().then(() => setAuthed(true)).catch(() => setAuthed(false));
   }, []);
 
+  useEffect(() => {
+    if (!authed) return;
+    const interval = setInterval(() => {
+      adminMe().catch(() => {});
+    }, 3 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [authed]);
+
   if (authed === null) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#f7f7f7]">
