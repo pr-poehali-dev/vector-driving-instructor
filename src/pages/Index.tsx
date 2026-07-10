@@ -2,6 +2,7 @@ import { useState } from "react";
 import VectorLogo from "@/components/VectorLogo";
 import ChatBot from "@/components/ChatBot";
 import Icon from "@/components/ui/icon";
+import InstallAppSection from "@/components/InstallAppSection";
 
 const HERO_IMAGE =
   "https://cdn.poehali.dev/projects/370344a9-a9ba-49da-84a7-a1af7d9aae57/bucket/1349b49a-d81f-4438-a10d-edb89ee10114.jpg";
@@ -59,7 +60,7 @@ const WHY_VECTOR = [
   },
 ];
 
-const NAV_LINKS = ["Инструктор", "Преимущества", "О школе", "Контакты"];
+const NAV_LINKS = ["Инструктор", "Преимущества", "Приложение", "О школе", "Контакты"];
 
 export default function Index() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -72,6 +73,7 @@ export default function Index() {
   const navMap: Record<string, string> = {
     Инструктор: "bot",
     Преимущества: "features",
+    Приложение: "install",
     "О школе": "about",
     Контакты: "contacts",
   };
@@ -660,6 +662,8 @@ export default function Index() {
           </div>
         </div>
       </section>
+
+      <InstallAppSection />
 
       {/* CONTACTS */}
       <section
