@@ -72,7 +72,7 @@ export default function InstallAppSection() {
       />
 
       <div className="relative max-w-6xl mx-auto px-6 py-20 md:py-28">
-        <div className="text-center mb-14">
+        <div className="text-center mb-12">
           <div
             className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold mb-5 uppercase tracking-widest"
             style={{ background: "rgba(232,0,45,0.15)", color: "#E8002D" }}
@@ -96,96 +96,68 @@ export default function InstallAppSection() {
           </p>
         </div>
 
-        {/* Фото Tesla + прямая кнопка перехода */}
-        <div
-          className="relative rounded-3xl overflow-hidden mb-12 max-w-4xl mx-auto"
-          style={{ background: "linear-gradient(120deg, #0d0d0d 0%, #1a1a1a 60%)" }}
-        >
-          <div className="grid md:grid-cols-2 items-center">
-            <div className="relative order-2 md:order-1 px-7 py-9 md:py-0">
-              <p className="text-[#E8002D] text-xs font-semibold uppercase tracking-widest mb-3">
-                Учитесь на Tesla Model X
-              </p>
-              <h3 className="font-montserrat text-2xl md:text-[1.7rem] text-white mb-3" style={{ fontWeight: 800 }}>
-                Один клик — и вы
-                <br />
-                в чате с инструктором
-              </h3>
-              <p className="text-white/55 text-sm mb-6 leading-relaxed max-w-sm">
-                Не хотите сканировать QR? Просто откройте страницу чата прямо
-                сейчас — а после установите её на экран, следуя инструкции
-                ниже.
-              </p>
-              <Link
-                to="/chat"
-                className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl text-white font-montserrat shadow-xl hover:shadow-2xl transition-all hover:-translate-y-0.5"
-                style={{ background: "#E8002D", fontWeight: 700 }}
-              >
-                <Icon name="MessageCircle" size={17} />
-                Открыть чат-инструктора
-                <Icon name="ArrowRight" size={16} />
-              </Link>
+        {/* QR-код между двумя Tesla, капотами друг к другу */}
+        <div className="flex items-center justify-center gap-2 sm:gap-6 md:gap-10 mb-10">
+          <img
+            src={TESLA_IMAGE}
+            alt=""
+            aria-hidden="true"
+            className="block w-14 sm:w-28 md:w-36 flex-shrink-0 drop-shadow-2xl"
+            style={{ transform: "scaleX(-1)" }}
+          />
+
+          <div
+            className="relative p-6 md:p-7 rounded-3xl shadow-2xl flex-shrink-0"
+            style={{ background: "white" }}
+          >
+            <div
+              className="absolute -top-3 -left-3 w-9 h-9 rounded-xl flex items-center justify-center shadow-lg"
+              style={{ background: "#E8002D" }}
+            >
+              <Icon name="Car" size={16} className="text-white" />
             </div>
-            <div className="relative order-1 md:order-2 h-56 md:h-full">
-              <div
-                className="absolute inset-0 md:bg-gradient-to-r"
-                style={{
-                  background:
-                    "linear-gradient(180deg, rgba(26,26,26,0.05) 0%, rgba(26,26,26,0.9) 100%)",
+            {pageUrl && (
+              <QRCodeSVG
+                value={pageUrl}
+                size={160}
+                bgColor="#ffffff"
+                fgColor="#1a1a1a"
+                level="M"
+                imageSettings={{
+                  src: "/icons/icon-192.png",
+                  height: 32,
+                  width: 32,
+                  excavate: true,
                 }}
               />
-              <div
-                className="hidden md:block absolute inset-y-0 left-0 w-24 z-10"
-                style={{
-                  background:
-                    "linear-gradient(90deg, #1a1a1a 0%, rgba(26,26,26,0) 100%)",
-                }}
-              />
-              <img
-                src={TESLA_IMAGE}
-                alt="Tesla Model X автошколы Вектор"
-                className="w-full h-full object-cover"
-              />
-            </div>
+            )}
+            <p className="text-center text-[11px] text-gray-400 mt-3 font-medium uppercase tracking-wide">
+              Наведите камеру
+            </p>
           </div>
+
+          <img
+            src={TESLA_IMAGE}
+            alt="Tesla Model X автошколы Вектор"
+            className="block w-14 sm:w-28 md:w-36 flex-shrink-0 drop-shadow-2xl"
+          />
         </div>
 
-        <div className="grid md:grid-cols-2 gap-8 md:gap-12 items-center max-w-4xl mx-auto">
-          {/* QR-код */}
-          <div className="flex justify-center">
-            <div
-              className="relative p-7 rounded-3xl shadow-2xl"
-              style={{ background: "white" }}
-            >
-              <div
-                className="absolute -top-3 -left-3 w-9 h-9 rounded-xl flex items-center justify-center shadow-lg"
-                style={{ background: "#E8002D" }}
-              >
-                <Icon name="Car" size={16} className="text-white" />
-              </div>
-              {pageUrl && (
-                <QRCodeSVG
-                  value={pageUrl}
-                  size={180}
-                  bgColor="#ffffff"
-                  fgColor="#1a1a1a"
-                  level="M"
-                  imageSettings={{
-                    src: "/icons/icon-192.png",
-                    height: 34,
-                    width: 34,
-                    excavate: true,
-                  }}
-                />
-              )}
-              <p className="text-center text-[11px] text-gray-400 mt-3 font-medium uppercase tracking-wide">
-                Наведите камеру — откроется чат
-              </p>
-            </div>
-          </div>
+        <div className="text-center mb-12">
+          <Link
+            to="/chat"
+            className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl text-white font-montserrat shadow-xl hover:shadow-2xl transition-all hover:-translate-y-0.5"
+            style={{ background: "#E8002D", fontWeight: 700 }}
+          >
+            <Icon name="MessageCircle" size={17} />
+            Открыть чат-инструктора
+            <Icon name="ArrowRight" size={16} />
+          </Link>
+        </div>
 
-          {/* Инструкция */}
-          <div>
+        <div className="max-w-md mx-auto">
+          {/* Переключатель платформы */}
+          <div className="flex justify-center">
             <div className="flex gap-1.5 mb-5 p-1 rounded-xl w-fit" style={{ background: "rgba(255,255,255,0.06)" }}>
               <button
                 onClick={() => setTab("android")}
@@ -206,24 +178,26 @@ export default function InstallAppSection() {
                 iPhone
               </button>
             </div>
+          </div>
 
-            <div className="flex flex-col gap-3.5 mb-6">
-              {steps.map((step, i) => (
-                <div key={step.text} className="flex items-start gap-3.5">
-                  <div
-                    className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white"
-                    style={{ background: "#E8002D" }}
-                  >
-                    {i + 1}
-                  </div>
-                  <div className="flex items-center gap-2 pt-1">
-                    <Icon name={step.icon} size={15} className="text-white/40 flex-shrink-0" fallback="Circle" />
-                    <p className="text-white/75 text-sm leading-relaxed">{step.text}</p>
-                  </div>
+          <div className="flex flex-col gap-3.5 mb-6">
+            {steps.map((step, i) => (
+              <div key={step.text} className="flex items-start gap-3.5">
+                <div
+                  className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white"
+                  style={{ background: "#E8002D" }}
+                >
+                  {i + 1}
                 </div>
-              ))}
-            </div>
+                <div className="flex items-center gap-2 pt-1">
+                  <Icon name={step.icon} size={15} className="text-white/40 flex-shrink-0" fallback="Circle" />
+                  <p className="text-white/75 text-sm leading-relaxed">{step.text}</p>
+                </div>
+              </div>
+            ))}
+          </div>
 
+          <div className="flex justify-center">
             {deferredPrompt && !installed && (
               <button
                 onClick={handleInstallClick}
@@ -246,7 +220,7 @@ export default function InstallAppSection() {
             )}
 
             {!deferredPrompt && !installed && (
-              <p className="text-white/35 text-xs italic">
+              <p className="text-white/35 text-xs italic text-center">
                 Отсканируйте QR-код с телефона или следуйте инструкции выше
               </p>
             )}
