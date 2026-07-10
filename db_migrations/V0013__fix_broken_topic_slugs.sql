@@ -1,0 +1,2 @@
+UPDATE t_p22961065_vector_driving_instr.chat_topics SET slug = 'parkovka-pod-90-gradusov' WHERE id = 6 AND slug = '-90-';
+UPDATE t_p22961065_vector_driving_instr.chat_topics SET slug = 'avtodrom-maksimum' WHERE id = 8 AND slug = '-';

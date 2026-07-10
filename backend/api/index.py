@@ -60,6 +60,31 @@ CORS = {
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+RU_TO_LAT = {
+    'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'e',
+    'ж': 'zh', 'з': 'z', 'и': 'i', 'й': 'i', 'к': 'k', 'л': 'l', 'м': 'm',
+    'н': 'n', 'о': 'o', 'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u',
+    'ф': 'f', 'х': 'h', 'ц': 'c', 'ч': 'ch', 'ш': 'sh', 'щ': 'sch',
+    'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu', 'я': 'ya',
+}
+
+def transliterate(text):
+    return ''.join(RU_TO_LAT.get(ch, ch) for ch in text.lower())
+
+def make_slug(cur, label, exclude_id=None):
+    base = re.sub(r'[^a-z0-9]+', '-', transliterate(label)).strip('-')[:50] or 'topic'
+    slug = base
+    n = 1
+    while True:
+        if exclude_id:
+            cur.execute(f"SELECT id FROM {SCHEMA}.chat_topics WHERE slug=%s AND id!=%s", (slug, exclude_id))
+        else:
+            cur.execute(f"SELECT id FROM {SCHEMA}.chat_topics WHERE slug=%s", (slug,))
+        if not cur.fetchone():
+            return slug
+        n += 1
+        slug = f"{base}-{n}"
+
 def get_conn():
     return psycopg2.connect(os.environ['DATABASE_URL'])
 
@@ -466,13 +491,13 @@ def handler(event: dict, context) -> dict:
             is_active = body.get('is_active', True)
             sort_order = body.get('sort_order', 0)
             tags = (body.get('tags') or '').strip()
-            slug = re.sub(r'[^a-z0-9]+', '-', label.lower())[:50]
             if tid:
                 cur.execute(
                     f"UPDATE {SCHEMA}.chat_topics SET label=%s, icon=%s, is_active=%s, sort_order=%s, tags=%s WHERE id=%s RETURNING id, slug, label, icon, sort_order, is_active, tags",
                     (label, icon, is_active, sort_order, tags, tid)
                 )
             else:
+                slug = make_slug(cur, label)
                 cur.execute(
                     f"INSERT INTO {SCHEMA}.chat_topics (slug, label, icon, is_active, sort_order, tags) VALUES (%s,%s,%s,%s,%s,%s) RETURNING id, slug, label, icon, sort_order, is_active, tags",
                     (slug, label, icon, is_active, sort_order, tags)
