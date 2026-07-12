@@ -302,23 +302,21 @@ def handler(event: dict, context) -> dict:
     # Если найдены конкретные видео по названию/тегам — отвечаем на основе готового
     # описания темы (или коротко генерируем его по названию), не спрашивая общий чат-ответ у LLM.
     # Это исключает ситуации, когда модель одновременно находит видео и пишет отказ не по теме.
+    # Каждое видео получает своё собственное описание (поле description), чтобы на фронте
+    # текст шёл сразу перед соответствующим видео, а не всей пачкой сверху.
     if videos:
-        parts = []
         for v in videos:
             desc = v.get('text') or ''
             if not desc and v.get('title'):
                 desc = generate_video_description(v['title'], api_key, folder_id)
-            if desc:
-                parts.append(desc)
-        if len(videos) > 1:
-            answer = 'Вот все манёвры, которые нашлись по вашему запросу:\n\n' + '\n\n'.join(
-                f'🎬 {p}' for p in parts
-            ) if parts else 'Вот все манёвры, которые нашлись по вашему запросу:'
-        else:
-            answer = parts[0] if parts else (videos[0].get('title') or 'Вот видео по вашему запросу:')
-        for v in videos:
+            v['description'] = desc
             v.pop('text', None)
-        save_log(message, answer)
+        if len(videos) > 1:
+            answer = 'Вот все манёвры, которые нашлись по вашему запросу:'
+        else:
+            answer = ''
+        log_text = answer + '\n\n' + '\n\n'.join(f"{v['title']}: {v['description']}" for v in videos)
+        save_log(message, log_text)
         return resp({'answer': answer, 'video': videos[0], 'videos': videos})
 
     # Формируем сообщения для YandexGPT

@@ -198,7 +198,7 @@ export default function ChatPage() {
   const [isTyping, setIsTyping] = useState(false);
   const [newMessageIds, setNewMessageIds] = useState<Set<string>>(new Set());
 
-  const [aiMessages, setAiMessages] = useState<{ role: 'user' | 'instructor'; text: string; id: string; videos?: { title: string; url: string; thumb: string }[] }[]>([]);
+  const [aiMessages, setAiMessages] = useState<{ role: 'user' | 'instructor'; text: string; id: string; videos?: { title: string; url: string; thumb: string; description?: string }[] }[]>([]);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState('');
   const [aiWelcome, setAiWelcome] = useState('');
@@ -497,7 +497,10 @@ export default function ChatPage() {
                 }`}>
                   {msg.text}
                   {msg.videos?.map((v, i) => (
-                    <VideoPlayer key={v.url + i} url={v.url} title={v.title} thumb={v.thumb} studentName={studentName} />
+                    <div key={v.url + i} className={i > 0 ? 'mt-3' : ''}>
+                      {v.description && <p className="text-sm leading-relaxed mb-1">{v.description}</p>}
+                      <VideoPlayer url={v.url} title={v.title} thumb={v.thumb} studentName={studentName} />
+                    </div>
                   ))}
                 </div>
               </div>
