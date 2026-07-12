@@ -84,8 +84,8 @@ function VideoPlayer({ url, title, thumb, studentName }: { url: string; title: s
     : null;
 
   const player = (
-    <div className={`relative bg-black rounded-xl overflow-hidden mt-2.5 ${isFs ? 'fixed inset-0 z-[9999] rounded-none m-0' : ''}`}
-      style={{ aspectRatio: isFs ? undefined : '16/9', width: '100%', height: isFs ? '100%' : undefined }}>
+    <div className={`relative bg-black rounded-xl overflow-hidden mt-2.5 ${isFs ? 'fixed inset-0 z-[9999] rounded-none m-0' : 'w-72 sm:w-80 max-w-full'}`}
+      style={{ aspectRatio: isFs ? undefined : '16/9', width: isFs ? '100%' : undefined, height: isFs ? '100%' : undefined }}>
       <WatermarkLayer name={studentName || ''} />
       {!playing ? (
         <div className="absolute inset-0 flex flex-col items-center justify-center cursor-pointer group" onClick={() => setPlaying(true)}>
@@ -198,7 +198,7 @@ export default function ChatPage() {
   const [isTyping, setIsTyping] = useState(false);
   const [newMessageIds, setNewMessageIds] = useState<Set<string>>(new Set());
 
-  const [aiMessages, setAiMessages] = useState<{ role: 'user' | 'instructor'; text: string; id: string; video?: { title: string; url: string; thumb: string } | null }[]>([]);
+  const [aiMessages, setAiMessages] = useState<{ role: 'user' | 'instructor'; text: string; id: string; videos?: { title: string; url: string; thumb: string }[] }[]>([]);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState('');
   const [aiWelcome, setAiWelcome] = useState('');
@@ -333,7 +333,8 @@ export default function ChatPage() {
     try {
       const data = await sendAiChat(text, history, studentId, studentName);
       if (data.error) throw new Error(data.error);
-      setAiMessages(prev => [...prev, { id: `ai-resp-${Date.now()}`, role: 'instructor', text: data.answer, video: data.video || null }]);
+      const videos = data.videos && data.videos.length > 0 ? data.videos : (data.video ? [data.video] : []);
+      setAiMessages(prev => [...prev, { id: `ai-resp-${Date.now()}`, role: 'instructor', text: data.answer, videos }]);
     } catch (err: unknown) {
       setAiError(err instanceof Error ? err.message : 'Ошибка соединения');
     } finally {
@@ -495,7 +496,9 @@ export default function ChatPage() {
                   msg.role === 'instructor' ? 'bg-white text-gray-800 shadow-sm border border-gray-100 rounded-tl-sm' : 'bg-[#E8002D] text-white rounded-tr-sm'
                 }`}>
                   {msg.text}
-                  {msg.video && <VideoPlayer url={msg.video.url} title={msg.video.title} thumb={msg.video.thumb} studentName={studentName} />}
+                  {msg.videos?.map((v, i) => (
+                    <VideoPlayer key={v.url + i} url={v.url} title={v.title} thumb={v.thumb} studentName={studentName} />
+                  ))}
                 </div>
               </div>
             ))}

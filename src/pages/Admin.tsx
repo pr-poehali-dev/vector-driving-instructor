@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import VectorLogo from '@/components/VectorLogo';
 import Icon from '@/components/ui/icon';
-import { adminLogin, adminMe, adminLogout, getStudents, addStudent, updateStudent } from '@/api/auth';
+import { adminLogin, adminMe, adminLogout, getStudents, addStudent, updateStudent, removeStudent } from '@/api/auth';
 import ContentEditor from '@/components/admin/ContentEditor';
 import AiSettings from '@/components/admin/AiSettings';
 import ManagersEditor from '@/components/admin/ManagersEditor';
@@ -17,6 +17,7 @@ interface Student {
   notes: string;
   created_at: string;
   last_seen: string | null;
+  access_until: string | null;
 }
 
 function fmtDate(iso: string | null): string {
@@ -32,6 +33,25 @@ function fmtDate(iso: string | null): string {
   if (diffH < 24) return `${diffH} ч. назад`;
   if (diffD < 7) return `${diffD} д. назад`;
   return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit' });
+}
+
+// Пресеты срока доступа для быстрого выбора
+const ACCESS_PRESETS: { label: string; hours: number | null }[] = [
+  { label: '1 час', hours: 1 },
+  { label: '2 часа', hours: 2 },
+  { label: '3 часа', hours: 3 },
+  { label: 'Сутки', hours: 24 },
+  { label: 'Неделя', hours: 24 * 7 },
+  { label: 'Месяц', hours: 24 * 30 },
+  { label: 'Без ограничения', hours: null },
+];
+
+function fmtAccessUntil(iso: string | null): string {
+  if (!iso) return 'Бессрочно';
+  const d = new Date(iso);
+  const expired = d.getTime() <= Date.now();
+  const str = d.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+  return expired ? `Истёк ${str}` : `До ${str}`;
 }
 
 // ─── Login screen ────────────────────────────────────────────────────────────
@@ -112,9 +132,47 @@ function AdminLoginScreen({ onSuccess }: { onSuccess: (isReset?: boolean) => voi
   );
 }
 
+// ─── Выбор срока доступа ─────────────────────────────────────────────────────
+function AccessUntilPicker({ value, onChange }: { value: string | null; onChange: (v: string | null) => void }) {
+  const activePreset = ACCESS_PRESETS.find(p => {
+    if (p.hours === null) return value === null;
+    if (!value) return false;
+    const diffH = (new Date(value).getTime() - Date.now()) / 3600000;
+    return Math.abs(diffH - p.hours) < 0.05;
+  });
+
+  return (
+    <div>
+      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Срок действия доступа</label>
+      <div className="flex flex-wrap gap-1.5">
+        {ACCESS_PRESETS.map(p => (
+          <button
+            key={p.label}
+            type="button"
+            onClick={() => onChange(p.hours === null ? null : new Date(Date.now() + p.hours * 3600000).toISOString())}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+              activePreset?.label === p.label
+                ? 'bg-[#E8002D] text-white border-[#E8002D]'
+                : 'bg-white text-gray-600 border-gray-200 hover:border-[#E8002D]/50'
+            }`}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+      {value && (
+        <p className="text-xs text-gray-400 mt-1.5">
+          Доступ будет автоматически заблокирован {new Date(value).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ─── Add student modal ───────────────────────────────────────────────────────
 function AddStudentModal({ onClose, onAdded }: { onClose: () => void; onAdded: (s: Student) => void }) {
   const [form, setForm] = useState({ name: '', login: '', password: '', notes: '' });
+  const [accessUntil, setAccessUntil] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -123,7 +181,7 @@ function AddStudentModal({ onClose, onAdded }: { onClose: () => void; onAdded: (
     setError('');
     setLoading(true);
     try {
-      const data = await addStudent(form);
+      const data = await addStudent({ ...form, access_until: accessUntil });
       onAdded(data.student);
       onClose();
     } catch (err: unknown) {
@@ -159,6 +217,7 @@ function AddStudentModal({ onClose, onAdded }: { onClose: () => void; onAdded: (
           {field('login', 'Логин', 'text', 'ivanov')}
           {field('password', 'Пароль', 'text', 'Минимум 4 символа')}
           {field('notes', 'Заметка (необязательно)', 'text', 'Группа A, начало курса...')}
+          <AccessUntilPicker value={accessUntil} onChange={setAccessUntil} />
           {error && (
             <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-red-50 text-red-600 text-sm">
               <Icon name="AlertCircle" size={13} />{error}
@@ -184,6 +243,7 @@ function AddStudentModal({ onClose, onAdded }: { onClose: () => void; onAdded: (
 // ─── Edit modal ──────────────────────────────────────────────────────────────
 function EditStudentModal({ student, onClose, onUpdated }: { student: Student; onClose: () => void; onUpdated: (s: Student) => void }) {
   const [form, setForm] = useState({ name: student.name, notes: student.notes || '', is_active: student.is_active, password: '' });
+  const [accessUntil, setAccessUntil] = useState<string | null>(student.access_until);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -192,7 +252,7 @@ function EditStudentModal({ student, onClose, onUpdated }: { student: Student; o
     setLoading(true);
     setError('');
     try {
-      const payload: Parameters<typeof updateStudent>[0] = { id: student.id, name: form.name, notes: form.notes, is_active: form.is_active };
+      const payload: Parameters<typeof updateStudent>[0] = { id: student.id, name: form.name, notes: form.notes, is_active: form.is_active, access_until: accessUntil };
       if (form.password) payload.password = form.password;
       const data = await updateStudent(payload);
       onUpdated(data.student);
@@ -234,6 +294,7 @@ function EditStudentModal({ student, onClose, onUpdated }: { student: Student; o
             </div>
             <span className="text-sm text-gray-700">{form.is_active ? 'Доступ активен' : 'Доступ заблокирован'}</span>
           </label>
+          <AccessUntilPicker value={accessUntil} onChange={setAccessUntil} />
           {error && (
             <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-red-50 text-red-600 text-sm">
               <Icon name="AlertCircle" size={13} />{error}
@@ -261,6 +322,8 @@ function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [editStudent, setEditStudent] = useState<Student | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<Student | null>(null);
+  const [removing, setRemoving] = useState(false);
   const [search, setSearch] = useState('');
   const [showChangePw, setShowChangePw] = useState(false);
 
@@ -400,12 +463,14 @@ function AdminDashboard() {
               <div className="grid grid-cols-12 px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">
                 <div className="col-span-3">Имя</div>
                 <div className="col-span-2">Логин</div>
-                <div className="col-span-2 hidden sm:block">Заметка</div>
-                <div className="col-span-2">Статус</div>
-                <div className="col-span-2 hidden sm:block">Последний вход</div>
+                <div className="col-span-2 hidden sm:block">Статус</div>
+                <div className="col-span-2 hidden md:block">Срок доступа</div>
+                <div className="col-span-2 hidden lg:block">Последний вход</div>
                 <div className="col-span-1"></div>
               </div>
-              {filtered.map(s => (
+              {filtered.map(s => {
+                const expired = !!s.access_until && new Date(s.access_until).getTime() <= Date.now();
+                return (
                 <div key={s.id} className="grid grid-cols-12 px-5 py-4 items-center hover:bg-gray-50 transition-colors">
                   <div className="col-span-3 flex items-center gap-3">
                     <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
@@ -415,8 +480,7 @@ function AdminDashboard() {
                     <span className="text-sm font-medium text-gray-800 truncate">{s.name}</span>
                   </div>
                   <div className="col-span-2 text-sm text-gray-500 font-mono truncate">{s.login}</div>
-                  <div className="col-span-2 hidden sm:block text-xs text-gray-400 truncate">{s.notes || '—'}</div>
-                  <div className="col-span-2">
+                  <div className="col-span-2 hidden sm:block">
                     <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold ${
                       s.is_active ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'
                     }`}>
@@ -424,14 +488,21 @@ function AdminDashboard() {
                       {s.is_active ? 'Активен' : 'Заблок.'}
                     </span>
                   </div>
-                  <div className="col-span-2 hidden sm:block text-xs text-gray-400">{fmtDate(s.last_seen)}</div>
-                  <div className="col-span-1 flex justify-end">
+                  <div className={`col-span-2 hidden md:block text-xs truncate ${expired ? 'text-red-500 font-semibold' : 'text-gray-400'}`}>
+                    {fmtAccessUntil(s.access_until)}
+                  </div>
+                  <div className="col-span-2 hidden lg:block text-xs text-gray-400">{fmtDate(s.last_seen)}</div>
+                  <div className="col-span-1 flex justify-end gap-1">
                     <button onClick={() => setEditStudent(s)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
                       <Icon name="Pencil" size={14} />
                     </button>
+                    <button onClick={() => setRemoveTarget(s)} className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors">
+                      <Icon name="Trash2" size={14} />
+                    </button>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -454,6 +525,42 @@ function AdminDashboard() {
               setStudents(prev => prev.map(s => s.id === updated.id ? updated : s));
             }}
           />
+        )}
+        {removeTarget && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => !removing && setRemoveTarget(null)}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 animate-scale-in" onClick={e => e.stopPropagation()}>
+              <div className="w-11 h-11 rounded-full bg-red-50 flex items-center justify-center mb-4">
+                <Icon name="Trash2" size={18} className="text-red-500" />
+              </div>
+              <h3 className="font-montserrat font-bold text-lg text-[#1a1a1a] mb-2">Удалить ученика?</h3>
+              <p className="text-sm text-gray-500 mb-5">
+                Ученик «{removeTarget.name}» и вся его история чата будут удалены безвозвратно. Это действие нельзя отменить.
+              </p>
+              <div className="flex gap-3">
+                <button type="button" onClick={() => setRemoveTarget(null)} disabled={removing}
+                  className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-60">
+                  Отмена
+                </button>
+                <button
+                  type="button"
+                  disabled={removing}
+                  onClick={async () => {
+                    setRemoving(true);
+                    try {
+                      await removeStudent(removeTarget.id);
+                      setStudents(prev => prev.filter(s => s.id !== removeTarget.id));
+                      setRemoveTarget(null);
+                    } finally {
+                      setRemoving(false);
+                    }
+                  }}
+                  className="flex-1 py-2.5 rounded-xl text-white text-sm font-semibold hover:opacity-90 disabled:opacity-60 transition-all bg-red-500"
+                >
+                  {removing ? 'Удаление...' : 'Удалить'}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
         </>}
       </div>

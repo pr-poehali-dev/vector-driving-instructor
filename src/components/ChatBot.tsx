@@ -75,7 +75,7 @@ function VideoPlayer({ url, title, thumb, studentName }: VideoPlayerProps) {
   };
 
   return (
-    <div className="mt-2 rounded-lg overflow-hidden border border-white/20" onContextMenu={e => e.preventDefault()}>
+    <div className="mt-2 rounded-lg overflow-hidden border border-white/20 w-64 max-w-full" onContextMenu={e => e.preventDefault()}>
       {!playing ? (
         <div className="relative cursor-pointer group" onClick={() => setPlaying(true)}>
           {thumb ? (
@@ -261,7 +261,7 @@ export default function ChatBot() {
   const [newMessageIds, setNewMessageIds] = useState<Set<string>>(new Set());
 
   // ai mode state
-  const [aiMessages, setAiMessages] = useState<{ role: 'user' | 'instructor'; text: string; id: string; video?: { title: string; url: string; thumb: string } | null }[]>([]);
+  const [aiMessages, setAiMessages] = useState<{ role: 'user' | 'instructor'; text: string; id: string; videos?: { title: string; url: string; thumb: string }[] }[]>([]);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState('');
   const [aiWelcome, setAiWelcome] = useState('');
@@ -422,11 +422,12 @@ export default function ChatBot() {
     try {
       const data = await sendAiChat(text, history, studentId, studentName);
       if (data.error) throw new Error(data.error);
+      const videos = data.videos && data.videos.length > 0 ? data.videos : (data.video ? [data.video] : []);
       setAiMessages(prev => [...prev, {
         id: `ai-resp-${Date.now()}`,
         role: 'instructor',
         text: data.answer,
-        video: data.video || null,
+        videos,
       }]);
     } catch (err: unknown) {
       setAiError(err instanceof Error ? err.message : 'Ошибка соединения');
@@ -614,14 +615,15 @@ export default function ChatBot() {
                       : 'bg-[#E8002D] text-white rounded-tr-sm'
                   }`}>
                     {msg.text}
-                    {msg.video && (
+                    {msg.videos?.map((v, i) => (
                       <VideoPlayer
-                        url={msg.video.url}
-                        title={msg.video.title}
-                        thumb={msg.video.thumb}
+                        key={v.url + i}
+                        url={v.url}
+                        title={v.title}
+                        thumb={v.thumb}
                         studentName={studentName}
                       />
-                    )}
+                    ))}
                   </div>
                 </div>
               ))}

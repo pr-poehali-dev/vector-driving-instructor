@@ -14,8 +14,9 @@ action=logout
 
 === STUDENTS ===
 action=students-list
-action=students-add        name, login, password, notes
-action=students-update     id, name?, is_active?, notes?, password?
+action=students-add        name, login, password, notes, access_until?
+action=students-update     id, name?, is_active?, notes?, password?, access_until?
+action=students-remove     id
 
 === MANAGERS ===
 action=managers-list
@@ -49,6 +50,7 @@ import hashlib
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import secrets
+from datetime import datetime, timezone
 
 SCHEMA = os.environ['MAIN_DB_SCHEMA']
 CORS = {
@@ -90,6 +92,9 @@ def get_conn():
 
 def hash_pw(p):
     return hashlib.sha256(p.encode()).hexdigest()
+
+def now_utc():
+    return datetime.now(timezone.utc)
 
 def make_token():
     return secrets.token_hex(32)
@@ -276,12 +281,20 @@ def handler(event: dict, context) -> dict:
             if not login or not password:
                 return err('Введите логин и пароль')
             cur.execute(
-                f"SELECT id, name FROM {SCHEMA}.students WHERE login=%s AND password_hash=%s AND is_active=TRUE",
+                f"SELECT id, name, is_active, access_until FROM {SCHEMA}.students WHERE login=%s AND password_hash=%s",
                 (login, hash_pw(password))
             )
             s = cur.fetchone()
             if not s:
                 return err('Неверный логин или пароль', 401)
+            # Автоблокировка по истечении срока доступа
+            if s['access_until'] and s['access_until'] <= now_utc():
+                if s['is_active']:
+                    cur.execute(f"UPDATE {SCHEMA}.students SET is_active=FALSE WHERE id=%s", (s['id'],))
+                    conn.commit()
+                return err('Срок доступа истёк. Обратитесь в автошколу к менеджеру.', 403)
+            if not s['is_active']:
+                return err('Доступ заблокирован. Обратитесь в автошколу к менеджеру.', 403)
             t = make_token()
             cur.execute(f"INSERT INTO {SCHEMA}.sessions (student_id, token) VALUES (%s, %s)", (s['id'], t))
             cur.execute(f"UPDATE {SCHEMA}.students SET last_seen=NOW() WHERE id=%s", (s['id'],))
@@ -292,14 +305,21 @@ def handler(event: dict, context) -> dict:
             if not token:
                 return err('Нет токена', 401)
             cur.execute(
-                f"""SELECT s.name, s.id FROM {SCHEMA}.sessions sess
+                f"""SELECT s.name, s.id, s.is_active, s.access_until FROM {SCHEMA}.sessions sess
                     JOIN {SCHEMA}.students s ON s.id=sess.student_id
-                    WHERE sess.token=%s AND sess.expires_at > NOW() AND s.is_active=TRUE""",
+                    WHERE sess.token=%s AND sess.expires_at > NOW()""",
                 (token,)
             )
             row = cur.fetchone()
             if not row:
                 return err('Сессия истекла', 401)
+            if row['access_until'] and row['access_until'] <= now_utc():
+                if row['is_active']:
+                    cur.execute(f"UPDATE {SCHEMA}.students SET is_active=FALSE WHERE id=%s", (row['id'],))
+                    conn.commit()
+                return err('Срок доступа истёк. Обратитесь в автошколу к менеджеру.', 403)
+            if not row['is_active']:
+                return err('Доступ заблокирован. Обратитесь в автошколу к менеджеру.', 403)
             cur.execute(f"UPDATE {SCHEMA}.students SET last_seen=NOW() WHERE id=%s", (row['id'],))
             conn.commit()
             return ok({'name': row['name'], 'id': row['id'], 'role': 'student'})
@@ -318,7 +338,7 @@ def handler(event: dict, context) -> dict:
         if action == 'students-list':
             if not is_admin_or_manager(cur, token, 'can_students'):
                 return err('Доступ запрещён', 403)
-            cur.execute(f"SELECT id, name, login, is_active, notes, created_at, last_seen FROM {SCHEMA}.students ORDER BY created_at DESC")
+            cur.execute(f"SELECT id, name, login, is_active, notes, created_at, last_seen, access_until FROM {SCHEMA}.students ORDER BY created_at DESC")
             return ok({'students': [dict(r) for r in cur.fetchall()]})
 
         if action == 'students-add':
@@ -328,13 +348,14 @@ def handler(event: dict, context) -> dict:
             login = (body.get('login') or '').strip().lower()
             password = (body.get('password') or '').strip()
             notes = (body.get('notes') or '').strip()
+            access_until = body.get('access_until') or None
             if not name or not login or not password:
                 return err('Имя, логин и пароль обязательны')
             if len(password) < 4:
                 return err('Пароль минимум 4 символа')
             cur.execute(
-                f"INSERT INTO {SCHEMA}.students (name, login, password_hash, notes) VALUES (%s,%s,%s,%s) RETURNING id, name, login, is_active, notes, created_at",
-                (name, login, hash_pw(password), notes)
+                f"INSERT INTO {SCHEMA}.students (name, login, password_hash, notes, access_until) VALUES (%s,%s,%s,%s,%s) RETURNING id, name, login, is_active, notes, created_at, access_until",
+                (name, login, hash_pw(password), notes, access_until)
             )
             row = cur.fetchone()
             conn.commit()
@@ -353,6 +374,9 @@ def handler(event: dict, context) -> dict:
                 if f in body:
                     fields.append(f'{f}=%s')
                     values.append(bool(body[f]) if f == 'is_active' else body[f])
+            if 'access_until' in body:
+                fields.append('access_until=%s')
+                values.append(body['access_until'] or None)
             if body.get('password'):
                 fields.append('password_hash=%s')
                 values.append(hash_pw(body['password']))
@@ -360,7 +384,7 @@ def handler(event: dict, context) -> dict:
                 return err('Нет данных')
             values.append(sid)
             cur.execute(
-                f"UPDATE {SCHEMA}.students SET {', '.join(fields)} WHERE id=%s RETURNING id, name, login, is_active, notes, created_at, last_seen",
+                f"UPDATE {SCHEMA}.students SET {', '.join(fields)} WHERE id=%s RETURNING id, name, login, is_active, notes, created_at, last_seen, access_until",
                 values
             )
             row = cur.fetchone()
@@ -370,11 +394,30 @@ def handler(event: dict, context) -> dict:
             changes = []
             if 'name' in body: changes.append(f"Имя: {body['name']}")
             if 'is_active' in body: changes.append('Активирован' if body['is_active'] else 'Заблокирован')
+            if 'access_until' in body: changes.append(f"Срок доступа: {body['access_until'] or 'бессрочно'}")
             if body.get('password'): changes.append('Пароль изменён')
             if 'notes' in body: changes.append('Заметка обновлена')
             write_activity(cur, token, 'update_student', 'student', row['id'], row['name'], '; '.join(changes))
             conn.commit()
             return ok({'student': dict(row)})
+
+        if action == 'students-remove':
+            if not is_admin_or_manager(cur, token, 'can_students'):
+                return err('Доступ запрещён', 403)
+            sid = body.get('id')
+            if not sid:
+                return err('Не указан id')
+            cur.execute(f"SELECT name FROM {SCHEMA}.students WHERE id=%s", (sid,))
+            stud_row = cur.fetchone()
+            if not stud_row:
+                return err('Не найден', 404)
+            cur.execute(f"DELETE FROM {SCHEMA}.sessions WHERE student_id=%s", (sid,))
+            cur.execute(f"UPDATE {SCHEMA}.chat_logs SET student_id=NULL WHERE student_id=%s", (sid,))
+            cur.execute(f"DELETE FROM {SCHEMA}.students WHERE id=%s", (sid,))
+            conn.commit()
+            write_activity(cur, token, 'remove_student', 'student', sid, stud_row['name'], 'Ученик удалён полностью')
+            conn.commit()
+            return ok({'ok': True})
 
         # ══════════════════════════════════════════════════════════════════════
         # MANAGERS

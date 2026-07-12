@@ -6,6 +6,7 @@ POST / { action: "save_settings", ...fields }
 """
 import json
 import os
+import re
 import urllib.request
 import urllib.error
 import psycopg2
@@ -49,50 +50,104 @@ def load_settings():
     }
 
 
-def load_topics_with_videos():
+STOPWORDS = {
+    'как', 'что', 'это', 'для', 'при', 'над', 'под', 'мне', 'мой', 'моя',
+    'мои', 'все', 'всё', 'весь', 'вся', 'про', 'или', 'его', 'ему', 'она',
+    'они', 'вот', 'уже', 'еще', 'ещё', 'там', 'тут', 'где', 'если', 'чтобы',
+    'можно', 'нужно', 'надо', 'такое', 'такой', 'такая', 'такие', 'есть',
+    'был', 'была', 'были', 'быть', 'меня', 'тебя', 'себя', 'нам', 'вам',
+    'им', 'ним', 'ней', 'него', 'покажи', 'покажите', 'видео', 'посмотреть',
+    'посмотри', 'хочу', 'дайте', 'дай', 'ролик', 'урок', 'манёвр', 'маневр',
+    'манёвры', 'маневры', 'улице', 'улица', 'улицу',
+}
+
+ALL_MARKERS = {'все', 'всё', 'весь', 'вся', 'всех', 'каждое', 'каждый', 'любые', 'разные'}
+
+
+def normalize_word(w):
+    return re.sub(r'[^a-zа-яё0-9]', '', w.lower())
+
+
+def word_stem(w):
+    # Простой стеммер для русского: отбрасываем последние буквы у длинных слов,
+    # чтобы сопоставлять разные падежи/формы (чернореченское / чернореченской / чернореченская)
+    if len(w) > 7:
+        return w[:6]
+    if len(w) > 4:
+        return w[:4]
+    return w
+
+
+def load_all_videos():
     conn = get_db()
     cur = conn.cursor()
     cur.execute(f'''
-        SELECT t.label, t.tags, m.video_title, m.video_url, m.video_thumb
-        FROM {SCHEMA}.chat_topics t
-        JOIN {SCHEMA}.chat_messages m ON m.topic_id = t.id
+        SELECT m.video_title, m.video_url, m.video_thumb, t.label, t.tags
+        FROM {SCHEMA}.chat_messages m
+        JOIN {SCHEMA}.chat_topics t ON m.topic_id = t.id
         WHERE m.video_url IS NOT NULL
         ORDER BY t.sort_order, m.sort_order
     ''')
     rows = cur.fetchall()
     conn.close()
-    topics = {}
-    for label, tags, title, url, thumb in rows:
-        if label not in topics:
-            # Собираем все ключевые слова: название + теги
-            keywords = [w for w in label.lower().split() if len(w) > 2]
-            if tags:
-                for tag in tags.split(','):
-                    t = tag.strip().lower()
-                    if t:
-                        keywords.append(t)
-            topics[label] = {'videos': [], 'keywords': keywords}
-        topics[label]['videos'].append({'title': title, 'url': url, 'thumb': thumb or ''})
-    return topics
+    videos = []
+    for title, url, thumb, label, tags in rows:
+        title_words = [normalize_word(w) for w in (title or '').split()]
+        title_words = [w for w in title_words if len(w) > 2]
+        tag_words = []
+        if tags:
+            tag_words = [normalize_word(t) for t in tags.split(',') if t.strip()]
+        videos.append({
+            'title': title or '',
+            'url': url,
+            'thumb': thumb or '',
+            'title_stems': {word_stem(w) for w in title_words},
+            'tag_stems': {word_stem(w) for w in tag_words if w},
+        })
+    return videos
 
 
-def find_relevant_video(message, topics_with_videos):
+def find_relevant_videos(message, videos):
     msg_lower = message.lower()
-    best_topic = None
-    best_score = 0
-    for label, data in topics_with_videos.items():
-        keywords = data['keywords']
-        # Точное совпадение тега даёт 10 очков, частичное — 1
+    msg_words = [normalize_word(w) for w in re.findall(r'[a-zа-яё0-9]+', msg_lower)]
+    msg_words = [w for w in msg_words if len(w) > 2 and w not in STOPWORDS]
+    msg_stems = {word_stem(w) for w in msg_words}
+
+    ask_all = any(w in ALL_MARKERS for w in msg_lower.split())
+
+    scored = []
+    for v in videos:
         score = 0
-        for kw in keywords:
-            if kw in msg_lower:
-                score += 10 if kw == msg_lower.strip() else (5 if len(kw) > 4 else 1)
-        if score > best_score:
-            best_score = score
-            best_topic = label
-    if best_score > 0 and best_topic:
-        return topics_with_videos[best_topic]['videos'][0]
-    return None
+        # Совпадение по названию видео — основной сигнал
+        score += 10 * len(msg_stems & v['title_stems'])
+        # Совпадение по тегам темы — вспомогательный сигнал
+        score += 3 * len(msg_stems & v['tag_stems'])
+        if score > 0:
+            scored.append((score, v))
+
+    if not scored:
+        return []
+
+    scored.sort(key=lambda x: -x[0])
+
+    seen = set()
+    result = []
+    if ask_all:
+        # Показываем все видео, совпавшие хотя бы по одному ключевому слову
+        for score, v in scored:
+            if v['url'] in seen:
+                continue
+            seen.add(v['url'])
+            result.append({'title': v['title'], 'url': v['url'], 'thumb': v['thumb']})
+    else:
+        # Показываем только наиболее подходящее конкретное видео
+        top_score = scored[0][0]
+        for score, v in scored:
+            if score != top_score or v['url'] in seen:
+                continue
+            seen.add(v['url'])
+            result.append({'title': v['title'], 'url': v['url'], 'thumb': v['thumb']})
+    return result
 
 
 def handler(event: dict, context) -> dict:
@@ -175,11 +230,11 @@ def handler(event: dict, context) -> dict:
     if extra_sources.strip():
         full_prompt += f'\n\nДОПОЛНИТЕЛЬНЫЕ ЗНАНИЯ (используй при ответах):\n{extra_sources}'
 
-    # Ищем подходящее видео
-    video = None
+    # Ищем подходящие видео (по названию видео, а не по теме целиком)
+    videos = []
     try:
-        topics_with_videos = load_topics_with_videos()
-        video = find_relevant_video(message, topics_with_videos)
+        all_videos = load_all_videos()
+        videos = find_relevant_videos(message, all_videos)
     except Exception:
         pass
 
@@ -231,7 +286,7 @@ def handler(event: dict, context) -> dict:
             log_conn.close()
         except Exception as log_err:
             print(f'Log error: {log_err}')
-        return resp({'answer': answer, 'video': video})
+        return resp({'answer': answer, 'video': videos[0] if videos else None, 'videos': videos})
     except urllib.error.HTTPError as e:
         err = ''
         try:

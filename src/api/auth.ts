@@ -56,10 +56,14 @@ export async function getStudents() {
   return api({ action: 'students-list' }, getAdminToken());
 }
 
-export async function addStudent(data: { name: string; login: string; password: string; notes?: string }) {
+export async function addStudent(data: { name: string; login: string; password: string; notes?: string; access_until?: string | null }) {
   return api({ action: 'students-add', ...data }, getAdminToken());
 }
 
-export async function updateStudent(data: { id: number; name?: string; is_active?: boolean; notes?: string; password?: string }) {
+export async function updateStudent(data: { id: number; name?: string; is_active?: boolean; notes?: string; password?: string; access_until?: string | null }) {
   return api({ action: 'students-update', ...data }, getAdminToken());
+}
+
+export async function removeStudent(id: number) {
+  return api({ action: 'students-remove', id }, getAdminToken());
 }
