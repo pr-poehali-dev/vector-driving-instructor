@@ -82,7 +82,7 @@ def load_all_videos():
     conn = get_db()
     cur = conn.cursor()
     cur.execute(f'''
-        SELECT m.video_title, m.video_url, m.video_thumb, t.label, t.tags
+        SELECT m.video_title, m.video_url, m.video_thumb, m.text, t.label, t.tags
         FROM {SCHEMA}.chat_messages m
         JOIN {SCHEMA}.chat_topics t ON m.topic_id = t.id
         WHERE m.video_url IS NOT NULL
@@ -91,7 +91,7 @@ def load_all_videos():
     rows = cur.fetchall()
     conn.close()
     videos = []
-    for title, url, thumb, label, tags in rows:
+    for title, url, thumb, text, label, tags in rows:
         title_words = [normalize_word(w) for w in (title or '').split()]
         title_words = [w for w in title_words if len(w) > 2]
         tag_words = []
@@ -101,10 +101,54 @@ def load_all_videos():
             'title': title or '',
             'url': url,
             'thumb': thumb or '',
+            'text': (text or '').strip(),
             'title_stems': {word_stem(w) for w in title_words},
             'tag_stems': {word_stem(w) for w in tag_words if w},
         })
     return videos
+
+
+def call_yandex_gpt(api_key, folder_id, messages, temperature=0.3, max_tokens=200, timeout=20):
+    payload = json.dumps({
+        'modelUri': f'gpt://{folder_id}/yandexgpt-lite',
+        'completionOptions': {
+            'stream': False,
+            'temperature': temperature,
+            'maxTokens': max_tokens,
+        },
+        'messages': messages,
+    }).encode('utf-8')
+    req = urllib.request.Request(
+        'https://llm.api.cloud.yandex.net/foundationModels/v1/completion',
+        data=payload,
+        headers={
+            'Content-Type': 'application/json',
+            'Authorization': f'Api-Key {api_key}',
+            'x-folder-id': folder_id,
+        },
+        method='POST'
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        result = json.loads(r.read().decode('utf-8'))
+    return result['result']['alternatives'][0]['message']['text'].strip()
+
+
+def generate_video_description(title, api_key, folder_id):
+    if not title:
+        return ''
+    try:
+        prompt = (
+            'Ты — инструктор по вождению автошколы. У тебя есть видеоурок с названием: '
+            f'"{title}". Опиши в 1-2 коротких предложениях, что показано на этом видео и '
+            'какой манёвр или ситуацию на дороге оно разбирает. Пиши сразу описание, без вступлений и оговорок.'
+        )
+        return call_yandex_gpt(
+            api_key, folder_id,
+            [{'role': 'user', 'text': prompt}],
+            temperature=0.3, max_tokens=150, timeout=15
+        )
+    except Exception:
+        return ''
 
 
 def find_relevant_videos(message, videos):
@@ -138,7 +182,7 @@ def find_relevant_videos(message, videos):
             if v['url'] in seen:
                 continue
             seen.add(v['url'])
-            result.append({'title': v['title'], 'url': v['url'], 'thumb': v['thumb']})
+            result.append({'title': v['title'], 'url': v['url'], 'thumb': v['thumb'], 'text': v['text']})
     else:
         # Показываем только наиболее подходящее конкретное видео
         top_score = scored[0][0]
@@ -146,7 +190,7 @@ def find_relevant_videos(message, videos):
             if score != top_score or v['url'] in seen:
                 continue
             seen.add(v['url'])
-            result.append({'title': v['title'], 'url': v['url'], 'thumb': v['thumb']})
+            result.append({'title': v['title'], 'url': v['url'], 'thumb': v['thumb'], 'text': v['text']})
     return result
 
 
@@ -238,6 +282,45 @@ def handler(event: dict, context) -> dict:
     except Exception:
         pass
 
+    def save_log(user_msg, bot_msg):
+        try:
+            log_conn = get_db()
+            log_cur = log_conn.cursor()
+            log_cur.execute(
+                f"INSERT INTO {SCHEMA}.chat_logs (student_id, student_name, mode, role, message) VALUES (%s, %s, 'ai', 'user', %s)",
+                (student_id, student_name, user_msg)
+            )
+            log_cur.execute(
+                f"INSERT INTO {SCHEMA}.chat_logs (student_id, student_name, mode, role, message) VALUES (%s, %s, 'ai', 'bot', %s)",
+                (student_id, student_name, bot_msg)
+            )
+            log_conn.commit()
+            log_conn.close()
+        except Exception as log_err:
+            print(f'Log error: {log_err}')
+
+    # Если найдены конкретные видео по названию/тегам — отвечаем на основе готового
+    # описания темы (или коротко генерируем его по названию), не спрашивая общий чат-ответ у LLM.
+    # Это исключает ситуации, когда модель одновременно находит видео и пишет отказ не по теме.
+    if videos:
+        parts = []
+        for v in videos:
+            desc = v.get('text') or ''
+            if not desc and v.get('title'):
+                desc = generate_video_description(v['title'], api_key, folder_id)
+            if desc:
+                parts.append(desc)
+        if len(videos) > 1:
+            answer = 'Вот все манёвры, которые нашлись по вашему запросу:\n\n' + '\n\n'.join(
+                f'🎬 {p}' for p in parts
+            ) if parts else 'Вот все манёвры, которые нашлись по вашему запросу:'
+        else:
+            answer = parts[0] if parts else (videos[0].get('title') or 'Вот видео по вашему запросу:')
+        for v in videos:
+            v.pop('text', None)
+        save_log(message, answer)
+        return resp({'answer': answer, 'video': videos[0], 'videos': videos})
+
     # Формируем сообщения для YandexGPT
     messages = [{'role': 'system', 'text': full_prompt}]
     for h in history[-10:]:
@@ -245,48 +328,10 @@ def handler(event: dict, context) -> dict:
         messages.append({'role': role, 'text': h.get('text', '')})
     messages.append({'role': 'user', 'text': message})
 
-    payload = json.dumps({
-        'modelUri': f'gpt://{folder_id}/yandexgpt-lite',
-        'completionOptions': {
-            'stream': False,
-            'temperature': temperature,
-            'maxTokens': 512,
-        },
-        'messages': messages,
-    }).encode('utf-8')
-
-    req = urllib.request.Request(
-        'https://llm.api.cloud.yandex.net/foundationModels/v1/completion',
-        data=payload,
-        headers={
-            'Content-Type': 'application/json',
-            'Authorization': f'Api-Key {api_key}',
-            'x-folder-id': folder_id,
-        },
-        method='POST'
-    )
-
     try:
-        with urllib.request.urlopen(req, timeout=25) as r:
-            result = json.loads(r.read().decode('utf-8'))
-        answer = result['result']['alternatives'][0]['message']['text']
-        # Сохраняем в лог
-        try:
-            log_conn = get_db()
-            log_cur = log_conn.cursor()
-            log_cur.execute(
-                f"INSERT INTO {SCHEMA}.chat_logs (student_id, student_name, mode, role, message) VALUES (%s, %s, 'ai', 'user', %s)",
-                (student_id, student_name, message)
-            )
-            log_cur.execute(
-                f"INSERT INTO {SCHEMA}.chat_logs (student_id, student_name, mode, role, message) VALUES (%s, %s, 'ai', 'bot', %s)",
-                (student_id, student_name, answer)
-            )
-            log_conn.commit()
-            log_conn.close()
-        except Exception as log_err:
-            print(f'Log error: {log_err}')
-        return resp({'answer': answer, 'video': videos[0] if videos else None, 'videos': videos})
+        answer = call_yandex_gpt(api_key, folder_id, messages, temperature=temperature, max_tokens=512, timeout=25)
+        save_log(message, answer)
+        return resp({'answer': answer, 'video': None, 'videos': []})
     except urllib.error.HTTPError as e:
         err = ''
         try:
