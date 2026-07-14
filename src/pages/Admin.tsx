@@ -5,6 +5,7 @@ import { adminLogin, adminMe, adminLogout, getStudents, addStudent, updateStuden
 import ContentEditor from '@/components/admin/ContentEditor';
 import AiSettings from '@/components/admin/AiSettings';
 import ManagersEditor from '@/components/admin/ManagersEditor';
+import BranchesEditor from '@/components/admin/BranchesEditor';
 import ChatLogs from '@/components/admin/ChatLogs';
 import ActivityLog from '@/components/admin/ActivityLog';
 import SiteSettingsPanel from '@/components/admin/SiteSettingsPanel';
@@ -18,6 +19,13 @@ interface Student {
   created_at: string;
   last_seen: string | null;
   access_until: string | null;
+  plain_password?: string | null;
+}
+
+function generateDigitPassword(length = 6): string {
+  let pw = '';
+  for (let i = 0; i < length; i++) pw += Math.floor(Math.random() * 10);
+  return pw;
 }
 
 function fmtDate(iso: string | null): string {
@@ -215,7 +223,27 @@ function AddStudentModal({ onClose, onAdded }: { onClose: () => void; onAdded: (
         <form onSubmit={submit} className="flex flex-col gap-3">
           {field('name', 'Имя и фамилия', 'text', 'Иван Иванов')}
           {field('login', 'Логин', 'text', 'ivanov')}
-          {field('password', 'Пароль', 'text', 'Минимум 4 символа')}
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Пароль</label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={form.password}
+                onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                placeholder="Минимум 4 символа"
+                required
+                className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-[#E8002D] transition-colors font-mono"
+              />
+              <button
+                type="button"
+                onClick={() => setForm(f => ({ ...f, password: generateDigitPassword() }))}
+                title="Сгенерировать цифровой пароль"
+                className="px-3.5 rounded-xl border border-gray-200 text-gray-500 hover:border-[#E8002D] hover:text-[#E8002D] transition-colors flex-shrink-0"
+              >
+                <Icon name="Dices" size={16} />
+              </button>
+            </div>
+          </div>
           {field('notes', 'Заметка (необязательно)', 'text', 'Группа A, начало курса...')}
           <AccessUntilPicker value={accessUntil} onChange={setAccessUntil} />
           {error && (
@@ -277,10 +305,27 @@ function EditStudentModal({ student, onClose, onUpdated }: { student: Student; o
             <input type="text" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required
               className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-[#E8002D]" />
           </div>
+          {student.plain_password && (
+            <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-gray-50 border border-gray-100">
+              <Icon name="KeyRound" size={14} className="text-gray-400 flex-shrink-0" />
+              <span className="text-xs text-gray-500">Текущий пароль:</span>
+              <span className="text-sm font-mono font-semibold text-[#1a1a1a] select-all">{student.plain_password}</span>
+            </div>
+          )}
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Новый пароль (если нужно сменить)</label>
-            <input type="text" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} placeholder="Оставьте пустым, чтобы не менять"
-              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-[#E8002D]" />
+            <div className="flex gap-2">
+              <input type="text" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} placeholder="Оставьте пустым, чтобы не менять"
+                className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-[#E8002D] font-mono" />
+              <button
+                type="button"
+                onClick={() => setForm(f => ({ ...f, password: generateDigitPassword() }))}
+                title="Сгенерировать цифровой пароль"
+                className="px-3.5 rounded-xl border border-gray-200 text-gray-500 hover:border-[#E8002D] hover:text-[#E8002D] transition-colors flex-shrink-0"
+              >
+                <Icon name="Dices" size={16} />
+              </button>
+            </div>
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Заметка</label>
@@ -317,7 +362,7 @@ function EditStudentModal({ student, onClose, onUpdated }: { student: Student; o
 
 // ─── Main dashboard ──────────────────────────────────────────────────────────
 function AdminDashboard() {
-  const [tab, setTab] = useState<'students' | 'content' | 'ai' | 'managers' | 'logs' | 'activity' | 'site'>('students');
+  const [tab, setTab] = useState<'students' | 'content' | 'ai' | 'managers' | 'branches' | 'logs' | 'activity' | 'site'>('students');
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -374,6 +419,7 @@ function AdminDashboard() {
             { key: 'content', label: 'Контент бота', icon: 'MessageSquare' },
             { key: 'ai', label: 'AI-инструктор', icon: 'Brain' },
             { key: 'managers', label: 'Менеджеры', icon: 'UserCog' },
+            { key: 'branches', label: 'Филиалы', icon: 'MapPin' },
             { key: 'logs', label: 'Переписка', icon: 'MessagesSquare' },
             { key: 'activity', label: 'Журнал', icon: 'ClipboardList' },
             { key: 'site', label: 'Сайт', icon: 'Settings' },
@@ -396,6 +442,7 @@ function AdminDashboard() {
         {tab === 'content' && <ContentEditor />}
         {tab === 'ai' && <AiSettings />}
         {tab === 'managers' && <ManagersEditor />}
+        {tab === 'branches' && <BranchesEditor />}
         {tab === 'logs' && <ChatLogs />}
         {tab === 'activity' && <ActivityLog />}
         {tab === 'site' && <SiteSettingsPanel />}

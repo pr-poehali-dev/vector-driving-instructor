@@ -42,6 +42,12 @@ action=logs_stats
 === SITE SETTINGS ===
 action=get_site_settings   (публичный)
 action=save_site_settings  chat_topics_enabled?, chat_ai_enabled?, maintenance_mode?
+
+=== BRANCHES (филиалы) ===
+action=get_branches        (публичный)
+action=branches-add        name, address, phone, work_hours?
+action=branches-update     id, name?, address?, phone?, work_hours?
+action=branches-remove     id
 """
 import json
 import os
@@ -338,7 +344,7 @@ def handler(event: dict, context) -> dict:
         if action == 'students-list':
             if not is_admin_or_manager(cur, token, 'can_students'):
                 return err('Доступ запрещён', 403)
-            cur.execute(f"SELECT id, name, login, is_active, notes, created_at, last_seen, access_until FROM {SCHEMA}.students ORDER BY created_at DESC")
+            cur.execute(f"SELECT id, name, login, is_active, notes, created_at, last_seen, access_until, plain_password FROM {SCHEMA}.students ORDER BY created_at DESC")
             return ok({'students': [dict(r) for r in cur.fetchall()]})
 
         if action == 'students-add':
@@ -354,8 +360,8 @@ def handler(event: dict, context) -> dict:
             if len(password) < 4:
                 return err('Пароль минимум 4 символа')
             cur.execute(
-                f"INSERT INTO {SCHEMA}.students (name, login, password_hash, notes, access_until) VALUES (%s,%s,%s,%s,%s) RETURNING id, name, login, is_active, notes, created_at, access_until",
-                (name, login, hash_pw(password), notes, access_until)
+                f"INSERT INTO {SCHEMA}.students (name, login, password_hash, plain_password, notes, access_until) VALUES (%s,%s,%s,%s,%s,%s) RETURNING id, name, login, is_active, notes, created_at, access_until, plain_password",
+                (name, login, hash_pw(password), password, notes, access_until)
             )
             row = cur.fetchone()
             conn.commit()
@@ -380,11 +386,13 @@ def handler(event: dict, context) -> dict:
             if body.get('password'):
                 fields.append('password_hash=%s')
                 values.append(hash_pw(body['password']))
+                fields.append('plain_password=%s')
+                values.append(body['password'])
             if not fields:
                 return err('Нет данных')
             values.append(sid)
             cur.execute(
-                f"UPDATE {SCHEMA}.students SET {', '.join(fields)} WHERE id=%s RETURNING id, name, login, is_active, notes, created_at, last_seen, access_until",
+                f"UPDATE {SCHEMA}.students SET {', '.join(fields)} WHERE id=%s RETURNING id, name, login, is_active, notes, created_at, last_seen, access_until, plain_password",
                 values
             )
             row = cur.fetchone()
@@ -728,6 +736,79 @@ def handler(event: dict, context) -> dict:
             conn.commit()
             cur.execute(f"SELECT chat_topics_enabled, chat_ai_enabled, maintenance_mode FROM {SCHEMA}.site_settings ORDER BY id DESC LIMIT 1")
             return ok(dict(cur.fetchone()))
+
+        # ══════════════════════════════════════════════════════════════════════
+        # BRANCHES (филиалы)
+        # ══════════════════════════════════════════════════════════════════════
+
+        if action == 'get_branches':
+            cur.execute(f"SELECT id, name, address, phone, work_hours, is_default FROM {SCHEMA}.branches ORDER BY sort_order, id")
+            return ok({'branches': [dict(r) for r in cur.fetchall()]})
+
+        if action == 'branches-add':
+            if not is_admin(cur, token):
+                return err('Доступ запрещён', 403)
+            name = (body.get('name') or '').strip()
+            address = (body.get('address') or '').strip()
+            phone = (body.get('phone') or '').strip()
+            work_hours = (body.get('work_hours') or 'Пн–Вс: 8:30–20:30').strip()
+            if not name or not address or not phone:
+                return err('Название, адрес и телефон обязательны')
+            cur.execute(f"SELECT COALESCE(MAX(sort_order), -1) + 1 AS n FROM {SCHEMA}.branches")
+            sort_order = cur.fetchone()['n']
+            cur.execute(
+                f"INSERT INTO {SCHEMA}.branches (name, address, phone, work_hours, sort_order) VALUES (%s,%s,%s,%s,%s) RETURNING id, name, address, phone, work_hours, is_default",
+                (name, address, phone, work_hours, sort_order)
+            )
+            row = cur.fetchone()
+            conn.commit()
+            write_activity(cur, token, 'add_branch', 'branch', row['id'], row['name'], f"Адрес: {row['address']}")
+            conn.commit()
+            return ok({'branch': dict(row)}, 201)
+
+        if action == 'branches-update':
+            if not is_admin(cur, token):
+                return err('Доступ запрещён', 403)
+            bid = body.get('id')
+            if not bid:
+                return err('Не указан id')
+            fields, values = [], []
+            for f in ['name', 'address', 'phone', 'work_hours']:
+                if f in body:
+                    fields.append(f'{f}=%s')
+                    values.append((body[f] or '').strip())
+            if not fields:
+                return err('Нет данных')
+            values.append(bid)
+            cur.execute(
+                f"UPDATE {SCHEMA}.branches SET {', '.join(fields)} WHERE id=%s RETURNING id, name, address, phone, work_hours, is_default",
+                values
+            )
+            row = cur.fetchone()
+            conn.commit()
+            if not row:
+                return err('Не найден', 404)
+            write_activity(cur, token, 'update_branch', 'branch', row['id'], row['name'], 'Данные филиала обновлены')
+            conn.commit()
+            return ok({'branch': dict(row)})
+
+        if action == 'branches-remove':
+            if not is_admin(cur, token):
+                return err('Доступ запрещён', 403)
+            bid = body.get('id')
+            if not bid:
+                return err('Не указан id')
+            cur.execute(f"SELECT name, is_default FROM {SCHEMA}.branches WHERE id=%s", (bid,))
+            b_row = cur.fetchone()
+            if not b_row:
+                return err('Не найден', 404)
+            if b_row['is_default']:
+                return err('Нельзя удалить филиал по умолчанию')
+            cur.execute(f"DELETE FROM {SCHEMA}.branches WHERE id=%s", (bid,))
+            conn.commit()
+            write_activity(cur, token, 'remove_branch', 'branch', bid, b_row['name'], 'Филиал удалён')
+            conn.commit()
+            return ok({'ok': True})
 
         return err('Unknown action')
 

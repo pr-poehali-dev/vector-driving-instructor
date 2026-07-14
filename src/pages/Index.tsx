@@ -3,6 +3,8 @@ import VectorLogo from "@/components/VectorLogo";
 import ChatBot from "@/components/ChatBot";
 import Icon from "@/components/ui/icon";
 import InstallAppSection from "@/components/InstallAppSection";
+import BranchSelector from "@/components/BranchSelector";
+import { useSelectedBranch } from "@/hooks/useSelectedBranch";
 
 const HERO_IMAGE =
   "https://cdn.poehali.dev/projects/370344a9-a9ba-49da-84a7-a1af7d9aae57/bucket/1349b49a-d81f-4438-a10d-edb89ee10114.jpg";
@@ -64,6 +66,7 @@ const NAV_LINKS = ["Инструктор", "Преимущества", "Прил
 
 export default function Index() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const selectedBranch = useSelectedBranch();
 
   const scrollTo = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
@@ -93,22 +96,7 @@ export default function Index() {
         style={{ background: "#1a1a1a" }}
       >
         <div className="max-w-6xl mx-auto px-6 flex items-center justify-between text-white/60">
-          <div className="flex items-center gap-6 text-xs">
-            <span className="flex items-center gap-1.5">
-              <Icon name="MapPin" size={12} />
-              г. Курган, ​4-й микрорайон, 32
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Icon name="Clock" size={12} />
-              Пн–Вс: 8:30–20:30
-            </span>
-          </div>
-          <a
-            href="tel:+79195915558"
-            className="text-white font-semibold hover:text-[#E8002D] transition-colors flex items-center gap-1.5"
-          >
-            <Icon name="Phone" size={12} />8 (919) 591-55-58
-          </a>
+          <BranchSelector />
         </div>
       </div>
 
@@ -690,18 +678,18 @@ export default function Index() {
               {
                 icon: "MapPin",
                 label: "Адрес",
-                value: "г. Курган\​4-й микрорайон, 32",
+                value: selectedBranch?.address || "г. Курган, 4-й микрорайон, 32",
               },
               {
                 icon: "Phone",
                 label: "Телефон ",
-                value: "8 (919) 591-55-58",
-                href: "tel:89195915558",
+                value: selectedBranch?.phone || "8 (919) 591-55-58",
+                href: `tel:${(selectedBranch?.phone || "89195915558").replace(/[^\d+]/g, "")}`,
               },
               {
                 icon: "Clock",
                 label: "Режим работы",
-                value: "Пн–Вс: 8:30–20:30",
+                value: selectedBranch?.work_hours || "Пн–Вс: 8:30–20:30",
               },
             ].map((item) => (
               <div
