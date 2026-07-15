@@ -7,7 +7,13 @@ import { managerLogin, managerMe, managerLogout, ManagerSession } from '@/api/ma
 import { getStudents, addStudent, updateStudent } from '@/api/auth';
 
 interface Student {
-  id: number; name: string; login: string; is_active: boolean; notes: string; created_at: string;
+  id: number; name: string; login: string; is_active: boolean; notes: string; created_at: string; plain_password?: string | null;
+}
+
+function generateDigitPassword(length = 6): string {
+  let pw = '';
+  for (let i = 0; i < length; i++) pw += Math.floor(Math.random() * 10);
+  return pw;
 }
 
 // ── Вход ─────────────────────────────────────────────────────────────────────
@@ -68,6 +74,64 @@ function LoginScreen({ onSuccess }: { onSuccess: (s: ManagerSession) => void }) 
   );
 }
 
+// ── Редактирование ученика (пароль) ───────────────────────────────────────────
+function EditStudentModal({ student, onClose, onUpdated }: { student: Student; onClose: () => void; onUpdated: (s: Student) => void }) {
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault(); setError(''); setLoading(true);
+    try {
+      const payload: Parameters<typeof updateStudent>[0] = { id: student.id };
+      if (password) payload.password = password;
+      const data = await updateStudent(payload);
+      onUpdated(data.student);
+    } catch (err: unknown) { setError(err instanceof Error ? err.message : 'Ошибка'); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="font-montserrat font-bold text-lg">Пароль ученика — {student.name}</h3>
+          <button onClick={onClose}><Icon name="X" size={18} className="text-gray-400" /></button>
+        </div>
+        <form onSubmit={submit} className="flex flex-col gap-3">
+          {student.plain_password && (
+            <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-gray-50 border border-gray-100">
+              <Icon name="KeyRound" size={14} className="text-gray-400 flex-shrink-0" />
+              <span className="text-xs text-gray-500">Текущий пароль:</span>
+              <span className="text-sm font-mono font-semibold text-[#1a1a1a] select-all">{student.plain_password}</span>
+            </div>
+          )}
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Новый пароль (если нужно сменить)</label>
+            <div className="flex gap-2">
+              <input value={password} onChange={e => setPassword(e.target.value)} placeholder="Оставьте пустым, чтобы не менять"
+                className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-[#E8002D] font-mono" />
+              <button type="button" onClick={() => setPassword(generateDigitPassword())}
+                title="Сгенерировать цифровой пароль"
+                className="px-3.5 rounded-xl border border-gray-200 text-gray-500 hover:border-[#E8002D] hover:text-[#E8002D] transition-colors flex-shrink-0">
+                <Icon name="Dices" size={16} />
+              </button>
+            </div>
+          </div>
+          {error && <div className="text-red-600 text-sm bg-red-50 px-3 py-2 rounded-xl">{error}</div>}
+          <div className="flex gap-3 mt-1">
+            <button type="button" onClick={onClose}
+              className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600">Закрыть</button>
+            <button type="submit" disabled={loading || !password}
+              className="flex-1 py-2.5 rounded-xl text-white text-sm font-semibold disabled:opacity-60"
+              style={{ background: '#E8002D' }}>{loading ? 'Сохранение...' : 'Сохранить пароль'}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // ── Таблица учеников (упрощённая) ─────────────────────────────────────────────
 function StudentsPanel() {
   const [students, setStudents] = useState<Student[]>([]);
@@ -77,6 +141,7 @@ function StudentsPanel() {
   const [addForm, setAddForm] = useState({ name: '', login: '', password: '', notes: '' });
   const [addLoading, setAddLoading] = useState(false);
   const [addError, setAddError] = useState('');
+  const [editStudent, setEditStudent] = useState<Student | null>(null);
 
   useEffect(() => {
     getStudents().then(d => { setStudents(d.students || []); setLoading(false); }).catch(() => setLoading(false));
@@ -132,6 +197,10 @@ function StudentsPanel() {
                   <p className={`text-sm font-medium truncate ${s.is_active ? 'text-[#1a1a1a]' : 'text-gray-400'}`}>{s.name}</p>
                   <p className="text-xs text-gray-400">@{s.login}</p>
                 </div>
+                <button onClick={() => setEditStudent(s)}
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-[#1a1a1a] hover:bg-gray-50 transition-colors">
+                  <Icon name="KeyRound" size={15} />
+                </button>
                 <button onClick={() => toggleActive(s)}
                   className={`text-xs px-3 py-1 rounded-full font-medium transition-colors ${s.is_active ? 'bg-green-100 text-green-700 hover:bg-red-100 hover:text-red-600' : 'bg-gray-100 text-gray-500 hover:bg-green-100 hover:text-green-700'}`}>
                   {s.is_active ? 'Активен' : 'Заблокирован'}
@@ -142,6 +211,14 @@ function StudentsPanel() {
         )}
       </div>
 
+      {editStudent && (
+        <EditStudentModal
+          student={editStudent}
+          onClose={() => setEditStudent(null)}
+          onUpdated={(s) => { setStudents(prev => prev.map(x => x.id === s.id ? s : x)); setEditStudent(null); }}
+        />
+      )}
+
       {showAdd && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setShowAdd(false)}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
@@ -150,16 +227,34 @@ function StudentsPanel() {
               <button onClick={() => setShowAdd(false)}><Icon name="X" size={18} className="text-gray-400" /></button>
             </div>
             <form onSubmit={handleAdd} className="flex flex-col gap-3">
-              {(['name', 'login', 'password', 'notes'] as const).map(key => (
+              {(['name', 'login'] as const).map(key => (
                 <div key={key}>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
-                    {key === 'name' ? 'Имя и фамилия' : key === 'login' ? 'Логин' : key === 'password' ? 'Пароль' : 'Заметка'}
+                    {key === 'name' ? 'Имя и фамилия' : 'Логин'}
                   </label>
                   <input value={addForm[key]} onChange={e => setAddForm(f => ({ ...f, [key]: e.target.value }))}
-                    required={key !== 'notes'}
+                    required
                     className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-[#E8002D]" />
                 </div>
               ))}
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Пароль</label>
+                <div className="flex gap-2">
+                  <input value={addForm.password} onChange={e => setAddForm(f => ({ ...f, password: e.target.value }))}
+                    placeholder="Минимум 4 символа" required
+                    className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-[#E8002D] font-mono" />
+                  <button type="button" onClick={() => setAddForm(f => ({ ...f, password: generateDigitPassword() }))}
+                    title="Сгенерировать цифровой пароль"
+                    className="px-3.5 rounded-xl border border-gray-200 text-gray-500 hover:border-[#E8002D] hover:text-[#E8002D] transition-colors flex-shrink-0">
+                    <Icon name="Dices" size={16} />
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Заметка</label>
+                <input value={addForm.notes} onChange={e => setAddForm(f => ({ ...f, notes: e.target.value }))}
+                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-[#E8002D]" />
+              </div>
               {addError && <div className="text-red-600 text-sm bg-red-50 px-3 py-2 rounded-xl">{addError}</div>}
               <div className="flex gap-3 mt-1">
                 <button type="button" onClick={() => setShowAdd(false)}
