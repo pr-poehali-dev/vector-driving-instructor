@@ -62,7 +62,7 @@ const WHY_VECTOR = [
   },
 ];
 
-const NAV_LINKS = ["Инструктор", "Преимущества", "Приложение", "О школе", "Контакты"];
+const NAV_LINKS = ["Инструктор", "Преимущества", "Приложение", "О Боте", "Контакты"];
 
 export default function Index() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
