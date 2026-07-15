@@ -32,6 +32,29 @@ def get_db():
     return psycopg2.connect(os.environ['DATABASE_URL'])
 
 
+def is_admin_or_manager_can_ai(token):
+    if not token:
+        return False
+    conn = get_db()
+    cur = conn.cursor()
+    try:
+        cur.execute(f"SELECT id FROM {SCHEMA}.admin_sessions WHERE token=%s AND expires_at > NOW()", (token,))
+        if cur.fetchone():
+            return True
+        cur.execute(
+            f"""SELECT m.can_ai
+                FROM {SCHEMA}.manager_sessions ms
+                JOIN {SCHEMA}.managers m ON m.id = ms.manager_id
+                WHERE ms.token=%s AND ms.expires_at > NOW() AND m.is_active=TRUE""",
+            (token,)
+        )
+        row = cur.fetchone()
+        return bool(row and row[0])
+    finally:
+        cur.close()
+        conn.close()
+
+
 def load_settings():
     conn = get_db()
     cur = conn.cursor()
@@ -214,9 +237,10 @@ def handler(event: dict, context) -> dict:
 
     # ── save_settings ─────────────────────────────────────────────────────────
     if action == 'save_settings':
-        admin_token = (event.get('headers') or {}).get('X-Auth-Token', '')
-        if not admin_token:
-            return resp({'error': 'Нет доступа'}, 403)
+        headers_in = event.get('headers') or {}
+        token = headers_in.get('X-Auth-Token') or headers_in.get('x-auth-token', '')
+        if not is_admin_or_manager_can_ai(token):
+            return resp({'error': 'Доступ запрещён'}, 403)
         conn = get_db()
         cur = conn.cursor()
         cur.execute(f'''
