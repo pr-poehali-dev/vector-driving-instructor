@@ -77,7 +77,7 @@ export default function Index() {
     Инструктор: "bot",
     Преимущества: "features",
     Приложение: "install",
-    "О школе": "about",
+    "О Боте": "about",
     Контакты: "contacts",
   };
 
