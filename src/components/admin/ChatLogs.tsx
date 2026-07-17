@@ -77,16 +77,26 @@ export default function ChatLogs() {
   const loadAll = () => {
     getLogsStats().then(d => setStats(d.stats)).catch(() => {});
     getLogsOnline().then(d => setOnline(d.online || [])).catch(() => {});
+    getLogsStudents()
+      .then(d => setStudents(d.students || []))
+      .catch(() => {})
+      .finally(() => setLoadingStudents(false));
   };
 
   useEffect(() => {
     loadAll();
-    getLogsStudents()
-      .then(d => { setStudents(d.students || []); setLoadingStudents(false); })
-      .catch(() => setLoadingStudents(false));
-    const interval = setInterval(loadAll, 30000);
+    const interval = setInterval(loadAll, 15000);
     return () => clearInterval(interval);
   }, []);
+
+  // Автообновление открытой истории переписки, если она видна
+  useEffect(() => {
+    if (!selected) return;
+    const interval = setInterval(() => {
+      getLogsHistory(selected.student_id).then(d => setMessages(d.messages || [])).catch(() => {});
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [selected]);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
