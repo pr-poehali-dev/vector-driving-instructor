@@ -3,7 +3,7 @@ import Icon from '@/components/ui/icon';
 import { ChatMessage } from '@/data/chatData';
 import StudentLogin from '@/components/StudentLogin';
 import { studentMe, studentLogout } from '@/api/auth';
-import { getTopics, DBTopic } from '@/api/content';
+import { getTopics, DBTopic, logTopicView } from '@/api/content';
 import { getAiSettings, sendAiChat } from '@/api/ai';
 import { getSiteSettings } from '@/api/siteSettings';
 import VectorLogo from '@/components/VectorLogo';
@@ -287,6 +287,7 @@ export default function ChatPage() {
     setNewMessageIds(new Set([userMsg.id]));
 
     if (topic) {
+      logTopicView(topic.label, studentId, studentName);
       setIsTyping(true);
       setTimeout(() => {
         const topicMessages = dbTopicToMessages(topic);

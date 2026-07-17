@@ -3,7 +3,7 @@ import Icon from '@/components/ui/icon';
 import { ChatMessage } from '@/data/chatData';
 import StudentLogin from '@/components/StudentLogin';
 import { studentMe, studentLogout } from '@/api/auth';
-import { getTopics, DBTopic } from '@/api/content';
+import { getTopics, DBTopic, logTopicView } from '@/api/content';
 import { getAiSettings, sendAiChat } from '@/api/ai';
 import { getSiteSettings } from '@/api/siteSettings';
 import { useVoiceChat } from '@/hooks/useVoiceChat';
@@ -367,6 +367,7 @@ export default function ChatBot() {
       return t.tags.split(',').map(s => s.trim().toLowerCase()).some(tag => tag && optLower.includes(tag));
     });
     if (topic) {
+      logTopicView(topic.label, studentId, studentName);
       const topicMsgs = dbTopicToMessages(topic);
       let delay = 800;
       topicMsgs.forEach((msg, i) => {

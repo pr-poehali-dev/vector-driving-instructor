@@ -67,3 +67,9 @@ export const getLogsHistory = (student_id: number | null, limit = 200) =>
 
 export const getLogsStats = () =>
   call({ action: 'logs_stats' }, accessToken());
+
+export const getLogsOnline = () =>
+  call({ action: 'logs_online' }, accessToken());
+
+export const logTopicView = (topic_label: string, student_id?: number | null, student_name?: string) =>
+  call({ action: 'log_topic_view', topic_label, student_id: student_id ?? null, student_name: student_name || '' }).catch(() => {});

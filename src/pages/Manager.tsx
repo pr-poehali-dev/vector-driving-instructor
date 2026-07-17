@@ -3,6 +3,7 @@ import VectorLogo from '@/components/VectorLogo';
 import Icon from '@/components/ui/icon';
 import ContentEditor from '@/components/admin/ContentEditor';
 import AiSettings from '@/components/admin/AiSettings';
+import ChatLogs from '@/components/admin/ChatLogs';
 import { managerLogin, managerMe, managerLogout, ManagerSession } from '@/api/managers';
 import { getStudents, addStudent, updateStudent, removeStudent } from '@/api/auth';
 
@@ -395,32 +396,6 @@ function StudentsPanel() {
   );
 }
 
-// ── Статистика ────────────────────────────────────────────────────────────────
-function StatsPanel() {
-  const [students, setStudents] = useState<Student[]>([]);
-  useEffect(() => {
-    getStudents().then(d => setStudents(d.students || [])).catch(() => {});
-  }, []);
-  const active = students.filter(s => s.is_active).length;
-  return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-      {[
-        { label: 'Всего учеников', val: students.length, icon: 'Users', color: '#1a1a1a' },
-        { label: 'Активных', val: active, icon: 'UserCheck', color: '#16a34a' },
-        { label: 'Заблокированных', val: students.length - active, icon: 'UserX', color: '#E8002D' },
-      ].map(s => (
-        <div key={s.label} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs text-gray-400 uppercase tracking-wide">{s.label}</span>
-            <Icon name={s.icon} size={16} className="text-gray-300" fallback="Users" />
-          </div>
-          <div className="font-montserrat text-3xl font-black" style={{ color: s.color }}>{s.val}</div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 // ── Главная страница ──────────────────────────────────────────────────────────
 export default function ManagerPage() {
   const [session, setSession] = useState<ManagerSession | null>(null);
@@ -494,7 +469,7 @@ export default function ManagerPage() {
         {activeTab === 'students' && p.students && <StudentsPanel />}
         {activeTab === 'content' && p.content && <ContentEditor />}
         {activeTab === 'ai' && p.ai && <AiSettings />}
-        {activeTab === 'stats' && p.stats && <StatsPanel />}
+        {activeTab === 'stats' && p.stats && <ChatLogs />}
 
         {tabs.length === 0 && (
           <div className="bg-white rounded-2xl p-12 text-center shadow-sm border border-gray-100">

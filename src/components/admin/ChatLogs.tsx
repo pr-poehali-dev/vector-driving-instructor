@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import Icon from '@/components/ui/icon';
-import { getLogsStudents, getLogsHistory, getLogsStats } from '@/api/content';
+import { getLogsStudents, getLogsHistory, getLogsStats, getLogsOnline } from '@/api/content';
 
 interface LogStudent {
   student_id: number;
@@ -15,6 +15,30 @@ interface LogMessage {
   role: 'user' | 'bot';
   message: string;
   created_at: string;
+}
+
+interface OnlineStudent {
+  student_id: number;
+  student_name: string;
+  login_at: string;
+  last_seen: string | null;
+  is_active_now: boolean;
+  last_action: string | null;
+  last_mode: string | null;
+}
+
+interface Stats {
+  unique_students: number;
+  total_questions: number;
+  today_questions: number;
+  week_questions: number;
+  ai_questions: number;
+  topic_questions: number;
+  total_students: number;
+  active_students: number;
+  online_now: number;
+  active_now: number;
+  top_topics: { topic_label: string; views: number }[];
 }
 
 function formatDate(iso: string) {
@@ -35,8 +59,13 @@ function formatDay(iso: string) {
   return new Date(iso).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
+function modeLabel(mode: string) {
+  return mode === 'ai' ? 'AI-инструктор' : 'Тема';
+}
+
 export default function ChatLogs() {
-  const [stats, setStats] = useState<{ unique_students: number; total_questions: number; today_questions: number; week_questions: number } | null>(null);
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [online, setOnline] = useState<OnlineStudent[]>([]);
   const [students, setStudents] = useState<LogStudent[]>([]);
   const [selected, setSelected] = useState<LogStudent | null>(null);
   const [messages, setMessages] = useState<LogMessage[]>([]);
@@ -45,11 +74,18 @@ export default function ChatLogs() {
   const [search, setSearch] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  const loadAll = () => {
     getLogsStats().then(d => setStats(d.stats)).catch(() => {});
+    getLogsOnline().then(d => setOnline(d.online || [])).catch(() => {});
+  };
+
+  useEffect(() => {
+    loadAll();
     getLogsStudents()
       .then(d => { setStudents(d.students || []); setLoadingStudents(false); })
       .catch(() => setLoadingStudents(false));
+    const interval = setInterval(loadAll, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -88,8 +124,13 @@ export default function ChatLogs() {
       {stats && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: 'Учеников в чате', val: stats.unique_students, icon: 'Users', color: '#1a1a1a' },
-            { label: 'Всего вопросов', val: stats.total_questions, icon: 'MessageSquare', color: '#7c3aed' },
+            { label: 'Активны прямо сейчас', val: stats.active_now, icon: 'Zap', color: '#16a34a' },
+            { label: 'Авторизовано', val: stats.online_now, icon: 'Radio', color: '#16a34a' },
+            { label: 'Всего учеников', val: stats.total_students, icon: 'Users', color: '#1a1a1a' },
+            { label: 'Активных доступов', val: stats.active_students, icon: 'UserCheck', color: '#1a1a1a' },
+            { label: 'Учеников в чате', val: stats.unique_students, icon: 'MessageSquare', color: '#7c3aed' },
+            { label: 'Вопросов темам', val: stats.topic_questions, icon: 'ListTree', color: '#0ea5e9' },
+            { label: 'Вопросов AI', val: stats.ai_questions, icon: 'Sparkles', color: '#7c3aed' },
             { label: 'За сегодня', val: stats.today_questions, icon: 'Zap', color: '#E8002D' },
             { label: 'За неделю', val: stats.week_questions, icon: 'TrendingUp', color: '#16a34a' },
           ].map(s => (
@@ -101,6 +142,61 @@ export default function ChatLogs() {
               <div className="font-montserrat text-2xl font-black" style={{ color: s.color }}>{s.val}</div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Сейчас онлайн */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="flex items-center gap-2 px-5 py-3 border-b border-gray-100">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+          </span>
+          <h3 className="font-montserrat font-bold text-sm text-[#1a1a1a]">Авторизованные ученики</h3>
+          <span className="text-xs text-gray-400">({online.length})</span>
+        </div>
+        {online.length === 0 ? (
+          <div className="py-6 text-center text-gray-400 text-sm">Никто не авторизован</div>
+        ) : (
+          <div className="divide-y divide-gray-50 max-h-56 overflow-y-auto">
+            {online.map(o => (
+              <div key={o.student_id} className="flex items-center gap-3 px-5 py-2.5">
+                <div className="relative flex-shrink-0">
+                  <div className="w-7 h-7 rounded-full bg-green-100 flex items-center justify-center text-green-700 text-xs font-bold">
+                    {o.student_name?.[0]?.toUpperCase() || '?'}
+                  </div>
+                  {o.is_active_now && <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-500 border-2 border-white" title="Активен прямо сейчас" />}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-semibold text-gray-800 truncate">{o.student_name}</p>
+                  <p className="text-xs text-gray-400 truncate">
+                    {o.last_mode ? `${modeLabel(o.last_mode)}: ${o.last_action}` : 'зашёл, ещё не писал'}
+                  </p>
+                </div>
+                <span className={`text-xs flex-shrink-0 ${o.is_active_now ? 'text-green-600 font-semibold' : 'text-gray-400'}`}>
+                  {o.is_active_now ? 'сейчас' : (o.last_seen ? formatDate(o.last_seen) : '')}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Топ тем */}
+      {stats && stats.top_topics.length > 0 && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="px-5 py-3 border-b border-gray-100">
+            <h3 className="font-montserrat font-bold text-sm text-[#1a1a1a]">Популярные темы</h3>
+          </div>
+          <div className="divide-y divide-gray-50">
+            {stats.top_topics.map((t, i) => (
+              <div key={t.topic_label} className="flex items-center gap-3 px-5 py-2.5">
+                <span className="w-5 text-xs text-gray-400 font-semibold flex-shrink-0">{i + 1}</span>
+                <span className="text-sm text-gray-700 flex-1 truncate">{t.topic_label}</span>
+                <span className="text-xs text-gray-400 flex-shrink-0">{t.views} раз</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -127,12 +223,17 @@ export default function ChatLogs() {
                 <p className="text-xs">Пока нет переписок</p>
               </div>
             ) : (
-              filtered.map(s => (
+              filtered.map(s => {
+                const isOnline = online.some(o => o.student_id === s.student_id && o.is_active_now);
+                return (
                 <button key={s.student_id} onClick={() => openHistory(s)}
                   className={`w-full text-left px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors ${selected?.student_id === s.student_id ? 'bg-red-50 border-l-2 border-l-[#E8002D]' : ''}`}>
                   <div className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-full bg-[#1a1a1a] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                      {s.student_name?.[0]?.toUpperCase() || '?'}
+                    <div className="relative flex-shrink-0">
+                      <div className="w-7 h-7 rounded-full bg-[#1a1a1a] flex items-center justify-center text-white text-xs font-bold">
+                        {s.student_name?.[0]?.toUpperCase() || '?'}
+                      </div>
+                      {isOnline && <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-500 border-2 border-white" />}
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-semibold text-gray-800 truncate">{s.student_name || 'Неизвестно'}</p>
@@ -140,7 +241,8 @@ export default function ChatLogs() {
                     </div>
                   </div>
                 </button>
-              ))
+                );
+              })
             )}
           </div>
         </div>
@@ -195,6 +297,11 @@ export default function ChatLogs() {
                               ? 'bg-[#E8002D] text-white rounded-tr-sm'
                               : 'bg-white text-gray-800 shadow-sm border border-gray-100 rounded-tl-sm'
                           }`}>
+                            {m.role === 'user' && (
+                              <span className={`inline-block text-[10px] font-semibold uppercase tracking-wide mb-1 px-1.5 py-0.5 rounded ${m.mode === 'ai' ? 'bg-white/20 text-white' : 'bg-white/20 text-white'}`}>
+                                {modeLabel(m.mode)}
+                              </span>
+                            )}
                             <p className="whitespace-pre-wrap break-words">{m.message}</p>
                             <p className={`text-xs mt-1 ${m.role === 'user' ? 'text-white/60 text-right' : 'text-gray-400'}`}>
                               {formatTime(m.created_at)}

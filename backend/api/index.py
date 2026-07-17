@@ -38,6 +38,8 @@ action=reorder_messages    order=[{id,sort_order}]
 action=logs_students
 action=logs_history        student_id, limit?
 action=logs_stats
+action=logs_online
+action=log_topic_view      (публичный) topic_label, student_id?, student_name?
 
 === SITE SETTINGS ===
 action=get_site_settings   (публичный)
@@ -526,6 +528,19 @@ def handler(event: dict, context) -> dict:
         if action == 'get_topics':
             return ok({'topics': fetch_topics(cur, only_active=True)})
 
+        if action == 'log_topic_view':
+            topic_label = (body.get('topic_label') or '').strip()[:200]
+            if not topic_label:
+                return err('Не указана тема')
+            student_id = body.get('student_id') or None
+            student_name = (body.get('student_name') or '').strip()[:100]
+            cur.execute(
+                f"INSERT INTO {SCHEMA}.chat_logs (student_id, student_name, mode, role, message) VALUES (%s, %s, 'topic', 'user', %s)",
+                (student_id, student_name, topic_label)
+            )
+            conn.commit()
+            return ok({'ok': True})
+
         if action == 'get_all_topics':
             if not is_admin_or_manager(cur, token, 'can_content'):
                 return err('Доступ запрещён', 403)
@@ -684,10 +699,51 @@ def handler(event: dict, context) -> dict:
                 SELECT COUNT(DISTINCT student_id) as unique_students,
                        COUNT(*) FILTER (WHERE role='user') as total_questions,
                        COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '24 hours' AND role='user') as today_questions,
-                       COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '7 days' AND role='user') as week_questions
+                       COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '7 days' AND role='user') as week_questions,
+                       COUNT(*) FILTER (WHERE role='user' AND mode='ai') as ai_questions,
+                       COUNT(*) FILTER (WHERE role='user' AND mode='topic') as topic_questions
                 FROM {SCHEMA}.chat_logs
             """)
-            return ok({'stats': dict(cur.fetchone())})
+            stats = dict(cur.fetchone())
+            cur.execute(f"SELECT COUNT(*) as total_students, COUNT(*) FILTER (WHERE is_active) as active_students FROM {SCHEMA}.students")
+            stats.update(dict(cur.fetchone()))
+            cur.execute(f"SELECT COUNT(DISTINCT student_id) as online_now FROM {SCHEMA}.sessions WHERE expires_at > NOW() AND student_id IS NOT NULL")
+            stats.update(dict(cur.fetchone()))
+            cur.execute(f"""
+                SELECT COUNT(DISTINCT sess.student_id) as active_now
+                FROM {SCHEMA}.sessions sess
+                JOIN {SCHEMA}.students s ON s.id = sess.student_id
+                WHERE sess.expires_at > NOW() AND s.last_seen > NOW() - INTERVAL '5 minutes'
+            """)
+            stats.update(dict(cur.fetchone()))
+            cur.execute(f"""
+                SELECT message as topic_label, COUNT(*) as views
+                FROM {SCHEMA}.chat_logs
+                WHERE role='user' AND mode='topic'
+                GROUP BY message ORDER BY views DESC LIMIT 10
+            """)
+            stats['top_topics'] = [dict(r) for r in cur.fetchall()]
+            return ok({'stats': stats})
+
+        if action == 'logs_online':
+            if not is_admin_or_manager(cur, token, 'can_stats'):
+                return err('Доступ запрещён', 403)
+            cur.execute(f"""
+                SELECT s.id as student_id, s.name as student_name, sess.created_at as login_at,
+                       s.last_seen,
+                       (s.last_seen > NOW() - INTERVAL '5 minutes') as is_active_now,
+                       (SELECT message FROM {SCHEMA}.chat_logs cl WHERE cl.student_id=s.id AND cl.role='user' ORDER BY cl.created_at DESC LIMIT 1) as last_action,
+                       (SELECT mode FROM {SCHEMA}.chat_logs cl WHERE cl.student_id=s.id AND cl.role='user' ORDER BY cl.created_at DESC LIMIT 1) as last_mode
+                FROM {SCHEMA}.sessions sess
+                JOIN {SCHEMA}.students s ON s.id = sess.student_id
+                WHERE sess.expires_at > NOW()
+                ORDER BY s.last_seen DESC NULLS LAST
+            """)
+            rows = [dict(r) for r in cur.fetchall()]
+            seen = {}
+            for r in rows:
+                seen[r['student_id']] = r
+            return ok({'online': list(seen.values())})
 
         if action == 'activity_log':
             if not is_admin(cur, token):
