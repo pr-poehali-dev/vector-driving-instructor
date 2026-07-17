@@ -1,7 +1,14 @@
 const AI_URL = 'https://functions.poehali.dev/75e85bcd-a1d8-49cf-9700-e0da694a7ed8';
 const ADMIN_TOKEN_KEY = 'vector_admin_token';
 const MANAGER_TOKEN_KEY = 'vector_manager_token';
-function getAccessToken() { return localStorage.getItem(ADMIN_TOKEN_KEY) || localStorage.getItem(MANAGER_TOKEN_KEY) || ''; }
+function getAccessToken() {
+  const admin = localStorage.getItem(ADMIN_TOKEN_KEY) || '';
+  const manager = localStorage.getItem(MANAGER_TOKEN_KEY) || '';
+  // На странице менеджера в приоритете токен менеджера — в браузере может
+  // остаться старый/просроченный токен администратора от прошлого захода в /admin.
+  if (window.location.pathname.startsWith('/manager')) return manager || admin;
+  return admin || manager;
+}
 
 export interface AiSettings {
   system_prompt: string;

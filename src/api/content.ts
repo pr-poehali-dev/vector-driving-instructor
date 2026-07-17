@@ -26,7 +26,12 @@ export interface DBTopic {
 
 function adminToken() { return localStorage.getItem('vector_admin_token') || ''; }
 function accessToken() {
-  return localStorage.getItem('vector_admin_token') || localStorage.getItem('vector_manager_token') || '';
+  const admin = localStorage.getItem('vector_admin_token') || '';
+  const manager = localStorage.getItem('vector_manager_token') || '';
+  // На странице менеджера в приоритете токен менеджера — в браузере может
+  // остаться старый/просроченный токен администратора от прошлого захода в /admin.
+  if (window.location.pathname.startsWith('/manager')) return manager || admin;
+  return admin || manager;
 }
 
 async function call(body: object, token?: string) {

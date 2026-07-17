@@ -478,6 +478,7 @@ function MessageCard({ msg, index, total, onEdit, onDelete, onMove }: {
 export default function ContentEditor() {
   const [topics, setTopics] = useState<DBTopic[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [activeTopic, setActiveTopic] = useState<DBTopic | null>(null);
   const [showTopicForm, setShowTopicForm] = useState(false);
   const [editTopic, setEditTopic] = useState<DBTopic | null>(null);
@@ -486,6 +487,7 @@ export default function ContentEditor() {
 
   const load = async () => {
     setLoading(true);
+    setLoadError('');
     try {
       const data = await getAllTopicsAdmin();
       setTopics(data.topics);
@@ -495,6 +497,9 @@ export default function ContentEditor() {
       } else {
         setActiveTopic(data.topics[0] || null);
       }
+    } catch (err: unknown) {
+      setLoadError(err instanceof Error ? err.message : 'Не удалось загрузить темы');
+      setTopics([]);
     } finally {
       setLoading(false);
     }
@@ -538,6 +543,22 @@ export default function ContentEditor() {
     return (
       <div className="flex items-center justify-center py-20">
         <Icon name="Loader" size={24} className="animate-spin text-gray-300" />
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center gap-3">
+        <Icon name="AlertCircle" size={28} className="text-red-400" />
+        <p className="text-sm text-gray-500">{loadError}</p>
+        <button
+          onClick={load}
+          className="px-4 py-2 rounded-xl text-white text-sm font-semibold hover:opacity-90"
+          style={{ background: '#E8002D' }}
+        >
+          Повторить попытку
+        </button>
       </div>
     );
   }

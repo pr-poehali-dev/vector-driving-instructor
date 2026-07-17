@@ -6,7 +6,14 @@ const MANAGER_TOKEN_KEY = 'vector_manager_token';
 
 function getToken() { return localStorage.getItem(TOKEN_KEY) || ''; }
 function getAdminToken() { return localStorage.getItem(ADMIN_TOKEN_KEY) || ''; }
-function getAccessToken() { return localStorage.getItem(ADMIN_TOKEN_KEY) || localStorage.getItem(MANAGER_TOKEN_KEY) || ''; }
+function getAccessToken() {
+  const admin = localStorage.getItem(ADMIN_TOKEN_KEY) || '';
+  const manager = localStorage.getItem(MANAGER_TOKEN_KEY) || '';
+  // На странице менеджера в приоритете токен менеджера — в браузере может
+  // остаться старый/просроченный токен администратора от прошлого захода в /admin.
+  if (window.location.pathname.startsWith('/manager')) return manager || admin;
+  return admin || manager;
+}
 
 async function api(body: object, token?: string) {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
