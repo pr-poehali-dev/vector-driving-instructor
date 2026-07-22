@@ -745,7 +745,7 @@ export default function Index() {
             права защищены.
           </p>
           <div className="flex gap-5">
-            {["<a href="https://vektor45.ru/manager">Вход Менеджера</a>","Инструктор", "О школе", "Контакты"].map((link) => (
+            {["Инструктор", "О школе", "Контакты"].map((link) => (
               <button
                 key={link}
                 onClick={() => scrollTo(navMap[link] || "about")}
