@@ -745,6 +745,12 @@ export default function Index() {
             права защищены.
           </p>
           <div className="flex gap-5">
+            <a
+              href="/manager"
+              className="text-white/40 hover:text-white/70 text-xs transition-colors"
+            >
+              Вход для менеджера
+            </a>
             {["Инструктор", "О школе", "Контакты"].map((link) => (
               <button
                 key={link}
