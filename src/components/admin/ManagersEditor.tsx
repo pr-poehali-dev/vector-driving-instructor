@@ -59,7 +59,8 @@ function ManagerForm({ manager, onClose, onSaved }: {
       onSaved(data.manager);
       onClose();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Ошибка');
+      const msg = err instanceof Error ? err.message : 'Ошибка';
+      setError(msg === 'Доступ запрещён' ? 'Сессия истекла. Обнови страницу и войди заново.' : msg);
     } finally {
       setLoading(false);
     }

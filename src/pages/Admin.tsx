@@ -718,7 +718,7 @@ export default function AdminPage() {
   useEffect(() => {
     if (!authed) return;
     const interval = setInterval(() => {
-      adminMe().catch(() => {});
+      adminMe().catch(() => setAuthed(false));
     }, 3 * 60 * 1000);
     return () => clearInterval(interval);
   }, [authed]);
