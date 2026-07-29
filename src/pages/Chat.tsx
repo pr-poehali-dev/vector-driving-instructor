@@ -29,10 +29,31 @@ function WatermarkLayer({ name }: { name: string }) {
 }
 
 // ─── Видеоплеер ──────────────────────────────────────────────────────────────
+// Глобальный "радиоканал": когда стартует один видеоплеер, все остальные
+// должны остановиться и вернуться к превью, чтобы одновременно играло только одно видео.
+const activeVideoListeners = new Set<(id: symbol) => void>();
+function notifyVideoStarted(id: symbol) {
+  activeVideoListeners.forEach(fn => fn(id));
+}
+
 function VideoPlayer({ url, title, thumb, studentName }: { url: string; title: string; thumb: string; studentName?: string }) {
   const [playing, setPlaying] = useState(false);
   const [isFs, setIsFs] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const idRef = useRef(Symbol('video'));
+
+  useEffect(() => {
+    const onOtherStarted = (id: symbol) => {
+      if (id !== idRef.current) setPlaying(false);
+    };
+    activeVideoListeners.add(onOtherStarted);
+    return () => { activeVideoListeners.delete(onOtherStarted); };
+  }, []);
+
+  const handlePlay = () => {
+    notifyVideoStarted(idRef.current);
+    setPlaying(true);
+  };
 
   useEffect(() => {
     const v = videoRef.current;
@@ -88,7 +109,7 @@ function VideoPlayer({ url, title, thumb, studentName }: { url: string; title: s
       style={{ aspectRatio: isFs ? undefined : '16/9', width: isFs ? '100%' : undefined, height: isFs ? '100%' : undefined }}>
       <WatermarkLayer name={studentName || ''} />
       {!playing ? (
-        <div className="absolute inset-0 flex flex-col items-center justify-center cursor-pointer group" onClick={() => setPlaying(true)}>
+        <div className="absolute inset-0 flex flex-col items-center justify-center cursor-pointer group" onClick={handlePlay}>
           {thumb ? <img src={thumb} alt={title} className="absolute inset-0 w-full h-full object-cover opacity-70" /> : <div className="absolute inset-0 bg-gray-900" />}
           <div className="relative z-10 w-12 h-12 rounded-full bg-white/90 flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg">
             <Icon name="Play" size={20} className="text-[#1a1a1a] ml-0.5" />
