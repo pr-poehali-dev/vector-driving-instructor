@@ -240,6 +240,9 @@ def handler(event: dict, context) -> dict:
             if len(new_pw) < 6:
                 return err('Пароль минимум 6 символов')
             cur.execute(f"INSERT INTO {SCHEMA}.admin_passwords (password_hash) VALUES (%s)", (hash_pw(new_pw),))
+            # Мгновенно завершаем все активные сессии администратора на всех устройствах,
+            # кроме текущей — чтобы вход по старому паролю сразу перестал работать.
+            cur.execute(f"UPDATE {SCHEMA}.admin_sessions SET expires_at=NOW() WHERE token!=%s", (token,))
             conn.commit()
             return ok({'ok': True})
 
@@ -392,12 +395,17 @@ def handler(event: dict, context) -> dict:
                 values.append(body['password'])
             if not fields:
                 return err('Нет данных')
+            # Если ученика блокируют или меняют пароль — мгновенно завершаем все его
+            # активные сессии на всех устройствах, чтобы доступ пропал сразу.
+            revoke_sessions = body.get('password') or ('is_active' in body and not body['is_active'])
             values.append(sid)
             cur.execute(
                 f"UPDATE {SCHEMA}.students SET {', '.join(fields)} WHERE id=%s RETURNING id, name, login, is_active, notes, created_at, last_seen, access_until, plain_password",
                 values
             )
             row = cur.fetchone()
+            if revoke_sessions:
+                cur.execute(f"UPDATE {SCHEMA}.sessions SET expires_at=NOW() WHERE student_id=%s", (sid,))
             conn.commit()
             if not row:
                 return err('Не найден', 404)
@@ -489,12 +497,21 @@ def handler(event: dict, context) -> dict:
                 values.append(hash_pw(body['password']))
             if not fields:
                 return err('Нет данных')
+            # Если меняют пароль, права доступа или блокируют менеджера — мгновенно
+            # завершаем все его активные сессии на всех устройствах.
+            revoke_sessions = bool(
+                body.get('password')
+                or ('is_active' in body and not body['is_active'])
+                or any(p in body for p in ['can_students', 'can_content', 'can_ai', 'can_stats'])
+            )
             values.append(mid)
             cur.execute(
                 f"UPDATE {SCHEMA}.managers SET {', '.join(fields)} WHERE id=%s RETURNING id, name, login, can_students, can_content, can_ai, can_stats, is_active, created_at, last_seen",
                 values
             )
             row = cur.fetchone()
+            if revoke_sessions and row:
+                cur.execute(f"UPDATE {SCHEMA}.manager_sessions SET expires_at=NOW() WHERE manager_id=%s", (mid,))
             conn.commit()
             changes = []
             if 'name' in body: changes.append(f"Имя: {body['name']}")
@@ -515,6 +532,8 @@ def handler(event: dict, context) -> dict:
             cur.execute(f"SELECT name FROM {SCHEMA}.managers WHERE id=%s", (mid,))
             mgr_row = cur.fetchone()
             cur.execute(f"UPDATE {SCHEMA}.managers SET is_active=FALSE WHERE id=%s", (mid,))
+            # Мгновенно завершаем все активные сессии удалённого/деактивированного менеджера
+            cur.execute(f"UPDATE {SCHEMA}.manager_sessions SET expires_at=NOW() WHERE manager_id=%s", (mid,))
             conn.commit()
             if mgr_row:
                 write_activity(cur, token, 'remove_manager', 'manager', mid, mgr_row['name'], 'Менеджер деактивирован')

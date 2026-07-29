@@ -225,8 +225,8 @@ export default function ChatPage() {
   useEffect(() => {
     if (authState !== 'ok') return;
     const interval = setInterval(() => {
-      studentMe().catch(() => {});
-    }, 3 * 60 * 1000);
+      studentMe().catch(() => setAuthState('login'));
+    }, 20 * 1000);
     return () => clearInterval(interval);
   }, [authState]);
 

@@ -412,7 +412,7 @@ export default function ManagerPage() {
     if (!session) return;
     const interval = setInterval(() => {
       managerMe().catch(() => setSession(null));
-    }, 3 * 60 * 1000);
+    }, 20 * 1000);
     return () => clearInterval(interval);
   }, [session]);
 

@@ -719,7 +719,7 @@ export default function AdminPage() {
     if (!authed) return;
     const interval = setInterval(() => {
       adminMe().catch(() => setAuthed(false));
-    }, 3 * 60 * 1000);
+    }, 20 * 1000);
     return () => clearInterval(interval);
   }, [authed]);
 
