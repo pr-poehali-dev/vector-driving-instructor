@@ -345,11 +345,16 @@ def handler(event: dict, context) -> dict:
         save_log(message, log_text)
         return resp({'answer': answer, 'video': videos[0], 'videos': videos})
 
-    # Формируем сообщения для YandexGPT
-    messages = [{'role': 'system', 'text': full_prompt}]
+    # Формируем сообщения для YandexGPT.
+    # YandexGPT отклоняет запрос с ошибкой 400, если у любого сообщения пустой text —
+    # отфильтровываем такие записи из истории (например, видео-ответы без текста).
+    messages = [{'role': 'system', 'text': full_prompt or ' '}]
     for h in history[-10:]:
+        text = (h.get('text') or '').strip()
+        if not text:
+            continue
         role = 'user' if h.get('role') == 'user' else 'assistant'
-        messages.append({'role': role, 'text': h.get('text', '')})
+        messages.append({'role': role, 'text': text})
     messages.append({'role': 'user', 'text': message})
 
     try:
