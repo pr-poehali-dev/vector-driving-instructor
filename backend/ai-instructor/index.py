@@ -293,6 +293,8 @@ def handler(event: dict, context) -> dict:
 
     # Добавляем запрещённые темы и доп.источники в промпт
     full_prompt = system_prompt
+    if student_name:
+        full_prompt += f'\n\nИмя ученика, с которым ты сейчас разговариваешь: {student_name}. Обращайся к нему по имени — используй его в приветствии и время от времени в диалоге, но не в каждой реплике подряд, чтобы это звучало естественно, как в живом разговоре.'
     if forbidden.strip():
         full_prompt += f'\n\nЗАПРЕЩЁННЫЕ ТЕМЫ — категорически не отвечай на:\n{forbidden}'
     if extra_sources.strip():
