@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import Icon from '@/components/ui/icon';
 import { ChatMessage } from '@/data/chatData';
 import StudentLogin from '@/components/StudentLogin';
+import SupportModal from '@/components/SupportModal';
 import { studentMe, studentLogout } from '@/api/auth';
 import { getTopics, DBTopic, logTopicView } from '@/api/content';
 import { getAiSettings, sendAiChat } from '@/api/ai';
@@ -228,6 +229,7 @@ export default function ChatPage() {
   const [chatAiEnabled, setChatAiEnabled] = useState(true);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [voiceMode, setVoiceMode] = useState(false);
+  const [showSupport, setShowSupport] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -446,10 +448,17 @@ export default function ChatPage() {
             <Icon name="RotateCcw" size={15} />
           </button>
         )}
+        <button onClick={() => setShowSupport(true)} className="text-white/50 hover:text-white/80 transition-colors p-1.5" title="Написать в поддержку">
+          <Icon name="LifeBuoy" size={15} />
+        </button>
         <button onClick={handleLogout} className="text-white/50 hover:text-white/80 transition-colors p-1.5" title="Выйти">
           <Icon name="LogOut" size={15} />
         </button>
       </div>
+
+      {showSupport && (
+        <SupportModal studentId={studentId} studentName={studentName} onClose={() => setShowSupport(false)} />
+      )}
 
       {/* Переключатель режима */}
       {chatTopicsEnabled && chatAiEnabled && (

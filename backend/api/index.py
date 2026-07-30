@@ -20,7 +20,7 @@ action=students-remove     id
 
 === MANAGERS ===
 action=managers-list
-action=managers-add        name, login, password, can_students, can_content, can_ai, can_stats
+action=managers-add        name, login, password, can_students, can_content, can_ai, can_stats, can_support
 action=managers-update     id, name?, password?, can_*, is_active?
 action=managers-remove     id
 
@@ -40,6 +40,11 @@ action=logs_history        student_id, limit?
 action=logs_stats
 action=logs_online
 action=log_topic_view      (публичный) topic_label, student_id?, student_name?
+
+=== SUPPORT (обращения учеников) ===
+action=support-create      (публичный) message, student_id?, student_name?
+action=support-list        status? ('new'|'in_progress'|'resolved'|'all')
+action=support-update      id, status?, admin_note?
 
 === SITE SETTINGS ===
 action=get_site_settings   (публичный)
@@ -123,7 +128,7 @@ def get_manager(cur, token):
     if not token:
         return None
     cur.execute(
-        f"""SELECT m.id, m.can_students, m.can_content, m.can_ai, m.can_stats
+        f"""SELECT m.id, m.can_students, m.can_content, m.can_ai, m.can_stats, m.can_support
             FROM {SCHEMA}.manager_sessions ms
             JOIN {SCHEMA}.managers m ON m.id=ms.manager_id
             WHERE ms.token=%s AND ms.expires_at > NOW() AND m.is_active=TRUE""",
@@ -252,7 +257,7 @@ def handler(event: dict, context) -> dict:
             if not login or not password:
                 return err('Введите логин и пароль')
             cur.execute(
-                f"""SELECT id, name, can_students, can_content, can_ai, can_stats
+                f"""SELECT id, name, can_students, can_content, can_ai, can_stats, can_support
                     FROM {SCHEMA}.managers WHERE login=%s AND password_hash=%s AND is_active=TRUE""",
                 (login, hash_pw(password))
             )
@@ -265,13 +270,13 @@ def handler(event: dict, context) -> dict:
             conn.commit()
             return ok({'token': t, 'role': 'manager', 'name': mgr['name'],
                        'permissions': {'students': mgr['can_students'], 'content': mgr['can_content'],
-                                       'ai': mgr['can_ai'], 'stats': mgr['can_stats']}})
+                                       'ai': mgr['can_ai'], 'stats': mgr['can_stats'], 'support': mgr['can_support']}})
 
         if action == 'manager-me':
             if not token:
                 return err('Нет токена', 401)
             cur.execute(
-                f"""SELECT m.id, m.name, m.can_students, m.can_content, m.can_ai, m.can_stats
+                f"""SELECT m.id, m.name, m.can_students, m.can_content, m.can_ai, m.can_stats, m.can_support
                     FROM {SCHEMA}.manager_sessions ms
                     JOIN {SCHEMA}.managers m ON m.id=ms.manager_id
                     WHERE ms.token=%s AND ms.expires_at > NOW() AND m.is_active=TRUE""",
@@ -284,7 +289,7 @@ def handler(event: dict, context) -> dict:
             conn.commit()
             return ok({'role': 'manager', 'name': mgr['name'],
                        'permissions': {'students': mgr['can_students'], 'content': mgr['can_content'],
-                                       'ai': mgr['can_ai'], 'stats': mgr['can_stats']}})
+                                       'ai': mgr['can_ai'], 'stats': mgr['can_stats'], 'support': mgr['can_support']}})
 
         if action == 'login':
             login = (body.get('login') or '').strip().lower()
@@ -444,7 +449,7 @@ def handler(event: dict, context) -> dict:
         if action == 'managers-list':
             if not is_admin(cur, token):
                 return err('Доступ запрещён', 403)
-            cur.execute(f"SELECT id, name, login, can_students, can_content, can_ai, can_stats, is_active, created_at, last_seen FROM {SCHEMA}.managers ORDER BY created_at DESC")
+            cur.execute(f"SELECT id, name, login, can_students, can_content, can_ai, can_stats, can_support, is_active, created_at, last_seen FROM {SCHEMA}.managers ORDER BY created_at DESC")
             return ok({'managers': [dict(r) for r in cur.fetchall()]})
 
         if action == 'managers-add':
@@ -461,12 +466,12 @@ def handler(event: dict, context) -> dict:
             if cur.fetchone():
                 return err('Логин уже занят')
             cur.execute(
-                f"""INSERT INTO {SCHEMA}.managers (name, login, password_hash, can_students, can_content, can_ai, can_stats)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s)
-                    RETURNING id, name, login, can_students, can_content, can_ai, can_stats, is_active, created_at""",
+                f"""INSERT INTO {SCHEMA}.managers (name, login, password_hash, can_students, can_content, can_ai, can_stats, can_support)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                    RETURNING id, name, login, can_students, can_content, can_ai, can_stats, can_support, is_active, created_at""",
                 (name, login, hash_pw(password),
                  bool(body.get('can_students')), bool(body.get('can_content')),
-                 bool(body.get('can_ai')), bool(body.get('can_stats')))
+                 bool(body.get('can_ai')), bool(body.get('can_stats')), bool(body.get('can_support')))
             )
             row = cur.fetchone()
             conn.commit()
@@ -475,6 +480,7 @@ def handler(event: dict, context) -> dict:
             if body.get('can_content'): perms.append('контент')
             if body.get('can_ai'): perms.append('AI')
             if body.get('can_stats'): perms.append('статистика')
+            if body.get('can_support'): perms.append('поддержка')
             write_activity(cur, token, 'add_manager', 'manager', row['id'], row['name'], f"Логин: {row['login']}, доступы: {', '.join(perms) or 'нет'}")
             conn.commit()
             return ok({'manager': dict(row)})
@@ -486,7 +492,7 @@ def handler(event: dict, context) -> dict:
             if not mid:
                 return err('Не указан id')
             fields, values = [], []
-            for f in ['name', 'can_students', 'can_content', 'can_ai', 'can_stats', 'is_active']:
+            for f in ['name', 'can_students', 'can_content', 'can_ai', 'can_stats', 'can_support', 'is_active']:
                 if f in body:
                     fields.append(f'{f}=%s')
                     values.append(bool(body[f]) if f != 'name' else body[f].strip())
@@ -502,11 +508,11 @@ def handler(event: dict, context) -> dict:
             revoke_sessions = bool(
                 body.get('password')
                 or ('is_active' in body and not body['is_active'])
-                or any(p in body for p in ['can_students', 'can_content', 'can_ai', 'can_stats'])
+                or any(p in body for p in ['can_students', 'can_content', 'can_ai', 'can_stats', 'can_support'])
             )
             values.append(mid)
             cur.execute(
-                f"UPDATE {SCHEMA}.managers SET {', '.join(fields)} WHERE id=%s RETURNING id, name, login, can_students, can_content, can_ai, can_stats, is_active, created_at, last_seen",
+                f"UPDATE {SCHEMA}.managers SET {', '.join(fields)} WHERE id=%s RETURNING id, name, login, can_students, can_content, can_ai, can_stats, can_support, is_active, created_at, last_seen",
                 values
             )
             row = cur.fetchone()
@@ -517,7 +523,7 @@ def handler(event: dict, context) -> dict:
             if 'name' in body: changes.append(f"Имя: {body['name']}")
             if 'is_active' in body: changes.append('Активирован' if body['is_active'] else 'Заблокирован')
             if body.get('password'): changes.append('Пароль изменён')
-            for p, label in [('can_students','ученики'),('can_content','контент'),('can_ai','AI'),('can_stats','статистика')]:
+            for p, label in [('can_students','ученики'),('can_content','контент'),('can_ai','AI'),('can_stats','статистика'),('can_support','поддержка')]:
                 if p in body: changes.append(f"{'✓' if body[p] else '✗'} {label}")
             write_activity(cur, token, 'update_manager', 'manager', row['id'], row['name'], '; '.join(changes))
             conn.commit()
@@ -773,6 +779,70 @@ def handler(event: dict, context) -> dict:
                 (limit,)
             )
             return ok({'entries': [dict(r) for r in cur.fetchall()]})
+
+        # ══════════════════════════════════════════════════════════════════════
+        # SUPPORT (обращения учеников в техподдержку)
+        # ══════════════════════════════════════════════════════════════════════
+
+        if action == 'support-create':
+            message = (body.get('message') or '').strip()
+            if not message:
+                return err('Опишите проблему')
+            if len(message) > 2000:
+                return err('Сообщение слишком длинное')
+            student_id = body.get('student_id') or None
+            student_name = (body.get('student_name') or '').strip()[:100]
+            cur.execute(
+                f"""INSERT INTO {SCHEMA}.support_tickets (student_id, student_name, message)
+                    VALUES (%s, %s, %s) RETURNING id, created_at""",
+                (student_id, student_name, message)
+            )
+            row = cur.fetchone()
+            conn.commit()
+            return ok({'id': row['id'], 'created_at': row['created_at']})
+
+        if action == 'support-list':
+            if not is_admin_or_manager(cur, token, 'can_support'):
+                return err('Доступ запрещён', 403)
+            status_filter = body.get('status')
+            where = ''
+            params = []
+            if status_filter and status_filter != 'all':
+                where = 'WHERE status=%s'
+                params.append(status_filter)
+            cur.execute(
+                f"""SELECT id, student_id, student_name, message, status, admin_note, created_at, updated_at
+                    FROM {SCHEMA}.support_tickets {where} ORDER BY created_at DESC LIMIT 300""",
+                params
+            )
+            return ok({'tickets': [dict(r) for r in cur.fetchall()]})
+
+        if action == 'support-update':
+            if not is_admin_or_manager(cur, token, 'can_support'):
+                return err('Доступ запрещён', 403)
+            tid = body.get('id')
+            if not tid:
+                return err('Не указан id')
+            fields, values = [], []
+            if 'status' in body and body['status'] in ('new', 'in_progress', 'resolved'):
+                fields.append('status=%s')
+                values.append(body['status'])
+            if 'admin_note' in body:
+                fields.append('admin_note=%s')
+                values.append((body.get('admin_note') or '').strip())
+            if not fields:
+                return err('Нет данных')
+            fields.append('updated_at=NOW()')
+            values.append(tid)
+            cur.execute(
+                f"UPDATE {SCHEMA}.support_tickets SET {', '.join(fields)} WHERE id=%s RETURNING id, student_id, student_name, message, status, admin_note, created_at, updated_at",
+                values
+            )
+            row = cur.fetchone()
+            conn.commit()
+            if not row:
+                return err('Обращение не найдено', 404)
+            return ok({'ticket': dict(row)})
 
         # ══════════════════════════════════════════════════════════════════════
         # SITE SETTINGS

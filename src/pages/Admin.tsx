@@ -8,6 +8,7 @@ import ManagersEditor from '@/components/admin/ManagersEditor';
 import BranchesEditor from '@/components/admin/BranchesEditor';
 import ChatLogs from '@/components/admin/ChatLogs';
 import AiTraining from '@/components/admin/AiTraining';
+import SupportTickets from '@/components/admin/SupportTickets';
 import ActivityLog from '@/components/admin/ActivityLog';
 import SiteSettingsPanel from '@/components/admin/SiteSettingsPanel';
 
@@ -363,7 +364,7 @@ function EditStudentModal({ student, onClose, onUpdated }: { student: Student; o
 
 // ─── Main dashboard ──────────────────────────────────────────────────────────
 function AdminDashboard() {
-  const [tab, setTab] = useState<'students' | 'content' | 'ai' | 'training' | 'managers' | 'branches' | 'logs' | 'activity' | 'site'>('students');
+  const [tab, setTab] = useState<'students' | 'content' | 'ai' | 'training' | 'support' | 'managers' | 'branches' | 'logs' | 'activity' | 'site'>('students');
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -420,6 +421,7 @@ function AdminDashboard() {
             { key: 'content', label: 'Контент бота', icon: 'MessageSquare' },
             { key: 'ai', label: 'AI-инструктор', icon: 'Brain' },
             { key: 'training', label: 'Обучение ИИ', icon: 'Sparkles' },
+            { key: 'support', label: 'Обращения', icon: 'LifeBuoy' },
             { key: 'managers', label: 'Менеджеры', icon: 'UserCog' },
             { key: 'branches', label: 'Филиалы', icon: 'MapPin' },
             { key: 'logs', label: 'Переписка', icon: 'MessagesSquare' },
@@ -444,6 +446,7 @@ function AdminDashboard() {
         {tab === 'content' && <ContentEditor />}
         {tab === 'ai' && <AiSettings />}
         {tab === 'training' && <AiTraining />}
+        {tab === 'support' && <SupportTickets />}
         {tab === 'managers' && <ManagersEditor />}
         {tab === 'branches' && <BranchesEditor />}
         {tab === 'logs' && <ChatLogs />}

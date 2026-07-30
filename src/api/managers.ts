@@ -11,6 +11,7 @@ export interface Manager {
   can_content: boolean;
   can_ai: boolean;
   can_stats: boolean;
+  can_support: boolean;
   is_active: boolean;
   created_at: string;
   last_seen: string | null;
@@ -21,6 +22,7 @@ export interface ManagerPermissions {
   content: boolean;
   ai: boolean;
   stats: boolean;
+  support: boolean;
 }
 
 export interface ManagerSession {
@@ -63,7 +65,7 @@ export async function getManagers(): Promise<{ managers: Manager[] }> {
 
 export async function addManager(data: {
   name: string; login: string; password: string;
-  can_students: boolean; can_content: boolean; can_ai: boolean; can_stats: boolean;
+  can_students: boolean; can_content: boolean; can_ai: boolean; can_stats: boolean; can_support: boolean;
 }) {
   return api({ action: 'managers-add', ...data }, getAdminToken());
 }
