@@ -3,6 +3,7 @@ import VectorLogo from '@/components/VectorLogo';
 import Icon from '@/components/ui/icon';
 import ContentEditor from '@/components/admin/ContentEditor';
 import AiSettings from '@/components/admin/AiSettings';
+import AiTraining from '@/components/admin/AiTraining';
 import ChatLogs from '@/components/admin/ChatLogs';
 import { managerLogin, managerMe, managerLogout, ManagerSession } from '@/api/managers';
 import { getStudents, addStudent, updateStudent, removeStudent } from '@/api/auth';
@@ -400,7 +401,7 @@ function StudentsPanel() {
 export default function ManagerPage() {
   const [session, setSession] = useState<ManagerSession | null>(null);
   const [checking, setChecking] = useState(true);
-  const [tab, setTab] = useState<'students' | 'content' | 'ai' | 'stats'>('students');
+  const [tab, setTab] = useState<'students' | 'content' | 'ai' | 'training' | 'stats'>('students');
 
   useEffect(() => {
     managerMe()
@@ -429,6 +430,7 @@ export default function ManagerPage() {
     p.students && { key: 'students', label: 'Ученики', icon: 'Users' },
     p.content && { key: 'content', label: 'Контент бота', icon: 'MessageSquare' },
     p.ai && { key: 'ai', label: 'AI-инструктор', icon: 'Brain' },
+    p.ai && { key: 'training', label: 'Обучение ИИ', icon: 'Sparkles' },
     p.stats && { key: 'stats', label: 'Статистика', icon: 'BarChart2' },
   ].filter(Boolean) as { key: string; label: string; icon: string }[];
 
@@ -469,6 +471,7 @@ export default function ManagerPage() {
         {activeTab === 'students' && p.students && <StudentsPanel />}
         {activeTab === 'content' && p.content && <ContentEditor />}
         {activeTab === 'ai' && p.ai && <AiSettings />}
+        {activeTab === 'training' && p.ai && <AiTraining />}
         {activeTab === 'stats' && p.stats && <ChatLogs />}
 
         {tabs.length === 0 && (

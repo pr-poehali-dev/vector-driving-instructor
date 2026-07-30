@@ -44,3 +44,29 @@ export async function sendAiChat(
 ) {
   return aiApi({ action: 'chat', message, history, student_id: student_id ?? null, student_name: student_name || '' });
 }
+
+export interface AiTrainingSuggestion {
+  id: number;
+  created_at: string;
+  issue: string;
+  suggestion: string;
+  target_field: string;
+  sample_dialog: string;
+  status: 'pending' | 'applied' | 'rejected';
+}
+
+export async function getTrainingSuggestions(): Promise<{
+  suggestions: AiTrainingSuggestion[];
+  last_run: string | null;
+  logs_analyzed: number;
+}> {
+  return aiApi({ action: 'get_training_suggestions' }, getAccessToken());
+}
+
+export async function reviewSuggestion(id: number, decision: 'approve' | 'reject'): Promise<void> {
+  await aiApi({ action: 'review_suggestion', id, decision }, getAccessToken());
+}
+
+export async function analyzeLogsNow(): Promise<{ logs_analyzed: number; suggestions_created: number }> {
+  return aiApi({ action: 'analyze_logs' }, getAccessToken());
+}

@@ -10,6 +10,7 @@ import re
 import urllib.request
 import urllib.error
 import psycopg2
+from datetime import datetime, timezone
 
 CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -234,6 +235,102 @@ def find_relevant_videos(message, videos):
     return result
 
 
+def run_log_analysis():
+    """Анализирует новые записи chat_logs через YandexGPT и создаёт предложения
+    по улучшению базы знаний ИИ-инструктора. Возвращает (logs_analyzed, suggestions_created)."""
+    api_key = os.environ.get('YANDEX_API_KEY', '')
+    if not api_key or not api_key.startswith('AQVN'):
+        raise RuntimeError('AI-инструктор не настроен')
+    folder_id = os.environ.get('YANDEX_FOLDER_ID', '')
+
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute(f'SELECT COALESCE(MAX(last_log_id), 0) FROM {SCHEMA}.ai_training_runs')
+    last_log_id = cur.fetchone()[0] or 0
+
+    cur.execute(f'''
+        SELECT id, student_name, role, message, created_at
+        FROM {SCHEMA}.chat_logs
+        WHERE mode='ai' AND id > %s
+        ORDER BY id ASC
+        LIMIT 500
+    ''', (last_log_id,))
+    rows = cur.fetchall()
+
+    if not rows:
+        cur.execute(
+            f"INSERT INTO {SCHEMA}.ai_training_runs (last_log_id, logs_analyzed, suggestions_created) VALUES (%s, 0, 0)",
+            (last_log_id,)
+        )
+        conn.commit()
+        conn.close()
+        return 0, 0
+
+    new_last_id = rows[-1][0]
+
+    # Группируем подряд идущие сообщения одного ученика в диалоги для анализа
+    dialogs = []
+    current = []
+    current_student = None
+    for _id, s_name, role, msg, created in rows:
+        if s_name != current_student and current:
+            dialogs.append(current)
+            current = []
+        current_student = s_name
+        current.append(f"{'Ученик' if role == 'user' else 'Бот'}: {msg}")
+    if current:
+        dialogs.append(current)
+
+    dialogs_text = '\n\n---\n\n'.join('\n'.join(d) for d in dialogs[:40])
+
+    analysis_prompt = (
+        'Ты помогаешь улучшать AI-инструктора автошколы по вождению. Ниже — реальные диалоги '
+        'учеников с ботом. Найди случаи, где бот ответил неточно, невпопад, перепутал темы/манёвры, '
+        'дал слишком общий ответ или не смог ответить. Для каждой найденной проблемы верни объект с полями:\n'
+        '- issue: короткое описание проблемы (1 предложение)\n'
+        '- suggestion: конкретный текст, который нужно добавить в базу знаний бота, чтобы он больше '
+        'так не ошибался (пиши как факт/инструкцию, готовую к добавлению в промпт)\n'
+        '- sample_dialog: сокращённая цитата диалога-примера (2-4 строки)\n\n'
+        'Ответь СТРОГО в формате JSON-массива без пояснений, например:\n'
+        '[{"issue": "...", "suggestion": "...", "sample_dialog": "..."}]\n'
+        'Если проблем не найдено — верни пустой массив [].\n\n'
+        f'ДИАЛОГИ:\n{dialogs_text}'
+    )
+
+    suggestions_created = 0
+    try:
+        raw = call_yandex_gpt(
+            api_key, folder_id,
+            [{'role': 'user', 'text': analysis_prompt}],
+            temperature=0.2, max_tokens=1500, timeout=25
+        )
+        match = re.search(r'\[.*\]', raw, re.DOTALL)
+        items = json.loads(match.group(0)) if match else []
+        for item in items[:10]:
+            issue = (item.get('issue') or '').strip()
+            suggestion = (item.get('suggestion') or '').strip()
+            sample = (item.get('sample_dialog') or '').strip()
+            if not issue or not suggestion:
+                continue
+            cur.execute(
+                f'''INSERT INTO {SCHEMA}.ai_training_suggestions
+                    (issue, suggestion, target_field, sample_dialog, status)
+                    VALUES (%s, %s, 'extra_sources', %s, 'pending')''',
+                (issue, suggestion, sample)
+            )
+            suggestions_created += 1
+    except Exception as analyze_err:
+        print(f'Analyze error: {analyze_err}')
+
+    cur.execute(
+        f"INSERT INTO {SCHEMA}.ai_training_runs (last_log_id, logs_analyzed, suggestions_created) VALUES (%s, %s, %s)",
+        (new_last_id, len(rows), suggestions_created)
+    )
+    conn.commit()
+    conn.close()
+    return len(rows), suggestions_created
+
+
 def handler(event: dict, context) -> dict:
     if event.get('httpMethod') == 'OPTIONS':
         return {'statusCode': 200, 'headers': CORS, 'body': ''}
@@ -281,6 +378,97 @@ def handler(event: dict, context) -> dict:
         conn.commit()
         conn.close()
         return resp({'ok': True})
+
+    # ── training: список предложений по улучшению ИИ ────────────────────────────
+    if action == 'get_training_suggestions':
+        headers_in = event.get('headers') or {}
+        token = headers_in.get('X-Auth-Token') or headers_in.get('x-auth-token', '')
+        if not is_admin_or_manager_can_ai(token):
+            return resp({'error': 'Доступ запрещён'}, 403)
+
+        # Автозапуск анализа логов не чаще раза в сутки — чтобы админ не запускал его
+        # руками каждый раз: просто заходит в раздел, а система сама подтягивает новое.
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(f'SELECT run_at FROM {SCHEMA}.ai_training_runs ORDER BY id DESC LIMIT 1')
+        last_run_row = cur.fetchone()
+        conn.close()
+        needs_run = (not last_run_row) or (
+            (datetime.now(last_run_row[0].tzinfo or timezone.utc) - last_run_row[0]).total_seconds() > 86400
+        )
+        if needs_run:
+            try:
+                run_log_analysis()
+            except Exception as auto_err:
+                print(f'Auto-analyze error: {auto_err}')
+
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(f'''
+            SELECT id, created_at, issue, suggestion, target_field, sample_dialog, status
+            FROM {SCHEMA}.ai_training_suggestions
+            ORDER BY id DESC LIMIT 100
+        ''')
+        rows = cur.fetchall()
+        cur.execute(f'SELECT run_at, logs_analyzed, suggestions_created FROM {SCHEMA}.ai_training_runs ORDER BY id DESC LIMIT 1')
+        last_run = cur.fetchone()
+        conn.close()
+        suggestions = [{
+            'id': r[0], 'created_at': r[1].isoformat(), 'issue': r[2], 'suggestion': r[3],
+            'target_field': r[4], 'sample_dialog': r[5], 'status': r[6],
+        } for r in rows]
+        return resp({
+            'suggestions': suggestions,
+            'last_run': last_run[0].isoformat() if last_run else None,
+            'logs_analyzed': last_run[1] if last_run else 0,
+        })
+
+    # ── training: применить/отклонить предложение ───────────────────────────────
+    if action == 'review_suggestion':
+        headers_in = event.get('headers') or {}
+        token = headers_in.get('X-Auth-Token') or headers_in.get('x-auth-token', '')
+        if not is_admin_or_manager_can_ai(token):
+            return resp({'error': 'Доступ запрещён'}, 403)
+        sid = body.get('id')
+        decision = body.get('decision')  # 'approve' | 'reject'
+        if not sid or decision not in ('approve', 'reject'):
+            return resp({'error': 'Некорректные параметры'}, 400)
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(f'SELECT suggestion, target_field, status FROM {SCHEMA}.ai_training_suggestions WHERE id=%s', (sid,))
+        row = cur.fetchone()
+        if not row:
+            conn.close()
+            return resp({'error': 'Предложение не найдено'}, 404)
+        suggestion_text, target_field, status = row
+        if status != 'pending':
+            conn.close()
+            return resp({'error': 'Предложение уже обработано'}, 400)
+        if decision == 'approve':
+            field = target_field if target_field in ('extra_sources', 'forbidden_topics') else 'extra_sources'
+            cur.execute(f'''
+                UPDATE {SCHEMA}.ai_settings SET {field} = TRIM(BOTH E'\\n' FROM ({field} || E'\\n' || %s)), updated_at = NOW()
+                WHERE id = (SELECT id FROM {SCHEMA}.ai_settings ORDER BY id DESC LIMIT 1)
+            ''', (suggestion_text,))
+        cur.execute(
+            f"UPDATE {SCHEMA}.ai_training_suggestions SET status=%s, reviewed_at=NOW() WHERE id=%s",
+            ('applied' if decision == 'approve' else 'rejected', sid)
+        )
+        conn.commit()
+        conn.close()
+        return resp({'ok': True})
+
+    # ── training: запустить анализ логов и сгенерировать предложения вручную ────
+    if action == 'analyze_logs':
+        headers_in = event.get('headers') or {}
+        token = headers_in.get('X-Auth-Token') or headers_in.get('x-auth-token', '')
+        if not is_admin_or_manager_can_ai(token):
+            return resp({'error': 'Доступ запрещён'}, 403)
+        try:
+            logs_analyzed, suggestions_created = run_log_analysis()
+        except RuntimeError as e:
+            return resp({'error': str(e)}, 503)
+        return resp({'ok': True, 'logs_analyzed': logs_analyzed, 'suggestions_created': suggestions_created})
 
     # ── chat ──────────────────────────────────────────────────────────────────
     if action != 'chat':
