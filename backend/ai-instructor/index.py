@@ -86,6 +86,23 @@ STOPWORDS = {
 
 ALL_MARKERS = {'все', 'всё', 'весь', 'вся', 'всех', 'каждое', 'каждый', 'любые', 'разные'}
 
+# Слова, которые явно означают "покажи мне видео/ролик" — только тогда
+# считаем, что ученик хочет посмотреть демонстрацию манёвра целиком.
+VIDEO_INTENT_WORDS = {'покажи', 'покажите', 'видео', 'ролик', 'посмотреть', 'посмотри', 'сними', 'заснять', 'видеоролик'}
+
+# "какие/какой/какая/какую/каком/каких" — признак вопроса про конкретную деталь
+# (например "какие поворотники включать"), а не просьбы показать весь манёвр.
+DETAIL_QUESTION_RE = re.compile(r'\bкак(ие|ой|ая|ую|ом|их)\b', re.IGNORECASE)
+
+
+def has_video_intent(message):
+    words = {normalize_word(w) for w in re.findall(r'[a-zа-яё0-9]+', message.lower())}
+    return bool(words & VIDEO_INTENT_WORDS)
+
+
+def is_detail_question(message):
+    return bool(DETAIL_QUESTION_RE.search(message.lower()))
+
 
 def normalize_word(w):
     return re.sub(r'[^a-zа-яё0-9]', '', w.lower())
@@ -299,6 +316,11 @@ def handler(event: dict, context) -> dict:
         full_prompt += f'\n\nЗАПРЕЩЁННЫЕ ТЕМЫ — категорически не отвечай на:\n{forbidden}'
     if extra_sources.strip():
         full_prompt += f'\n\nДОПОЛНИТЕЛЬНЫЕ ЗНАНИЯ (используй при ответах):\n{extra_sources}'
+    full_prompt += (
+        '\n\nЕсли вопрос ученика можно понять по-разному (например, неясно, про какое именно '
+        'упражнение или ситуацию он спрашивает) — не угадывай и не отвечай про первую попавшуюся '
+        'тему. Вместо этого коротко уточни, что именно он имеет в виду, и предложи 2-3 варианта на выбор.'
+    )
 
     # Ищем подходящие видео (по названию видео, а не по теме целиком)
     videos = []
@@ -306,7 +328,7 @@ def handler(event: dict, context) -> dict:
         all_videos = load_all_videos()
         videos = find_relevant_videos(message, all_videos)
     except Exception:
-        pass
+        all_videos = []
 
     def save_log(user_msg, bot_msg):
         try:
@@ -324,6 +346,28 @@ def handler(event: dict, context) -> dict:
             log_conn.close()
         except Exception as log_err:
             print(f'Log error: {log_err}')
+
+    video_intent = has_video_intent(message)
+    detail_question = is_detail_question(message)
+
+    # Если ученик явно не просил видео, а задал вопрос про конкретную деталь
+    # ("какие поворотники включать", "с какой стороны объезжать") — не подсовываем
+    # видео с ближайшим совпадением по названию (оно может быть про другое упражнение),
+    # а отвечаем текстом через LLM, дав ему описания похожих видео как справочный материал.
+    if videos and detail_question and not video_intent:
+        refs = '\n'.join(f"- {v['title']}: {v.get('text', '')}" for v in videos if v.get('title'))
+        if refs:
+            full_prompt += f'\n\nПОХОЖИЕ ВИДЕОМАТЕРИАЛЫ (возможно, релевантны вопросу, используй как справку, но не предлагай смотреть видео, если ученик не просил):\n{refs}'
+        videos = []
+
+    # Если найдены разные (не один и тот же) манёвры, и ученик не уточнил явно, какой
+    # именно ему нужен — не угадываем, а переспрашиваем, какой конкретно манёвр интересует.
+    distinct_titles = {v['title'] for v in videos}
+    if videos and len(distinct_titles) > 1 and not video_intent:
+        options = '\n'.join(f'— {t}' for t in distinct_titles)
+        answer = f'Уточните, пожалуйста, какой именно манёвр вас интересует:\n{options}'
+        save_log(message, answer)
+        return resp({'answer': answer, 'video': None, 'videos': []})
 
     # Если найдены конкретные видео по названию/тегам — отвечаем на основе готового
     # описания темы (или коротко генерируем его по названию), не спрашивая общий чат-ответ у LLM.
