@@ -415,32 +415,34 @@ function AdminDashboard() {
 
       <div className="max-w-4xl mx-auto px-4 py-8">
         {/* Tabs */}
-        <div className="flex gap-1 p-1 bg-white rounded-2xl shadow-sm border border-gray-100 mb-7 w-fit">
-          {([
-            { key: 'students', label: 'Ученики', icon: 'Users' },
-            { key: 'content', label: 'Контент бота', icon: 'MessageSquare' },
-            { key: 'ai', label: 'AI-инструктор', icon: 'Brain' },
-            { key: 'training', label: 'Обучение ИИ', icon: 'Sparkles' },
-            { key: 'support', label: 'Обращения', icon: 'LifeBuoy' },
-            { key: 'managers', label: 'Менеджеры', icon: 'UserCog' },
-            { key: 'branches', label: 'Филиалы', icon: 'MapPin' },
-            { key: 'logs', label: 'Переписка', icon: 'MessagesSquare' },
-            { key: 'activity', label: 'Журнал', icon: 'ClipboardList' },
-            { key: 'site', label: 'Сайт', icon: 'Settings' },
-          ] as const).map(t => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                tab === t.key
-                  ? 'bg-[#1a1a1a] text-white shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              <Icon name={t.icon} size={14} fallback="Users" />
-              {t.label}
-            </button>
-          ))}
+        <div className="mb-7 -mx-4 px-4 sm:mx-0 sm:px-0">
+          <div className="flex flex-nowrap sm:flex-wrap gap-1 p-1 bg-white rounded-2xl shadow-sm border border-gray-100 sm:w-fit overflow-x-auto no-scrollbar">
+            {([
+              { key: 'students', label: 'Ученики', icon: 'Users' },
+              { key: 'content', label: 'Контент бота', icon: 'MessageSquare' },
+              { key: 'ai', label: 'AI-инструктор', icon: 'Brain' },
+              { key: 'training', label: 'Обучение ИИ', icon: 'Sparkles' },
+              { key: 'support', label: 'Обращения', icon: 'LifeBuoy' },
+              { key: 'managers', label: 'Менеджеры', icon: 'UserCog' },
+              { key: 'branches', label: 'Филиалы', icon: 'MapPin' },
+              { key: 'logs', label: 'Переписка', icon: 'MessagesSquare' },
+              { key: 'activity', label: 'Журнал', icon: 'ClipboardList' },
+              { key: 'site', label: 'Сайт', icon: 'Settings' },
+            ] as const).map(t => (
+              <button
+                key={t.key}
+                onClick={() => setTab(t.key)}
+                className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all whitespace-nowrap flex-shrink-0 ${
+                  tab === t.key
+                    ? 'bg-[#1a1a1a] text-white shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <Icon name={t.icon} size={14} fallback="Users" />
+                {t.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {tab === 'content' && <ContentEditor />}

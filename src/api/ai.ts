@@ -63,10 +63,14 @@ export async function getTrainingSuggestions(): Promise<{
   return aiApi({ action: 'get_training_suggestions' }, getAccessToken());
 }
 
-export async function reviewSuggestion(id: number, decision: 'approve' | 'reject'): Promise<void> {
-  await aiApi({ action: 'review_suggestion', id, decision }, getAccessToken());
+export async function reviewSuggestion(id: number, decision: 'approve' | 'reject', editedSuggestion?: string): Promise<void> {
+  await aiApi({ action: 'review_suggestion', id, decision, edited_suggestion: editedSuggestion }, getAccessToken());
 }
 
 export async function analyzeLogsNow(): Promise<{ logs_analyzed: number; suggestions_created: number }> {
   return aiApi({ action: 'analyze_logs' }, getAccessToken());
+}
+
+export async function addManualSuggestion(data: { issue?: string; suggestion: string; target_field?: string }) {
+  return aiApi({ action: 'add_manual_suggestion', ...data }, getAccessToken());
 }

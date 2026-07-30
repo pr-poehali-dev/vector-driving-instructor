@@ -154,6 +154,15 @@
   animation: pulse-ring 2s infinite;
 }
 
+/* Скрыть скроллбар, но оставить прокрутку (для горизонтальных вкладок на мобильных) */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* Chat scrollbar */
 .chat-scroll::-webkit-scrollbar {
   width: 4px;

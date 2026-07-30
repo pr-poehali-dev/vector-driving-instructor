@@ -423,7 +423,7 @@ def handler(event: dict, context) -> dict:
             'logs_analyzed': last_run[1] if last_run else 0,
         })
 
-    # ── training: применить/отклонить предложение ───────────────────────────────
+    # ── training: применить/отклонить предложение (с возможностью правки текста) ─
     if action == 'review_suggestion':
         headers_in = event.get('headers') or {}
         token = headers_in.get('X-Auth-Token') or headers_in.get('x-auth-token', '')
@@ -431,6 +431,7 @@ def handler(event: dict, context) -> dict:
             return resp({'error': 'Доступ запрещён'}, 403)
         sid = body.get('id')
         decision = body.get('decision')  # 'approve' | 'reject'
+        edited_text = body.get('edited_suggestion')  # человек может поправить текст перед применением
         if not sid or decision not in ('approve', 'reject'):
             return resp({'error': 'Некорректные параметры'}, 400)
         conn = get_db()
@@ -444,6 +445,9 @@ def handler(event: dict, context) -> dict:
         if status != 'pending':
             conn.close()
             return resp({'error': 'Предложение уже обработано'}, 400)
+        if edited_text is not None and edited_text.strip():
+            suggestion_text = edited_text.strip()
+            cur.execute(f"UPDATE {SCHEMA}.ai_training_suggestions SET suggestion=%s WHERE id=%s", (suggestion_text, sid))
         if decision == 'approve':
             field = target_field if target_field in ('extra_sources', 'forbidden_topics') else 'extra_sources'
             cur.execute(f'''
@@ -457,6 +461,35 @@ def handler(event: dict, context) -> dict:
         conn.commit()
         conn.close()
         return resp({'ok': True})
+
+    # ── training: человек сам добавляет своё исправление в базу знаний ИИ ────────
+    # (независимо от автоматического анализа — например, заметил ошибку сам и сразу её описал)
+    if action == 'add_manual_suggestion':
+        headers_in = event.get('headers') or {}
+        token = headers_in.get('X-Auth-Token') or headers_in.get('x-auth-token', '')
+        if not is_admin_or_manager_can_ai(token):
+            return resp({'error': 'Доступ запрещён'}, 403)
+        issue = (body.get('issue') or 'Ручное исправление').strip()
+        suggestion = (body.get('suggestion') or '').strip()
+        target_field = body.get('target_field') if body.get('target_field') in ('extra_sources', 'forbidden_topics') else 'extra_sources'
+        if not suggestion:
+            return resp({'error': 'Опишите, что добавить в базу знаний'}, 400)
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(f'''
+            UPDATE {SCHEMA}.ai_settings SET {target_field} = TRIM(BOTH E'\\n' FROM ({target_field} || E'\\n' || %s)), updated_at = NOW()
+            WHERE id = (SELECT id FROM {SCHEMA}.ai_settings ORDER BY id DESC LIMIT 1)
+        ''', (suggestion,))
+        cur.execute(
+            f'''INSERT INTO {SCHEMA}.ai_training_suggestions
+                (issue, suggestion, target_field, sample_dialog, status, reviewed_at)
+                VALUES (%s, %s, %s, '', 'applied', NOW()) RETURNING id, created_at''',
+            (issue, suggestion, target_field)
+        )
+        row = cur.fetchone()
+        conn.commit()
+        conn.close()
+        return resp({'ok': True, 'id': row[0], 'created_at': row[1].isoformat()})
 
     # ── training: запустить анализ логов и сгенерировать предложения вручную ────
     if action == 'analyze_logs':
