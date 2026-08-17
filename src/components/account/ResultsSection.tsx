@@ -36,7 +36,7 @@ function DetailView({ sessionId, onBack }: { sessionId: number; onBack: () => vo
             <div key={i} className={`bg-white rounded-2xl shadow-sm border p-5 ${r.is_correct ? 'border-gray-100' : 'border-red-100'}`}>
               <div className="flex items-start gap-2 mb-3">
                 <Icon name={r.is_correct ? 'CheckCircle2' : 'XCircle'} size={17} className={r.is_correct ? 'text-green-500 mt-0.5' : 'text-red-400 mt-0.5'} />
-                <p className="text-sm font-semibold text-[#1a1a1a]">{r.text}</p>
+                <p className="text-sm font-semibold text-[#152a4a]">{r.text}</p>
               </div>
               <div className="flex flex-col gap-1.5 mb-2">
                 {r.options.map((opt, oi) => {
@@ -77,7 +77,7 @@ export default function ResultsSection() {
 
   return (
     <div className="flex flex-col gap-3">
-      <h2 className="font-montserrat font-bold text-lg text-[#1a1a1a] mb-1">Мои результаты</h2>
+      <h2 className="font-montserrat font-bold text-lg text-[#152a4a] mb-1">Мои результаты</h2>
       {results.length === 0 ? (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center text-gray-400 text-sm">
           <Icon name="ClipboardList" size={28} className="mx-auto mb-2 text-gray-200" />
@@ -96,7 +96,7 @@ export default function ResultsSection() {
               {r.correct_count}/{r.total_questions}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-[#1a1a1a] truncate">
+              <p className="text-sm font-semibold text-[#152a4a] truncate">
                 {r.topic_title || r.category_label || TYPE_LABELS[r.test_type] || 'Тест'}
               </p>
               <p className="text-xs text-gray-400 mt-0.5">{fmtDate(r.finished_at)} · {TYPE_LABELS[r.test_type] || r.test_type}</p>

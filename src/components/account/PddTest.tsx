@@ -73,7 +73,7 @@ export default function PddTest({ testType, topicId, categoryId, count, title, o
       {/* Header */}
       <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-100 flex-shrink-0">
         <div className="min-w-0">
-          <h3 className="font-montserrat font-bold text-sm sm:text-base text-[#1a1a1a] truncate">{title}</h3>
+          <h3 className="font-montserrat font-bold text-sm sm:text-base text-[#152a4a] truncate">{title}</h3>
           {phase === 'running' && <p className="text-xs text-gray-400 mt-0.5">Вопрос {current + 1} из {questions.length}</p>}
         </div>
         <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1.5 flex-shrink-0"><Icon name="X" size={20} /></button>
@@ -103,7 +103,7 @@ export default function PddTest({ testType, topicId, categoryId, count, title, o
 
           <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6">
             <div className="max-w-xl mx-auto">
-              <p className="font-montserrat font-bold text-lg text-[#1a1a1a] mb-4">{q.text}</p>
+              <p className="font-montserrat font-bold text-lg text-[#152a4a] mb-4">{q.text}</p>
               {q.image_url && (
                 <img src={q.image_url} alt="" className="w-full rounded-xl mb-4 border border-gray-100" />
               )}
@@ -113,7 +113,7 @@ export default function PddTest({ testType, topicId, categoryId, count, title, o
                     key={i}
                     onClick={() => selectAnswer(i)}
                     className={`text-left px-4 py-3 rounded-xl border text-sm font-medium transition-all flex items-center gap-3 ${
-                      selected === i ? 'border-[#E8002D] bg-red-50 text-[#1a1a1a]' : 'border-gray-200 text-gray-700 hover:border-gray-300'
+                      selected === i ? 'border-[#E8002D] bg-red-50 text-[#152a4a]' : 'border-gray-200 text-gray-700 hover:border-gray-300'
                     }`}
                   >
                     <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
@@ -156,7 +156,7 @@ export default function PddTest({ testType, topicId, categoryId, count, title, o
             <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 ${result.passed ? 'bg-green-50' : 'bg-red-50'}`}>
               <Icon name={result.passed ? 'CheckCircle2' : 'XCircle'} size={36} className={result.passed ? 'text-green-500' : 'text-red-400'} />
             </div>
-            <h3 className="font-montserrat font-black text-2xl text-[#1a1a1a] mb-1">{result.correct_count}/{result.total}</h3>
+            <h3 className="font-montserrat font-black text-2xl text-[#152a4a] mb-1">{result.correct_count}/{result.total}</h3>
             <p className={`text-sm font-semibold mb-6 ${result.passed ? 'text-green-600' : 'text-red-500'}`}>
               {result.passed ? 'Тест пройден' : 'Тест не пройден'}
             </p>
@@ -195,7 +195,7 @@ export default function PddTest({ testType, topicId, categoryId, count, title, o
               const r = result.results[reviewIndex];
               return (
                 <>
-                  <p className="font-montserrat font-bold text-lg text-[#1a1a1a] mb-4">{r.text}</p>
+                  <p className="font-montserrat font-bold text-lg text-[#152a4a] mb-4">{r.text}</p>
                   {r.image_url && <img src={r.image_url} alt="" className="w-full rounded-xl mb-4 border border-gray-100" />}
                   <div className="flex flex-col gap-2.5 mb-4">
                     {r.options.map((opt, i) => {

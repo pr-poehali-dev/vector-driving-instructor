@@ -62,6 +62,17 @@ export default {
 					light: '#f7f7f7',
 					gray: '#f5f5f5',
 				},
+				cabinet: {
+					navy: '#152a4a',
+					navyDark: '#0d1b2a',
+					red: '#E8002D',
+					redDark: '#c52233',
+					redLight: '#fef2f2',
+					accent: '#457b9d',
+					bg: '#f8fafc',
+					border: '#e2e8f0',
+					muted: '#64748b',
+				},
 			},
 			borderRadius: {
 				lg: 'var(--radius)',

@@ -12,27 +12,28 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
 
-function statusColor(studied: boolean | undefined, active: boolean): string {
-  if (active) return '#7c3aed';
-  if (studied) return '#16a34a';
-  return '#E8002D';
+// Цвета соответствуют легенде: зелёный — изучено, жёлтый — не изучено, красный — сложный участок
+export function pointStatusColor(point: RoutePoint): string {
+  if (point.studied) return '#10b981';
+  if (point.difficulty === 'hard') return '#ef4444';
+  return '#f59e0b';
 }
 
 function makeDivIcon(point: RoutePoint, active: boolean): L.DivIcon {
-  const color = statusColor(point.studied, active);
+  const color = pointStatusColor(point);
+  const size = active ? 34 : 28;
   return L.divIcon({
     className: '',
     html: `<div style="
-      width: ${active ? 34 : 28}px; height: ${active ? 34 : 28}px;
+      width: ${size}px; height: ${size}px;
       background: ${color}; border: 2.5px solid white; border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
-      color: white; font-size: ${active ? 13 : 11}px; font-weight: 700;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.35);
-      transform: ${active ? 'scale(1.05)' : 'scale(1)'};
+      color: white; font-size: ${active ? 13 : 11}px; font-weight: 800;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.35)${active ? ', 0 0 0 5px rgba(232,0,45,0.25)' : ''};
       transition: all 0.2s;
     ">${point.point_number}</div>`,
-    iconSize: [active ? 34 : 28, active ? 34 : 28],
-    iconAnchor: [active ? 17 : 14, active ? 17 : 14],
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
   });
 }
 
@@ -79,7 +80,7 @@ export default function RouteMap({ centerLat, centerLng, zoom, routeLine, points
   useEffect(() => {
     const map = mapInstance.current;
     if (!map || !routeLine.length) return;
-    const line = L.polyline(routeLine, { color: '#1a1a1a', weight: 4, opacity: 0.6, dashArray: '8 6' }).addTo(map);
+    const line = L.polyline(routeLine, { color: '#E8002D', weight: 5, opacity: 0.8, dashArray: '8 8' }).addTo(map);
     if (routeLine.length > 1) {
       map.fitBounds(L.latLngBounds(routeLine), { padding: [30, 30] });
     }
@@ -112,7 +113,7 @@ export default function RouteMap({ centerLat, centerLng, zoom, routeLine, points
     if (activePointId != null) {
       const active = points.find(p => p.id === activePointId);
       const map = mapInstance.current;
-      if (active && map) map.panTo([active.lat, active.lng], { animate: true });
+      if (active && map) map.flyTo([active.lat, active.lng], Math.max(map.getZoom(), 15), { animate: true, duration: 0.8 });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activePointId]);
@@ -129,11 +130,12 @@ export default function RouteMap({ centerLat, centerLng, zoom, routeLine, points
     const carIcon = L.divIcon({
       className: '',
       html: `<div style="
-        width: 20px; height: 20px; background: #7c3aed; border: 3px solid white; border-radius: 50%;
-        box-shadow: 0 0 0 4px rgba(124,58,237,0.25), 0 2px 6px rgba(0,0,0,0.4);
-      "></div>`,
-      iconSize: [20, 20],
-      iconAnchor: [10, 10],
+        width: 26px; height: 26px; background: #152a4a; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center; border: 2px solid #fff;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+      "><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"></polygon></svg></div>`,
+      iconSize: [26, 26],
+      iconAnchor: [13, 13],
     });
     if (!carMarkerRef.current) {
       carMarkerRef.current = L.marker(carPosition, { icon: carIcon, zIndexOffset: 1000 }).addTo(map);
@@ -142,7 +144,7 @@ export default function RouteMap({ centerLat, centerLng, zoom, routeLine, points
     }
   }, [carPosition]);
 
-  return <div ref={mapRef} className="w-full h-full rounded-2xl overflow-hidden" style={{ minHeight: 320 }} />;
+  return <div ref={mapRef} className="w-full h-full" style={{ minHeight: 320 }} />;
 }
 
 export { POINT_TYPE_ICONS };

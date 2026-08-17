@@ -34,7 +34,7 @@ export default function MistakesSection() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <h2 className="font-montserrat font-bold text-lg text-[#1a1a1a]">Работа над ошибками</h2>
+        <h2 className="font-montserrat font-bold text-lg text-[#152a4a]">Работа над ошибками</h2>
         {mistakes.length > 0 && (
           <button
             onClick={() => setShowTest(true)}
@@ -63,7 +63,7 @@ export default function MistakesSection() {
                 <div className="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center flex-shrink-0 text-amber-600 text-xs font-bold">
                   {m.times_wrong}×
                 </div>
-                <p className="text-sm font-medium text-[#1a1a1a] flex-1 truncate">{m.text}</p>
+                <p className="text-sm font-medium text-[#152a4a] flex-1 truncate">{m.text}</p>
                 <Icon name={expanded === m.question_id ? 'ChevronUp' : 'ChevronDown'} size={16} className="text-gray-300 flex-shrink-0" />
               </button>
               {expanded === m.question_id && (

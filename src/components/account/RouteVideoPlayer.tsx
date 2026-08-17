@@ -21,11 +21,12 @@ interface Props {
   url: string;
   points: RoutePoint[];
   onActivePointChange: (point: RoutePoint | null, progressRatio: number) => void;
+  activePoint?: RoutePoint | null;
 }
 
 // Прямой mp4/webm видеофайл — единственный формат, который поддерживает точную
 // программную перемотку и определение текущего времени для синхронизации с картой.
-const RouteVideoPlayer = forwardRef<RouteVideoHandle, Props>(({ url, points, onActivePointChange }, ref) => {
+const RouteVideoPlayer = forwardRef<RouteVideoHandle, Props>(({ url, points, onActivePointChange, activePoint }, ref) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
@@ -131,6 +132,12 @@ const RouteVideoPlayer = forwardRef<RouteVideoHandle, Props>(({ url, points, onA
           ) : (
             <div className="absolute inset-0 flex items-center justify-center text-white/40 text-sm">Видео недоступно</div>
           )}
+          {activePoint && (
+            <div className="absolute top-3 left-3 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#152a4a]/85 backdrop-blur-sm text-white text-xs font-semibold border border-white/10">
+              <Icon name="Navigation" size={13} className="text-[#E8002D]" />
+              Точка {activePoint.point_number}: {activePoint.title}
+            </div>
+          )}
         </div>
         <p className="text-xs text-gray-400 text-center">
           Нажмите на точку маршрута — видео откроется на нужном моменте в новой вкладке
@@ -149,6 +156,12 @@ const RouteVideoPlayer = forwardRef<RouteVideoHandle, Props>(({ url, points, onA
           playsInline
           onClick={togglePlay}
         />
+        {activePoint && (
+          <div className="absolute top-3 left-3 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#152a4a]/85 backdrop-blur-sm text-white text-xs font-semibold border border-white/10 pointer-events-none">
+            <Icon name="Navigation" size={13} className="text-[#E8002D]" />
+            Точка {activePoint.point_number}: {activePoint.title}
+          </div>
+        )}
         {!playing && (
           <button onClick={togglePlay} className="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-black/30 transition-colors">
             <div className="w-16 h-16 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
@@ -184,7 +197,7 @@ const RouteVideoPlayer = forwardRef<RouteVideoHandle, Props>(({ url, points, onA
       {/* Controls */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2">
-          <button onClick={togglePlay} className="w-9 h-9 rounded-full bg-[#1a1a1a] text-white flex items-center justify-center hover:opacity-90 transition-all">
+          <button onClick={togglePlay} className="w-9 h-9 rounded-full bg-[#152a4a] text-white flex items-center justify-center hover:opacity-90 transition-all">
             <Icon name={playing ? 'Pause' : 'Play'} size={15} className={playing ? '' : 'ml-0.5'} />
           </button>
           <span className="text-xs text-gray-400 font-mono">{fmtTime(current)} / {fmtTime(duration)}</span>

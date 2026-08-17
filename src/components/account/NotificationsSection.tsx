@@ -45,7 +45,7 @@ export default function NotificationsSection({ onUnreadChange }: { onUnreadChang
 
   return (
     <div className="flex flex-col gap-3">
-      <h2 className="font-montserrat font-bold text-lg text-[#1a1a1a] mb-1">Уведомления</h2>
+      <h2 className="font-montserrat font-bold text-lg text-[#152a4a] mb-1">Уведомления</h2>
       {items.length === 0 ? (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center text-gray-400 text-sm">
           <Icon name="Bell" size={28} className="mx-auto mb-2 text-gray-200" />
@@ -61,7 +61,7 @@ export default function NotificationsSection({ onUnreadChange }: { onUnreadChang
             <div className="flex items-start gap-3">
               {!n.is_read && <span className="w-2 h-2 rounded-full bg-[#E8002D] mt-1.5 flex-shrink-0" />}
               <div className={`flex-1 min-w-0 ${n.is_read ? 'ml-5' : ''}`}>
-                <p className="text-sm font-semibold text-[#1a1a1a]">{n.title}</p>
+                <p className="text-sm font-semibold text-[#152a4a]">{n.title}</p>
                 <p className="text-sm text-gray-500 mt-1 whitespace-pre-wrap">{n.message}</p>
                 <p className="text-xs text-gray-400 mt-2">{fmtDate(n.created_at)}</p>
               </div>
