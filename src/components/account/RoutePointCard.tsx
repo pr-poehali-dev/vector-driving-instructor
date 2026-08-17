@@ -51,7 +51,7 @@ export default function RoutePointCard({ point, onMarkStudied, marking }: Props)
       </div>
 
       {point.description && (
-        <p className="text-sm text-gray-600 leading-relaxed">{point.description}</p>
+        <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-line">{point.description}</p>
       )}
 
       {point.action_steps?.length > 0 && (

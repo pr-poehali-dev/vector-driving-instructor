@@ -84,6 +84,16 @@ export default function RouteMap({ centerLat, centerLng, zoom, routeLine, points
     return () => { line.remove(); };
   }, [routeLine]);
 
+  // Если линии маршрута нет (или точек много и они разбросаны по городу) —
+  // подгоняем карту под все точки, чтобы все маркеры были видны сразу
+  useEffect(() => {
+    const map = mapInstance.current;
+    if (!map || routeLine.length || points.length < 2) return;
+    const bounds = L.latLngBounds(points.map(p => [p.lat, p.lng] as [number, number]));
+    map.fitBounds(bounds, { padding: [40, 40] });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [points.length]);
+
   // Маркеры точек — пересоздаём при смене списка точек
   useEffect(() => {
     const map = mapInstance.current;

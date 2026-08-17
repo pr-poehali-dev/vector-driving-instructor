@@ -1,0 +1,1 @@
+UPDATE t_p22961065_vector_driving_instr.exam_routes SET center_lat = 55.4649, center_lng = 65.3206, zoom_level = 12 WHERE id = 1;
