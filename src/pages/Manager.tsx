@@ -6,6 +6,7 @@ import AiSettings from '@/components/admin/AiSettings';
 import AiTraining from '@/components/admin/AiTraining';
 import SupportTickets from '@/components/admin/SupportTickets';
 import PddManager from '@/components/admin/PddManager';
+import RouteManager from '@/components/admin/RouteManager';
 import ChatLogs from '@/components/admin/ChatLogs';
 import { managerLogin, managerMe, managerLogout, ManagerSession } from '@/api/managers';
 import { getStudents, addStudent, updateStudent, removeStudent } from '@/api/auth';
@@ -403,7 +404,7 @@ function StudentsPanel() {
 export default function ManagerPage() {
   const [session, setSession] = useState<ManagerSession | null>(null);
   const [checking, setChecking] = useState(true);
-  const [tab, setTab] = useState<'students' | 'content' | 'pdd' | 'ai' | 'training' | 'support' | 'stats'>('students');
+  const [tab, setTab] = useState<'students' | 'content' | 'pdd' | 'route' | 'ai' | 'training' | 'support' | 'stats'>('students');
 
   useEffect(() => {
     managerMe()
@@ -432,6 +433,7 @@ export default function ManagerPage() {
     p.students && { key: 'students', label: 'Ученики', icon: 'Users' },
     p.content && { key: 'content', label: 'Контент бота', icon: 'MessageSquare' },
     p.pdd && { key: 'pdd', label: 'ПДД', icon: 'BookOpen' },
+    p.route && { key: 'route', label: 'Маршрут', icon: 'Map' },
     p.ai && { key: 'ai', label: 'AI-инструктор', icon: 'Brain' },
     p.ai && { key: 'training', label: 'Обучение ИИ', icon: 'Sparkles' },
     p.support && { key: 'support', label: 'Обращения', icon: 'LifeBuoy' },
@@ -477,6 +479,7 @@ export default function ManagerPage() {
         {activeTab === 'students' && p.students && <StudentsPanel />}
         {activeTab === 'content' && p.content && <ContentEditor />}
         {activeTab === 'pdd' && p.pdd && <PddManager />}
+        {activeTab === 'route' && p.route && <RouteManager />}
         {activeTab === 'ai' && p.ai && <AiSettings />}
         {activeTab === 'training' && p.ai && <AiTraining />}
         {activeTab === 'support' && p.support && <SupportTickets />}

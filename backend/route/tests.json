@@ -1,0 +1,38 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS returns 200",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Get routes public",
+      "method": "POST",
+      "path": "/",
+      "body": { "action": "get_routes" },
+      "expectedStatus": 200
+    },
+    {
+      "name": "Unknown action returns 400",
+      "method": "POST",
+      "path": "/",
+      "body": { "action": "not_a_real_action" },
+      "expectedStatus": 400
+    },
+    {
+      "name": "Mark point studied without auth returns 401",
+      "method": "POST",
+      "path": "/",
+      "body": { "action": "mark_point_studied", "route_point_id": 1 },
+      "expectedStatus": 401
+    },
+    {
+      "name": "Get all routes no token forbidden",
+      "method": "POST",
+      "path": "/",
+      "body": { "action": "get_all_routes" },
+      "expectedStatus": 403
+    }
+  ]
+}

@@ -102,6 +102,17 @@ export default function AccountHome({ onNavigate }: { onNavigate: (tab: AccountT
           <p className="text-xs text-gray-400">Изучено тем: {pdd_progress.completed_topics} из {pdd_progress.total_topics}</p>
         </button>
 
+        <button onClick={() => onNavigate('route')} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 text-left hover:border-gray-200 transition-all">
+          <div className="flex items-center justify-between mb-3">
+            <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center">
+              <Icon name="Map" size={18} className="text-violet-600" />
+            </div>
+            <Icon name="ChevronRight" size={16} className="text-gray-300" />
+          </div>
+          <p className="font-montserrat font-bold text-[#1a1a1a] mb-1">Экзаменационный маршрут</p>
+          <p className="text-xs text-gray-400">Карта, видео проезда и разбор каждой точки</p>
+        </button>
+
         <button onClick={() => onNavigate('results')} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 text-left hover:border-gray-200 transition-all">
           <div className="flex items-center justify-between mb-3">
             <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">

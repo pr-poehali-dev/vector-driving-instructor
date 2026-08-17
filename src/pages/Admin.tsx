@@ -12,6 +12,7 @@ import SupportTickets from '@/components/admin/SupportTickets';
 import ActivityLog from '@/components/admin/ActivityLog';
 import SiteSettingsPanel from '@/components/admin/SiteSettingsPanel';
 import PddManager from '@/components/admin/PddManager';
+import RouteManager from '@/components/admin/RouteManager';
 import NotificationsManager from '@/components/admin/NotificationsManager';
 
 interface Student {
@@ -366,7 +367,7 @@ function EditStudentModal({ student, onClose, onUpdated }: { student: Student; o
 
 // ─── Main dashboard ──────────────────────────────────────────────────────────
 function AdminDashboard() {
-  const [tab, setTab] = useState<'students' | 'content' | 'pdd' | 'notifications' | 'ai' | 'training' | 'support' | 'managers' | 'branches' | 'logs' | 'activity' | 'site'>('students');
+  const [tab, setTab] = useState<'students' | 'content' | 'pdd' | 'route' | 'notifications' | 'ai' | 'training' | 'support' | 'managers' | 'branches' | 'logs' | 'activity' | 'site'>('students');
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -423,6 +424,7 @@ function AdminDashboard() {
               { key: 'students', label: 'Ученики', icon: 'Users' },
               { key: 'content', label: 'Контент бота', icon: 'MessageSquare' },
               { key: 'pdd', label: 'ПДД', icon: 'BookOpen' },
+              { key: 'route', label: 'Маршрут', icon: 'Map' },
               { key: 'notifications', label: 'Уведомления', icon: 'Bell' },
               { key: 'ai', label: 'AI-инструктор', icon: 'Brain' },
               { key: 'training', label: 'Обучение ИИ', icon: 'Sparkles' },
@@ -451,6 +453,7 @@ function AdminDashboard() {
 
         {tab === 'content' && <ContentEditor />}
         {tab === 'pdd' && <PddManager />}
+        {tab === 'route' && <RouteManager />}
         {tab === 'notifications' && <NotificationsManager />}
         {tab === 'ai' && <AiSettings />}
         {tab === 'training' && <AiTraining />}

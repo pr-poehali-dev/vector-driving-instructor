@@ -6,29 +6,31 @@ import StudentLogin from '@/components/StudentLogin';
 import { studentMe, studentLogout } from '@/api/auth';
 import AccountHome from '@/components/account/AccountHome';
 import PddSection from '@/components/account/PddSection';
+import RouteSection from '@/components/account/RouteSection';
 import ResultsSection from '@/components/account/ResultsSection';
 import MistakesSection from '@/components/account/MistakesSection';
 import NotificationsSection from '@/components/account/NotificationsSection';
 import ProfileSection from '@/components/account/ProfileSection';
 
-export type AccountTab = 'home' | 'pdd' | 'results' | 'mistakes' | 'notifications' | 'profile';
+export type AccountTab = 'home' | 'pdd' | 'route' | 'results' | 'mistakes' | 'notifications' | 'profile';
 
 const NAV_ITEMS: { key: AccountTab; label: string; icon: string }[] = [
   { key: 'home', label: 'Главная', icon: 'Home' },
   { key: 'pdd', label: 'ПДД', icon: 'BookOpen' },
+  { key: 'route', label: 'Экзаменационный маршрут', icon: 'Map' },
   { key: 'results', label: 'Результаты', icon: 'ClipboardList' },
   { key: 'mistakes', label: 'Мои ошибки', icon: 'AlertTriangle' },
   { key: 'notifications', label: 'Уведомления', icon: 'Bell' },
   { key: 'profile', label: 'Профиль', icon: 'User' },
 ];
 
-// Компактный набор для нижней навигации на мобильных — все 6 не влезают удобно,
+// Компактный набор для нижней навигации на мобильных — все не влезают удобно,
 // оставляем самые частые + "Профиль" как точку входа к остальным
 const MOBILE_NAV_ITEMS: { key: AccountTab; label: string; icon: string }[] = [
   { key: 'home', label: 'Главная', icon: 'Home' },
   { key: 'pdd', label: 'ПДД', icon: 'BookOpen' },
+  { key: 'route', label: 'Маршрут', icon: 'Map' },
   { key: 'results', label: 'Итоги', icon: 'ClipboardList' },
-  { key: 'mistakes', label: 'Ошибки', icon: 'AlertTriangle' },
   { key: 'profile', label: 'Профиль', icon: 'User' },
 ];
 
@@ -152,6 +154,7 @@ export default function AccountPage() {
         <main className="flex-1 px-4 py-5 md:px-8 md:py-8 max-w-5xl w-full mx-auto pb-24 md:pb-8">
           {tab === 'home' && <AccountHome onNavigate={setTab} />}
           {tab === 'pdd' && <PddSection />}
+          {tab === 'route' && <RouteSection />}
           {tab === 'results' && <ResultsSection />}
           {tab === 'mistakes' && <MistakesSection />}
           {tab === 'notifications' && <NotificationsSection onUnreadChange={setUnreadCount} />}
