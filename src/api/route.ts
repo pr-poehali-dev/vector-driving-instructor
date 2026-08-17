@@ -54,6 +54,7 @@ export interface ExamRoute {
   title: string;
   city: string;
   description: string;
+  video_url: string | null;
   center_lat: number;
   center_lng: number;
   zoom_level: number;
@@ -71,9 +72,7 @@ export interface RoutePoint {
   point_type: PointType;
   lat: number;
   lng: number;
-  video_url: string | null;
-  video_title: string | null;
-  video_thumb: string | null;
+  video_timestamp_sec: number;
   description: string;
   action_steps: string[];
   common_mistakes: string[];

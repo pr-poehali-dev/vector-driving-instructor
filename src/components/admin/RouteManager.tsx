@@ -17,50 +17,12 @@ L.Icon.Default.mergeOptions({
 
 const POINT_TYPES = Object.keys(POINT_TYPE_LABELS) as PointType[];
 
-// ── Видео helpers (аналогично разделу "Контент бота") ───────────────────────
-function isDirectVideoUrl(url: string): boolean {
-  return /\.(mp4|webm|ogg|mov)(\?|$)/i.test(url);
-}
-function ytIdFromUrl(url: string): string {
-  const m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([^&?/]+)/);
-  return m ? m[1] : '';
-}
-function ytEmbedUrl(raw: string): string {
-  if (raw.includes('youtube.com/embed/')) return raw;
-  const id = ytIdFromUrl(raw);
-  return id ? `https://www.youtube.com/embed/${id}` : raw;
-}
-function ytThumb(embedUrl: string): string {
-  const id = ytIdFromUrl(embedUrl);
-  return id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : '';
-}
-function rtIdFromUrl(url: string): string {
-  const m = url.match(/rutube\.ru\/(?:video|play\/embed)\/([a-zA-Z0-9]+)/);
-  return m ? m[1] : '';
-}
-function rtEmbedUrl(raw: string): string {
-  if (raw.includes('rutube.ru/play/embed/')) return raw;
-  const id = rtIdFromUrl(raw);
-  return id ? `https://rutube.ru/play/embed/${id}` : raw;
-}
-function resolveVideoUrl(raw: string): string {
-  if (!raw) return '';
-  if (isDirectVideoUrl(raw)) return raw;
-  if (raw.includes('rutube.ru')) return rtEmbedUrl(raw);
-  return ytEmbedUrl(raw);
-}
-function resolveVideoThumb(raw: string): string {
-  if (!raw) return '';
-  if (isDirectVideoUrl(raw)) return '';
-  if (raw.includes('rutube.ru')) return '';
-  return ytThumb(ytEmbedUrl(raw));
-}
-
 // ── Форма маршрута ──────────────────────────────────────────────────────────
 function RouteForm({ route, onClose, onSaved }: { route?: ExamRoute | null; onClose: () => void; onSaved: (r: ExamRoute) => void }) {
   const [title, setTitle] = useState(route?.title || '');
   const [city, setCity] = useState(route?.city || 'Курган');
   const [description, setDescription] = useState(route?.description || '');
+  const [videoUrl, setVideoUrl] = useState(route?.video_url || '');
   const [centerLat, setCenterLat] = useState(route?.center_lat ?? 55.45);
   const [centerLng, setCenterLng] = useState(route?.center_lng ?? 65.3333);
   const [zoom, setZoom] = useState(route?.zoom_level ?? 14);
@@ -73,7 +35,7 @@ function RouteForm({ route, onClose, onSaved }: { route?: ExamRoute | null; onCl
     setError('');
     try {
       const data = await saveRouteAdmin({
-        id: route?.id, title, city, description,
+        id: route?.id, title, city, description, video_url: videoUrl || undefined,
         center_lat: centerLat, center_lng: centerLng, zoom_level: zoom, sort_order: route?.sort_order || 0,
       });
       onSaved(data.route);
@@ -114,6 +76,11 @@ function RouteForm({ route, onClose, onSaved }: { route?: ExamRoute | null; onCl
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Описание</label>
             <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3}
               className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-[#E8002D] resize-none transition-colors" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Видео проезда (прямая ссылка mp4 или YouTube/Rutube)</label>
+            <input value={videoUrl} onChange={e => setVideoUrl(e.target.value)} placeholder="https://..."
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-[#E8002D] transition-colors" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -189,8 +156,7 @@ function PointForm({ routeId, defaultCenter, point, nextNumber, onClose, onSaved
   const [lat, setLat] = useState(point?.lat ?? defaultCenter.lat);
   const [lng, setLng] = useState(point?.lng ?? defaultCenter.lng);
   const [pointNumber, setPointNumber] = useState(point?.point_number ?? nextNumber);
-  const [videoRaw, setVideoRaw] = useState(point?.video_url || '');
-  const [videoTitle, setVideoTitle] = useState(point?.video_title || '');
+  const [videoTs, setVideoTs] = useState(point?.video_timestamp_sec ?? 0);
   const [description, setDescription] = useState(point?.description || '');
   const [steps, setSteps] = useState((point?.action_steps || []).join('\n'));
   const [mistakes, setMistakes] = useState((point?.common_mistakes || []).join('\n'));
@@ -205,12 +171,9 @@ function PointForm({ routeId, defaultCenter, point, nextNumber, onClose, onSaved
     setLoading(true);
     setError('');
     try {
-      const embedUrl = videoRaw ? resolveVideoUrl(videoRaw) : null;
-      const thumb = embedUrl ? resolveVideoThumb(videoRaw) : null;
       const data = await saveRoutePointAdmin({
         id: point?.id, route_id: routeId, point_number: pointNumber, title, point_type: pointType,
-        lat, lng, video_url: embedUrl || undefined, video_title: videoTitle || undefined, video_thumb: thumb || undefined,
-        description,
+        lat, lng, video_timestamp_sec: videoTs, description,
         action_steps: steps.split('\n').map(s => s.trim()).filter(Boolean),
         common_mistakes: mistakes.split('\n').map(s => s.trim()).filter(Boolean),
         pdd_refs: pddRefs.split('\n').map(s => s.trim()).filter(Boolean),
@@ -234,27 +197,22 @@ function PointForm({ routeId, defaultCenter, point, nextNumber, onClose, onSaved
           <button onClick={onClose}><Icon name="X" size={18} className="text-gray-400" /></button>
         </div>
         <form onSubmit={submit} className="px-6 py-5 flex flex-col gap-3">
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Номер точки</label>
-            <input type="number" min={1} value={pointNumber} onChange={e => setPointNumber(Number(e.target.value))} required
-              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-[#E8002D] transition-colors" />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Номер точки</label>
+              <input type="number" min={1} value={pointNumber} onChange={e => setPointNumber(Number(e.target.value))} required
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-[#E8002D] transition-colors" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Секунда на видео</label>
+              <input type="number" min={0} value={videoTs} onChange={e => setVideoTs(Number(e.target.value))}
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-[#E8002D] transition-colors" />
+            </div>
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Название точки</label>
             <input value={title} onChange={e => setTitle(e.target.value)} required placeholder="ул. Пролетарская — ул. К. Мяготина"
               className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-[#E8002D] transition-colors" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Видео точки (mp4 или YouTube/Rutube)</label>
-              <input value={videoRaw} onChange={e => setVideoRaw(e.target.value)} placeholder="https://..."
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-[#E8002D] transition-colors" />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Подпись видео</label>
-              <input value={videoTitle} onChange={e => setVideoTitle(e.target.value)} placeholder="Например: Проезд перекрёстка"
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-[#E8002D] transition-colors" />
-            </div>
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Тип задания</label>
@@ -428,10 +386,7 @@ export default function RouteManager() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-[#1a1a1a] truncate">{p.title}</p>
-                    <p className="text-xs text-gray-400 flex items-center gap-1">
-                      {POINT_TYPE_LABELS[p.point_type]}
-                      {p.video_url && <><span>·</span><Icon name="Video" size={11} className="text-gray-400" />видео есть</>}
-                    </p>
+                    <p className="text-xs text-gray-400">{POINT_TYPE_LABELS[p.point_type]} · {Math.floor(p.video_timestamp_sec / 60)}:{(p.video_timestamp_sec % 60).toString().padStart(2, '0')}</p>
                   </div>
                   <button onClick={() => { setEditPoint(p); setShowPointForm(true); }} className="p-2 rounded-lg text-gray-400 hover:text-[#1a1a1a] hover:bg-gray-50">
                     <Icon name="Pencil" size={14} />

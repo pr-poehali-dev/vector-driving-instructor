@@ -44,14 +44,14 @@ export default function PddSection() {
   return (
     <div className="flex flex-col gap-5">
       <div className="flex items-center gap-2 flex-wrap text-sm">
-        <button onClick={() => setView({ level: 'categories' })} className={`font-semibold ${view.level === 'categories' ? 'text-[#1a1a1a]' : 'text-gray-400 hover:text-gray-600'}`}>
+        <button onClick={() => setView({ level: 'categories' })} className={`font-semibold ${view.level === 'categories' ? 'text-[#152a4a]' : 'text-gray-400 hover:text-gray-600'}`}>
           ПДД
         </button>
         {view.level !== 'categories' && (
           <>
             <Icon name="ChevronRight" size={14} className="text-gray-300" />
             <button onClick={() => openCategory(view.level === 'topics' ? view.category : { id: view.topic.category_id, label: view.categoryLabel } as PddCategory)}
-              className={`font-semibold ${view.level === 'topics' ? 'text-[#1a1a1a]' : 'text-gray-400 hover:text-gray-600'}`}>
+              className={`font-semibold ${view.level === 'topics' ? 'text-[#152a4a]' : 'text-gray-400 hover:text-gray-600'}`}>
               {view.level === 'topics' ? view.category.label : view.categoryLabel}
             </button>
           </>
@@ -59,7 +59,7 @@ export default function PddSection() {
         {view.level === 'topic' && (
           <>
             <Icon name="ChevronRight" size={14} className="text-gray-300" />
-            <span className="font-semibold text-[#1a1a1a] truncate">{view.topic.title}</span>
+            <span className="font-semibold text-[#152a4a] truncate">{view.topic.title}</span>
           </>
         )}
       </div>
@@ -75,7 +75,7 @@ export default function PddSection() {
               <div className="w-11 h-11 rounded-xl bg-red-50 flex items-center justify-center flex-shrink-0">
                 <Icon name={cat.icon} size={20} className="text-[#E8002D]" fallback="BookOpen" />
               </div>
-              <span className="font-montserrat font-bold text-sm text-[#1a1a1a] flex-1">{cat.label}</span>
+              <span className="font-montserrat font-bold text-sm text-[#152a4a] flex-1">{cat.label}</span>
               <Icon name="ChevronRight" size={16} className="text-gray-300 flex-shrink-0" />
             </button>
           ))}
@@ -101,7 +101,7 @@ export default function PddSection() {
                   >
                     <Icon name={st.icon} size={18} className={`${st.color} flex-shrink-0`} />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-[#1a1a1a] truncate">{t.title}</p>
+                      <p className="text-sm font-semibold text-[#152a4a] truncate">{t.title}</p>
                       {t.status === 'completed' && <p className="text-xs text-gray-400 mt-0.5">Результат: {t.best_score_percent}%</p>}
                     </div>
                     <Icon name="ChevronRight" size={16} className="text-gray-300 flex-shrink-0" />
@@ -116,7 +116,7 @@ export default function PddSection() {
 
       {view.level === 'topic' && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 md:p-7">
-          <h2 className="font-montserrat font-bold text-xl text-[#1a1a1a] mb-4">{view.topic.title}</h2>
+          <h2 className="font-montserrat font-bold text-xl text-[#152a4a] mb-4">{view.topic.title}</h2>
           {view.topic.image_url && (
             <img src={view.topic.image_url} alt="" className="w-full rounded-xl mb-4 border border-gray-100" />
           )}

@@ -45,12 +45,14 @@ interface Props {
   points: RoutePoint[];
   activePointId: number | null;
   onPointClick: (point: RoutePoint) => void;
+  carPosition?: [number, number] | null;
 }
 
-export default function RouteMap({ centerLat, centerLng, zoom, routeLine, points, activePointId, onPointClick }: Props) {
+export default function RouteMap({ centerLat, centerLng, zoom, routeLine, points, activePointId, onPointClick, carPosition }: Props) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<L.Map | null>(null);
   const markersRef = useRef<Map<number, L.Marker>>(new Map());
+  const carMarkerRef = useRef<L.Marker | null>(null);
   const onPointClickRef = useRef(onPointClick);
   onPointClickRef.current = onPointClick;
 
@@ -69,6 +71,7 @@ export default function RouteMap({ centerLat, centerLng, zoom, routeLine, points
       map.remove();
       mapInstance.current = null;
       markers.clear();
+      carMarkerRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -114,6 +117,32 @@ export default function RouteMap({ centerLat, centerLng, zoom, routeLine, points
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activePointId]);
+
+  // Маркер автомобиля, движущийся синхронно с видео
+  useEffect(() => {
+    const map = mapInstance.current;
+    if (!map) return;
+    if (!carPosition) {
+      carMarkerRef.current?.remove();
+      carMarkerRef.current = null;
+      return;
+    }
+    const carIcon = L.divIcon({
+      className: '',
+      html: `<div style="
+        width: 26px; height: 26px; background: #152a4a; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center; border: 2px solid #fff;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+      "><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"></polygon></svg></div>`,
+      iconSize: [26, 26],
+      iconAnchor: [13, 13],
+    });
+    if (!carMarkerRef.current) {
+      carMarkerRef.current = L.marker(carPosition, { icon: carIcon, zIndexOffset: 1000 }).addTo(map);
+    } else {
+      carMarkerRef.current.setLatLng(carPosition);
+    }
+  }, [carPosition]);
 
   return <div ref={mapRef} className="w-full h-full" style={{ minHeight: 320 }} />;
 }
