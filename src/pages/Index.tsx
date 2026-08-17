@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import VectorLogo from "@/components/VectorLogo";
 import ChatBot from "@/components/ChatBot";
 import Icon from "@/components/ui/icon";
@@ -127,6 +128,13 @@ export default function Index() {
           </nav>
 
           <div className="flex items-center gap-3">
+            <Link
+              to="/account"
+              className="hidden md:flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-gray-600 hover:text-[#1a1a1a] hover:bg-gray-100 transition-all"
+            >
+              <Icon name="User" size={14} />
+              Личный кабинет
+            </Link>
             <button
               onClick={openChat}
               className="hidden md:flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all hover:opacity-90"
@@ -159,6 +167,13 @@ export default function Index() {
                 {link}
               </button>
             ))}
+            <Link
+              to="/account"
+              className="flex items-center gap-2 font-semibold text-sm text-gray-700 mt-1"
+            >
+              <Icon name="User" size={15} />
+              Личный кабинет
+            </Link>
             <button
               onClick={openChat}
               className="flex items-center gap-2 font-semibold text-sm mt-1"

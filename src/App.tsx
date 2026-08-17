@@ -9,6 +9,7 @@ import Index from "./pages/Index";
 import AdminPage from "./pages/Admin";
 import ChatPage from "./pages/Chat";
 import ManagerPage from "./pages/Manager";
+import AccountPage from "./pages/Account";
 import MaintenancePage from "./pages/Maintenance";
 import NotFound from "./pages/NotFound";
 import { getSiteSettings } from "@/api/siteSettings";
@@ -36,6 +37,7 @@ function AppRoutes() {
       <Route path="/admin" element={<AdminPage />} />
       <Route path="/chat" element={<ChatPage />} />
       <Route path="/manager" element={<ManagerPage />} />
+      <Route path="/account" element={<AccountPage />} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
     </Routes>

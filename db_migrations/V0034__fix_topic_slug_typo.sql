@@ -1,0 +1,1 @@
+UPDATE t_p22961065_vector_driving_instr.pdd_topics SET slug='reguliruemye-perekrestki' WHERE id=6;
