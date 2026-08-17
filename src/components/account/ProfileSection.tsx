@@ -59,7 +59,7 @@ export default function ProfileSection() {
 
   return (
     <div className="flex flex-col gap-5 max-w-lg">
-      <h2 className="font-montserrat font-bold text-lg text-[#152a4a]">Профиль</h2>
+      <h2 className="font-montserrat font-bold text-lg text-[#1a1a1a]">Профиль</h2>
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
         <div className="flex items-center gap-4 mb-5">
@@ -75,7 +75,7 @@ export default function ProfileSection() {
                 className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm font-semibold outline-none focus:border-[#E8002D] transition-colors"
               />
             ) : (
-              <p className="font-montserrat font-bold text-[#152a4a] truncate">{student.name}</p>
+              <p className="font-montserrat font-bold text-[#1a1a1a] truncate">{student.name}</p>
             )}
           </div>
           {editing ? (
@@ -112,7 +112,7 @@ export default function ProfileSection() {
             <div key={f.label} className="flex items-center gap-3 py-3">
               <Icon name={f.icon} size={15} className="text-gray-300 flex-shrink-0" fallback="Circle" />
               <span className="text-xs text-gray-400 flex-1">{f.label}</span>
-              <span className="text-sm font-medium text-[#152a4a]">{f.value}</span>
+              <span className="text-sm font-medium text-[#1a1a1a]">{f.value}</span>
             </div>
           ))}
         </div>

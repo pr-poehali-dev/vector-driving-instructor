@@ -8,11 +8,12 @@ action=mark_point_studied       (студент) route_point_id — отмети
 
 === ADMIN (can_route) ===
 action=get_all_routes
-action=save_route               id?, title, city, description, video_url, center_lat, center_lng, zoom_level, route_line, is_active, sort_order
+action=save_route               id?, title, city, description, center_lat, center_lng, zoom_level, route_line, is_active, sort_order
 action=delete_route             id
 
 action=get_route_points         route_id
-action=save_route_point         id?, route_id, point_number, title, point_type, lat, lng, video_timestamp_sec,
+action=save_route_point         id?, route_id, point_number, title, point_type, lat, lng,
+                                 video_url, video_title, video_thumb,
                                  description, action_steps, common_mistakes, pdd_refs, scheme_image_url, difficulty, sort_order, is_active
 action=delete_route_point       id
 action=reorder_route_points     order=[{id,sort_order}]
@@ -101,7 +102,7 @@ def handler(event: dict, context) -> dict:
 
         if action == 'get_routes':
             cur.execute(
-                f"""SELECT id, title, city, description, video_url, center_lat, center_lng, zoom_level, sort_order
+                f"""SELECT id, title, city, description, center_lat, center_lng, zoom_level, sort_order
                     FROM {SCHEMA}.exam_routes WHERE is_active=TRUE ORDER BY sort_order, id"""
             )
             routes = [dict(r) for r in cur.fetchall()]
@@ -116,7 +117,7 @@ def handler(event: dict, context) -> dict:
                 return err('Не указан маршрут')
             student = get_student(cur, token)
             cur.execute(
-                f"""SELECT id, title, city, description, video_url, center_lat, center_lng, zoom_level, route_line
+                f"""SELECT id, title, city, description, center_lat, center_lng, zoom_level, route_line
                     FROM {SCHEMA}.exam_routes WHERE id=%s AND is_active=TRUE""",
                 (route_id,)
             )
@@ -125,7 +126,8 @@ def handler(event: dict, context) -> dict:
                 return err('Маршрут не найден', 404)
             route = dict(route)
             cur.execute(
-                f"""SELECT p.id, p.point_number, p.title, p.point_type, p.lat, p.lng, p.video_timestamp_sec,
+                f"""SELECT p.id, p.point_number, p.title, p.point_type, p.lat, p.lng,
+                           p.video_url, p.video_title, p.video_thumb,
                            p.description, p.action_steps, p.common_mistakes, p.pdd_refs, p.scheme_image_url, p.difficulty,
                            (sp.id IS NOT NULL) as studied
                     FROM {SCHEMA}.route_points p
@@ -160,7 +162,7 @@ def handler(event: dict, context) -> dict:
             if not is_admin_or_manager_route(cur, token):
                 return err('Доступ запрещён', 403)
             cur.execute(
-                f"""SELECT id, title, city, description, video_url, center_lat, center_lng, zoom_level, route_line, is_active, sort_order
+                f"""SELECT id, title, city, description, center_lat, center_lng, zoom_level, route_line, is_active, sort_order
                     FROM {SCHEMA}.exam_routes ORDER BY sort_order, id"""
             )
             return ok({'routes': [dict(r) for r in cur.fetchall()]})
@@ -174,7 +176,6 @@ def handler(event: dict, context) -> dict:
                 return err('Название маршрута обязательно')
             city = (body.get('city') or 'Курган').strip()
             description = body.get('description') or ''
-            video_url = body.get('video_url') or None
             center_lat = float(body.get('center_lat', 55.45))
             center_lng = float(body.get('center_lng', 65.3333))
             zoom_level = int(body.get('zoom_level', 14))
@@ -183,17 +184,17 @@ def handler(event: dict, context) -> dict:
             sort_order = body.get('sort_order', 0)
             if rid:
                 cur.execute(
-                    f"""UPDATE {SCHEMA}.exam_routes SET title=%s, city=%s, description=%s, video_url=%s,
+                    f"""UPDATE {SCHEMA}.exam_routes SET title=%s, city=%s, description=%s,
                         center_lat=%s, center_lng=%s, zoom_level=%s, route_line=%s, is_active=%s, sort_order=%s
-                        WHERE id=%s RETURNING id, title, city, description, video_url, center_lat, center_lng, zoom_level, route_line, is_active, sort_order""",
-                    (title, city, description, video_url, center_lat, center_lng, zoom_level, route_line, is_active, sort_order, rid)
+                        WHERE id=%s RETURNING id, title, city, description, center_lat, center_lng, zoom_level, route_line, is_active, sort_order""",
+                    (title, city, description, center_lat, center_lng, zoom_level, route_line, is_active, sort_order, rid)
                 )
             else:
                 cur.execute(
-                    f"""INSERT INTO {SCHEMA}.exam_routes (title, city, description, video_url, center_lat, center_lng, zoom_level, route_line, is_active, sort_order)
-                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-                        RETURNING id, title, city, description, video_url, center_lat, center_lng, zoom_level, route_line, is_active, sort_order""",
-                    (title, city, description, video_url, center_lat, center_lng, zoom_level, route_line, is_active, sort_order)
+                    f"""INSERT INTO {SCHEMA}.exam_routes (title, city, description, center_lat, center_lng, zoom_level, route_line, is_active, sort_order)
+                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                        RETURNING id, title, city, description, center_lat, center_lng, zoom_level, route_line, is_active, sort_order""",
+                    (title, city, description, center_lat, center_lng, zoom_level, route_line, is_active, sort_order)
                 )
             row = cur.fetchone()
             conn.commit()
@@ -220,7 +221,8 @@ def handler(event: dict, context) -> dict:
             if not route_id:
                 return err('Не указан маршрут')
             cur.execute(
-                f"""SELECT id, route_id, point_number, title, point_type, lat, lng, video_timestamp_sec,
+                f"""SELECT id, route_id, point_number, title, point_type, lat, lng,
+                           video_url, video_title, video_thumb,
                            description, action_steps, common_mistakes, pdd_refs, scheme_image_url, difficulty, sort_order, is_active
                     FROM {SCHEMA}.route_points WHERE route_id=%s ORDER BY sort_order, point_number""",
                 (route_id,)
@@ -239,7 +241,9 @@ def handler(event: dict, context) -> dict:
             point_type = body.get('point_type') or 'other'
             lat = float(body.get('lat', 0))
             lng = float(body.get('lng', 0))
-            video_ts = int(body.get('video_timestamp_sec', 0))
+            video_url = body.get('video_url') or None
+            video_title = body.get('video_title') or None
+            video_thumb = body.get('video_thumb') or None
             description = body.get('description') or ''
             action_steps = json.dumps(body.get('action_steps') or [], ensure_ascii=False)
             common_mistakes = json.dumps(body.get('common_mistakes') or [], ensure_ascii=False)
@@ -251,22 +255,22 @@ def handler(event: dict, context) -> dict:
             if pid:
                 cur.execute(
                     f"""UPDATE {SCHEMA}.route_points SET route_id=%s, point_number=%s, title=%s, point_type=%s, lat=%s, lng=%s,
-                        video_timestamp_sec=%s, description=%s, action_steps=%s, common_mistakes=%s, pdd_refs=%s,
+                        video_url=%s, video_title=%s, video_thumb=%s, description=%s, action_steps=%s, common_mistakes=%s, pdd_refs=%s,
                         scheme_image_url=%s, difficulty=%s, sort_order=%s, is_active=%s
-                        WHERE id=%s RETURNING id, route_id, point_number, title, point_type, lat, lng, video_timestamp_sec,
+                        WHERE id=%s RETURNING id, route_id, point_number, title, point_type, lat, lng, video_url, video_title, video_thumb,
                                   description, action_steps, common_mistakes, pdd_refs, scheme_image_url, difficulty, sort_order, is_active""",
-                    (route_id, point_number, title, point_type, lat, lng, video_ts, description, action_steps,
+                    (route_id, point_number, title, point_type, lat, lng, video_url, video_title, video_thumb, description, action_steps,
                      common_mistakes, pdd_refs, scheme_image_url, difficulty, sort_order, is_active, pid)
                 )
             else:
                 cur.execute(
                     f"""INSERT INTO {SCHEMA}.route_points
-                        (route_id, point_number, title, point_type, lat, lng, video_timestamp_sec, description,
+                        (route_id, point_number, title, point_type, lat, lng, video_url, video_title, video_thumb, description,
                          action_steps, common_mistakes, pdd_refs, scheme_image_url, difficulty, sort_order, is_active)
-                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-                        RETURNING id, route_id, point_number, title, point_type, lat, lng, video_timestamp_sec,
+                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                        RETURNING id, route_id, point_number, title, point_type, lat, lng, video_url, video_title, video_thumb,
                                   description, action_steps, common_mistakes, pdd_refs, scheme_image_url, difficulty, sort_order, is_active""",
-                    (route_id, point_number, title, point_type, lat, lng, video_ts, description,
+                    (route_id, point_number, title, point_type, lat, lng, video_url, video_title, video_thumb, description,
                      action_steps, common_mistakes, pdd_refs, scheme_image_url, difficulty, sort_order, is_active)
                 )
             row = cur.fetchone()
