@@ -775,6 +775,14 @@ export default function Index() {
                 {link}
               </button>
             ))}
+            <a
+              href="/documents/programma-perepodgotovki-masterov-260-chasov.docx"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-white/40 hover:text-white/70 text-xs transition-colors"
+            >
+              Информация
+            </a>
           </div>
         </div>
       </footer>
