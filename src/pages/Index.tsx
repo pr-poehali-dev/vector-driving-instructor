@@ -776,7 +776,7 @@ export default function Index() {
               </button>
             ))}
             <a
-              href="/documents/programma-perepodgotovki-masterov-260-chasov.docx"
+              href="/documents/programma-perepodgotovki-masterov-260-chasov.pdf"
               target="_blank"
               rel="noopener noreferrer"
               className="text-white/40 hover:text-white/70 text-xs transition-colors"
