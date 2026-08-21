@@ -254,26 +254,6 @@ export default function ChatBot() {
   const [studentId, setStudentId] = useState<number | null>(null);
   const [dbTopics, setDbTopics] = useState<DBTopic[]>([]);
   const [mode, setMode] = useState<ChatMode>('topics');
-  // На сколько поднять плавающую кнопку/окно чата, чтобы не перекрывать подвал сайта,
-  // когда пользователь долистал страницу до конца
-  const [footerLift, setFooterLift] = useState(0);
-
-  useEffect(() => {
-    const footer = document.querySelector('footer');
-    if (!footer) return;
-    const update = () => {
-      const rect = footer.getBoundingClientRect();
-      const overlap = window.innerHeight - rect.top;
-      setFooterLift(Math.max(0, Math.min(overlap, rect.height)));
-    };
-    update();
-    window.addEventListener('scroll', update, { passive: true });
-    window.addEventListener('resize', update);
-    return () => {
-      window.removeEventListener('scroll', update);
-      window.removeEventListener('resize', update);
-    };
-  }, []);
 
   // topics mode state
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -468,13 +448,12 @@ export default function ChatBot() {
   };
 
   // ─── Floating button ─────────────────────────────────────────────────────────
-  // bottom поднимается на высоту показавшегося подвала, чтобы кнопка не перекрывала его текст
   const floatingBtn = (
     <button data-chatbot-btn onClick={() => setIsOpen(true)}
-      className={`fixed right-6 z-50 flex items-center gap-2.5 px-4 py-3 rounded-full shadow-xl transition-all duration-300 pulse-red ${
+      className={`fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3 rounded-full shadow-xl transition-all duration-300 pulse-red ${
         isOpen ? 'opacity-0 pointer-events-none scale-75' : 'opacity-100 scale-100'
       }`}
-      style={{ background: '#E8002D', bottom: `${24 + footerLift}px` }}>
+      style={{ background: '#E8002D' }}>
       <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
         <Icon name="MessageCircle" size={16} className="text-white" />
       </div>
@@ -515,14 +494,14 @@ export default function ChatBot() {
     <>
       {floatingBtn}
       <div
-        className={`chat-app-container fixed inset-0 sm:inset-auto sm:right-6 z-50 sm:w-[370px] sm:max-w-[calc(100vw-24px)] flex flex-col sm:rounded-2xl shadow-2xl overflow-hidden transition-all duration-300 origin-bottom-right ${
+        className={`chat-app-container fixed inset-0 sm:inset-auto sm:bottom-6 sm:right-6 z-50 sm:w-[370px] sm:max-w-[calc(100vw-24px)] flex flex-col sm:rounded-2xl shadow-2xl overflow-hidden transition-all duration-300 origin-bottom-right ${
           isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-75 pointer-events-none'
         }`}
-        style={{ '--chatbot-height': '560px', '--footer-lift': `${footerLift}px` } as React.CSSProperties}
+        style={{ '--chatbot-height': '560px' } as React.CSSProperties}
       >
         <style>{`
           @media (min-width: 640px) {
-            .chat-app-container { height: var(--chatbot-height) !important; max-height: calc(100vh - 40px); padding-top: 0; padding-bottom: 0; bottom: calc(24px + var(--footer-lift, 0px)) !important; }
+            .chat-app-container { height: var(--chatbot-height) !important; max-height: calc(100vh - 40px); padding-top: 0; padding-bottom: 0; }
           }
         `}</style>
         {/* Header */}
