@@ -10,6 +10,7 @@ import AdminPage from "./pages/Admin";
 import ChatPage from "./pages/Chat";
 import ManagerPage from "./pages/Manager";
 import AccountPage from "./pages/Account";
+import InstructorPage from "./pages/Instructor";
 import MaintenancePage from "./pages/Maintenance";
 import NotFound from "./pages/NotFound";
 import { getSiteSettings } from "@/api/siteSettings";
@@ -38,6 +39,7 @@ function AppRoutes() {
       <Route path="/chat" element={<ChatPage />} />
       <Route path="/manager" element={<ManagerPage />} />
       <Route path="/account" element={<AccountPage />} />
+      <Route path="/instructor" element={<InstructorPage />} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
     </Routes>

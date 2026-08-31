@@ -55,6 +55,14 @@ action=get_branches        (публичный)
 action=branches-add        name, address, phone, work_hours?
 action=branches-update     id, name?, address?, phone?, work_hours?
 action=branches-remove     id
+
+=== INSTRUCTORS (мастера производственного обучения, admin only) ===
+action=instructors-list
+action=instructors-add        name, login, password, branch_id?, car_model?
+action=instructors-update     id, name?, branch_id?, car_model?, password?, is_active?
+action=instructors-remove     id
+action=instructors-kpi-get    instructor_id, period?
+action=instructors-kpi-save   instructor_id, period, pdd_test_passed?, pdd_test_points?, practical_*, students_at_exam*, reviews_*, package_upgrades*, discipline_points?, service_points?, rank_in_branch?, bonus_amount?, bonus_label?
 """
 import json
 import os
@@ -549,6 +557,136 @@ def handler(event: dict, context) -> dict:
                 write_activity(cur, token, 'remove_manager', 'manager', mid, mgr_row['name'], 'Менеджер деактивирован')
                 conn.commit()
             return ok({'ok': True})
+
+        # ══════════════════════════════════════════════════════════════════════
+        # INSTRUCTORS (мастера производственного обучения)
+        # ══════════════════════════════════════════════════════════════════════
+
+        if action == 'instructors-list':
+            if not is_admin(cur, token):
+                return err('Доступ запрещён', 403)
+            cur.execute(
+                f"""SELECT i.id, i.name, i.login, i.branch_id, b.name as branch_name, i.car_model, i.is_active, i.created_at, i.last_seen
+                    FROM {SCHEMA}.instructors i LEFT JOIN {SCHEMA}.branches b ON b.id=i.branch_id
+                    ORDER BY i.created_at DESC"""
+            )
+            return ok({'instructors': [dict(r) for r in cur.fetchall()]})
+
+        if action == 'instructors-add':
+            if not is_admin(cur, token):
+                return err('Доступ запрещён', 403)
+            name = (body.get('name') or '').strip()
+            login = (body.get('login') or '').strip().lower()
+            password = (body.get('password') or '').strip()
+            branch_id = body.get('branch_id') or None
+            car_model = (body.get('car_model') or '').strip()
+            if not name or not login or not password:
+                return err('Имя, логин и пароль обязательны')
+            if len(password) < 4:
+                return err('Пароль минимум 4 символа')
+            cur.execute(f"SELECT id FROM {SCHEMA}.instructors WHERE login=%s", (login,))
+            if cur.fetchone():
+                return err('Логин уже занят')
+            cur.execute(
+                f"""INSERT INTO {SCHEMA}.instructors (name, login, password_hash, branch_id, car_model)
+                    VALUES (%s,%s,%s,%s,%s)
+                    RETURNING id, name, login, branch_id, car_model, is_active, created_at""",
+                (name, login, hash_pw(password), branch_id, car_model)
+            )
+            row = cur.fetchone()
+            conn.commit()
+            write_activity(cur, token, 'add_instructor', 'instructor', row['id'], row['name'], f"Логин: {row['login']}")
+            conn.commit()
+            return ok({'instructor': dict(row)})
+
+        if action == 'instructors-update':
+            if not is_admin(cur, token):
+                return err('Доступ запрещён', 403)
+            iid = body.get('id')
+            if not iid:
+                return err('Не указан id')
+            fields, values = [], []
+            for f in ['name', 'branch_id', 'car_model', 'is_active']:
+                if f in body:
+                    fields.append(f'{f}=%s')
+                    values.append(body[f])
+            if body.get('password'):
+                if len(body['password']) < 4:
+                    return err('Пароль минимум 4 символа')
+                fields.append('password_hash=%s')
+                values.append(hash_pw(body['password']))
+            if not fields:
+                return err('Нет данных')
+            revoke_sessions = bool(body.get('password') or ('is_active' in body and not body['is_active']))
+            values.append(iid)
+            cur.execute(
+                f"UPDATE {SCHEMA}.instructors SET {', '.join(fields)} WHERE id=%s RETURNING id, name, login, branch_id, car_model, is_active, created_at, last_seen",
+                values
+            )
+            row = cur.fetchone()
+            if revoke_sessions and row:
+                cur.execute(f"UPDATE {SCHEMA}.instructor_sessions SET expires_at=NOW() WHERE instructor_id=%s", (iid,))
+            conn.commit()
+            write_activity(cur, token, 'update_instructor', 'instructor', row['id'], row['name'], None)
+            conn.commit()
+            return ok({'instructor': dict(row)})
+
+        if action == 'instructors-remove':
+            if not is_admin(cur, token):
+                return err('Доступ запрещён', 403)
+            iid = body.get('id')
+            if not iid:
+                return err('Не указан id')
+            cur.execute(f"SELECT name FROM {SCHEMA}.instructors WHERE id=%s", (iid,))
+            i_row = cur.fetchone()
+            cur.execute(f"UPDATE {SCHEMA}.instructors SET is_active=FALSE WHERE id=%s", (iid,))
+            cur.execute(f"UPDATE {SCHEMA}.instructor_sessions SET expires_at=NOW() WHERE instructor_id=%s", (iid,))
+            conn.commit()
+            if i_row:
+                write_activity(cur, token, 'remove_instructor', 'instructor', iid, i_row['name'], 'Инструктор деактивирован')
+                conn.commit()
+            return ok({'ok': True})
+
+        if action == 'instructors-kpi-get':
+            if not is_admin(cur, token):
+                return err('Доступ запрещён', 403)
+            iid = body.get('instructor_id')
+            period = body.get('period')
+            if not iid:
+                return err('Не указан инструктор')
+            if not period:
+                cur.execute("SELECT date_trunc('month', now())::date as p")
+                period = cur.fetchone()['p']
+            cur.execute(f"SELECT * FROM {SCHEMA}.instructor_kpi WHERE instructor_id=%s AND period=%s", (iid, period))
+            row = cur.fetchone()
+            return ok({'kpi': dict(row) if row else None, 'period': period})
+
+        if action == 'instructors-kpi-save':
+            if not is_admin(cur, token):
+                return err('Доступ запрещён', 403)
+            iid = body.get('instructor_id')
+            period = body.get('period')
+            if not iid or not period:
+                return err('Не указан инструктор или период')
+            fields = [
+                'pdd_test_passed', 'pdd_test_points', 'practical_pass_percent', 'practical_passed', 'practical_total',
+                'practical_points', 'students_at_exam', 'students_at_exam_points', 'reviews_count', 'reviews_points',
+                'package_upgrades', 'package_upgrades_points', 'discipline_points', 'service_points',
+                'rank_in_branch', 'bonus_amount', 'bonus_label',
+            ]
+            cols = ['instructor_id', 'period'] + fields
+            vals = [iid, period] + [body.get(f) for f in fields]
+            placeholders = ', '.join(['%s'] * len(cols))
+            update_set = ', '.join(f'{f}=EXCLUDED.{f}' for f in fields) + ', updated_at=NOW()'
+            cur.execute(
+                f"""INSERT INTO {SCHEMA}.instructor_kpi ({', '.join(cols)}) VALUES ({placeholders})
+                    ON CONFLICT (instructor_id, period) DO UPDATE SET {update_set}
+                    RETURNING *""",
+                vals
+            )
+            row = cur.fetchone()
+            conn.commit()
+            return ok({'kpi': dict(row)})
 
         # ══════════════════════════════════════════════════════════════════════
         # CONTENT
