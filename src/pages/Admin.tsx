@@ -15,6 +15,7 @@ import PddManager from '@/components/admin/PddManager';
 import RouteManager from '@/components/admin/RouteManager';
 import NotificationsManager from '@/components/admin/NotificationsManager';
 import InstructorsEditor from '@/components/admin/InstructorsEditor';
+import InstructorVideosViewer from '@/components/admin/InstructorVideosViewer';
 
 interface Student {
   id: number;
@@ -368,7 +369,7 @@ function EditStudentModal({ student, onClose, onUpdated }: { student: Student; o
 
 // ─── Main dashboard ──────────────────────────────────────────────────────────
 function AdminDashboard() {
-  const [tab, setTab] = useState<'students' | 'instructors' | 'content' | 'pdd' | 'route' | 'notifications' | 'ai' | 'training' | 'support' | 'managers' | 'branches' | 'logs' | 'activity' | 'site'>('students');
+  const [tab, setTab] = useState<'students' | 'instructors' | 'instructorVideos' | 'content' | 'pdd' | 'route' | 'notifications' | 'ai' | 'training' | 'support' | 'managers' | 'branches' | 'logs' | 'activity' | 'site'>('students');
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -424,6 +425,7 @@ function AdminDashboard() {
             {([
               { key: 'students', label: 'Ученики', icon: 'Users' },
               { key: 'instructors', label: 'Инструкторы', icon: 'Car' },
+              { key: 'instructorVideos', label: 'Видеорегистратор', icon: 'Video' },
               { key: 'content', label: 'Контент бота', icon: 'MessageSquare' },
               { key: 'pdd', label: 'ПДД', icon: 'BookOpen' },
               { key: 'route', label: 'Маршрут', icon: 'Map' },
@@ -454,6 +456,7 @@ function AdminDashboard() {
         </div>
 
         {tab === 'instructors' && <InstructorsEditor />}
+        {tab === 'instructorVideos' && <InstructorVideosViewer />}
         {tab === 'content' && <ContentEditor />}
         {tab === 'pdd' && <PddManager />}
         {tab === 'route' && <RouteManager />}

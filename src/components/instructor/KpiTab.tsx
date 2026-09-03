@@ -70,6 +70,8 @@ export default function KpiTab() {
     );
   }
 
+  const isLeader = data.rank === 1;
+
   return (
     <div className="flex flex-col gap-6">
       {/* Баннер */}
@@ -83,21 +85,21 @@ export default function KpiTab() {
             </div>
           </div>
           <div className="flex gap-3 flex-wrap">
-            {data.rank_in_branch && (
+            {data.rank && (
               <div className="flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-slate-900/60 border border-slate-700">
-                <Icon name="Trophy" size={20} className="text-amber-400" />
+                <Icon name="Trophy" size={20} className={isLeader ? 'text-amber-400' : 'text-slate-500'} />
                 <div>
-                  <p className="text-white font-bold text-sm leading-none">{data.rank_in_branch} место</p>
-                  <p className="text-slate-500 text-xs mt-0.5">в филиале</p>
+                  <p className="text-white font-bold text-sm leading-none">{data.rank} место</p>
+                  <p className="text-slate-500 text-xs mt-0.5">из {data.rank_total} мастеров</p>
                 </div>
               </div>
             )}
-            {data.bonus_label && (
+            {isLeader && (
               <div className="flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-rose-600/15 border border-rose-600/30">
                 <Icon name="Award" size={20} className="text-rose-500" />
                 <div>
-                  <p className="text-white font-bold text-sm leading-none">{data.bonus_label}</p>
-                  <p className="text-rose-400 text-xs mt-0.5 font-semibold">{data.bonus_amount.toLocaleString('ru-RU')} ₽</p>
+                  <p className="text-white font-bold text-sm leading-none">Мастер месяца</p>
+                  <p className="text-rose-400 text-xs mt-0.5 font-semibold">5 000 ₽</p>
                 </div>
               </div>
             )}
@@ -108,44 +110,54 @@ export default function KpiTab() {
       {/* Сетка карточек */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <KpiCard
-          icon="CheckCircle2" iconColor="#10b981"
-          title="Зачёт ПДД"
-          fact={data.pdd_test.passed ? 'Сдано' : 'Не сдано'}
-          points={`${data.pdd_test.points} / 20`}
-        />
-        <KpiCard
-          icon="GraduationCap" iconColor="#f43f5e"
-          title="Практические экзамены"
-          fact={`${data.practical.pass_percent}%`}
-          points={`${data.practical.points} / 25`}
-          sub={`${data.practical.passed} из ${data.practical.total} сдали`}
-        />
-        <KpiCard
-          icon="Users" iconColor="#8b5cf6"
-          title="Курсанты на экзамене"
-          fact={`${data.students_at_exam.count} человек`}
-          points={`${data.students_at_exam.points} / 15`}
-        />
-        <KpiCard
           icon="MessageSquareHeart" iconColor="#f59e0b"
           title="Отзывы курсантов"
-          fact={`${data.reviews.count} отзывов`}
-          points={`${data.reviews.points} / 15`}
+          fact={`${data.reviews} отзывов`}
+          points={`${data.reviews_points} / 15`}
         />
         <KpiCard
-          icon="TrendingUp" iconColor="#06b6d4"
+          icon="GraduationCap" iconColor="#8b5cf6"
+          title="Курсанты на экзамене"
+          fact={`${data.exams} человек`}
+          points={`${data.exams_points} / 15`}
+        />
+        <KpiCard
+          icon="TrendingUp" iconColor="#f43f5e"
+          title="Процент сдачи"
+          fact={`${data.pass_percent}%`}
+          points={`${data.pass_points} / 25`}
+          sub={`${data.passed} из ${data.exams} сдали`}
+        />
+        <KpiCard
+          icon="Package" iconColor="#06b6d4"
           title="Повышения пакета"
-          fact={`${data.package_upgrades.count} повышения`}
-          points={`${data.package_upgrades.points} / 10`}
+          fact={`${data.package_upgrades_n} повышения`}
+          points={`${data.upgrades_points} / 10`}
+        />
+        <KpiCard
+          icon="CheckCircle2" iconColor="#10b981"
+          title="Зачёт ПДД"
+          fact={data.pdd_status === 'Сдал' ? 'Сдано' : data.pdd_status === 'Не сдал' ? 'Не сдано' : 'Ещё не пройден'}
+          points={`${data.pdd_points} / 20`}
         />
         <KpiCard
           icon="ShieldCheck" iconColor="#22c55e"
           title="Дисциплина и сервис"
           fact="Оценка руководства"
-          points={`${data.discipline_points + data.service_points} / 15`}
-          sub={`${data.discipline_points}/10 дисциплина, ${data.service_points}/5 сервис`}
+          points={`${data.discipline + data.service} / 15`}
+          sub={`${data.discipline}/10 дисциплина, ${data.service}/5 сервис`}
         />
       </div>
+
+      {data.note && (
+        <div className="bg-slate-800/60 border border-slate-700 rounded-2xl px-5 py-4 flex items-start gap-3">
+          <Icon name="MessageSquare" size={16} className="text-slate-500 mt-0.5 flex-shrink-0" />
+          <div>
+            <p className="text-slate-400 text-xs font-semibold uppercase tracking-wide mb-1">Примечание от руководства</p>
+            <p className="text-slate-300 text-sm">{data.note}</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -58,11 +58,13 @@ action=branches-remove     id
 
 === INSTRUCTORS (мастера производственного обучения, admin only) ===
 action=instructors-list
-action=instructors-add        name, login, password, branch_id?, car_model?
-action=instructors-update     id, name?, branch_id?, car_model?, password?, is_active?
-action=instructors-remove     id
-action=instructors-kpi-get    instructor_id, period?
-action=instructors-kpi-save   instructor_id, period, pdd_test_passed?, pdd_test_points?, practical_*, students_at_exam*, reviews_*, package_upgrades*, discipline_points?, service_points?, rank_in_branch?, bonus_amount?, bonus_label?
+action=instructors-add            name, login, password, branch_id?, car_model?
+action=instructors-update         id, name?, branch_id?, car_model?, password?, is_active?
+action=instructors-remove         id
+action=instructors-kpi-table      period?  (общая таблица KPI по всем мастерам, баллы считаются автоматически)
+action=instructors-kpi-save-row   instructor_id, period, reviews, exams, passed, package_upgrades_n, pdd_status ('Сдал'|''), discipline, service, note
+action=instructor-videos-list     (все видео регистратора всех мастеров, сгруппированные по мастеру/дате)
+action=instructor-video-url       video_id  (временная ссылка на просмотр видео, 1 час)
 """
 import json
 import os
@@ -72,8 +74,21 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 import secrets
 from datetime import datetime, timezone
+import boto3
 
 SCHEMA = os.environ['MAIN_DB_SCHEMA']
+REG45_S3_BUCKET = 'reg-45'
+REG45_S3_ENDPOINT = 'https://s3.cloud.ru'
+REG45_S3_REGION = 'ru-central-1'
+
+
+def reg45_s3_client():
+    return boto3.client(
+        's3', endpoint_url=REG45_S3_ENDPOINT, region_name=REG45_S3_REGION,
+        aws_access_key_id=os.environ['REG45_S3_ACCESS_KEY'],
+        aws_secret_access_key=os.environ['REG45_S3_SECRET_KEY'],
+    )
+
 CORS = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
@@ -119,6 +134,66 @@ def now_utc():
 
 def make_token():
     return secrets.token_hex(32)
+
+
+# ── KPI мастеров (формулы 1-в-1 из Excel-таблицы мотивации автошколы) ─────────
+
+def scale_reviews_exams(n):
+    """10+ = 15; 8–9 = 13; 6–7 = 11; 4–5 = 8; 2–3 = 5; 1 = 2; 0 = 0"""
+    if n >= 10: return 15
+    if n >= 8: return 13
+    if n >= 6: return 11
+    if n >= 4: return 8
+    if n >= 2: return 5
+    if n == 1: return 2
+    return 0
+
+
+def scale_pass_percent(exams, passed):
+    """90%+=25; 80-89=22; 70-79=19; 60-69=16; 50-59=12; 40-49=8; <40=4"""
+    if exams == 0:
+        return 0, 0
+    pct = passed / exams
+    if pct >= 0.9: pts = 25
+    elif pct >= 0.8: pts = 22
+    elif pct >= 0.7: pts = 19
+    elif pct >= 0.6: pts = 16
+    elif pct >= 0.5: pts = 12
+    elif pct >= 0.4: pts = 8
+    else: pts = 4
+    return round(pct * 100), pts
+
+
+def scale_upgrades(n):
+    """5+=10; 4=9; 3=7; 2=5; 1=3; 0=0"""
+    if n >= 5: return 10
+    if n == 4: return 9
+    if n == 3: return 7
+    if n == 2: return 5
+    if n == 1: return 3
+    return 0
+
+
+def compute_kpi_row(row):
+    reviews_pts = scale_reviews_exams(row['reviews'])
+    exams_pts = scale_reviews_exams(row['exams'])
+    pass_percent, pass_pts = scale_pass_percent(row['exams'], row['passed'])
+    upgrades_pts = scale_upgrades(row['package_upgrades_n'])
+    pdd_pts = 20 if row['pdd_status'] == 'Сдал' else 0
+    discipline = max(0, min(10, row['discipline']))
+    service = max(0, min(5, row['service']))
+    total = reviews_pts + exams_pts + pass_pts + upgrades_pts + pdd_pts + discipline + service
+    return {
+        'period': row['period'],
+        'reviews': row['reviews'], 'reviews_points': reviews_pts,
+        'exams': row['exams'], 'exams_points': exams_pts,
+        'passed': row['passed'], 'pass_percent': pass_percent, 'pass_points': pass_pts,
+        'package_upgrades_n': row['package_upgrades_n'], 'upgrades_points': upgrades_pts,
+        'pdd_status': row['pdd_status'], 'pdd_points': pdd_pts,
+        'discipline': discipline, 'service': service,
+        'note': row.get('note', ''),
+        'total_score': total,
+    }
 
 def ok(data, status=200):
     return {'statusCode': status, 'headers': {**CORS, 'Content-Type': 'application/json'}, 'body': json.dumps(data, ensure_ascii=False, default=str)}
@@ -594,6 +669,13 @@ def handler(event: dict, context) -> dict:
                 (name, login, hash_pw(password), branch_id, car_model)
             )
             row = cur.fetchone()
+            # Сразу создаём пустую строку KPI за текущий месяц — чтобы новый мастер появился в общей таблице
+            cur.execute(
+                f"""INSERT INTO {SCHEMA}.instructor_kpi (instructor_id, period)
+                    VALUES (%s, date_trunc('month', now())::date)
+                    ON CONFLICT (instructor_id, period) DO NOTHING""",
+                (row['id'],)
+            )
             conn.commit()
             write_activity(cur, token, 'add_instructor', 'instructor', row['id'], row['name'], f"Логин: {row['login']}")
             conn.commit()
@@ -647,33 +729,53 @@ def handler(event: dict, context) -> dict:
                 conn.commit()
             return ok({'ok': True})
 
-        if action == 'instructors-kpi-get':
+        if action == 'instructors-kpi-table':
+            # Общая таблица KPI по всем активным инструкторам за период — как лист "Рейтинг мастеров" в Excel
             if not is_admin(cur, token):
                 return err('Доступ запрещён', 403)
-            iid = body.get('instructor_id')
             period = body.get('period')
-            if not iid:
-                return err('Не указан инструктор')
             if not period:
                 cur.execute("SELECT date_trunc('month', now())::date as p")
                 period = cur.fetchone()['p']
-            cur.execute(f"SELECT * FROM {SCHEMA}.instructor_kpi WHERE instructor_id=%s AND period=%s", (iid, period))
-            row = cur.fetchone()
-            return ok({'kpi': dict(row) if row else None, 'period': period})
+            cur.execute(
+                f"""SELECT i.id as instructor_id, i.name, i.login, b.name as branch_name, i.is_active,
+                           k.reviews, k.exams, k.passed, k.package_upgrades_n, k.pdd_status,
+                           k.discipline, k.service, k.note
+                    FROM {SCHEMA}.instructors i
+                    LEFT JOIN {SCHEMA}.branches b ON b.id = i.branch_id
+                    LEFT JOIN {SCHEMA}.instructor_kpi k ON k.instructor_id = i.id AND k.period = %s
+                    WHERE i.is_active = TRUE
+                    ORDER BY b.sort_order, i.name""",
+                (period,)
+            )
+            rows = [dict(r) for r in cur.fetchall()]
+            for r in rows:
+                # Если для мастера ещё нет строки KPI за период — считаем нули
+                filled = {
+                    'reviews': r['reviews'] or 0, 'exams': r['exams'] or 0, 'passed': r['passed'] or 0,
+                    'package_upgrades_n': r['package_upgrades_n'] or 0, 'pdd_status': r['pdd_status'] or '',
+                    'discipline': r['discipline'] if r['discipline'] is not None else 10,
+                    'service': r['service'] if r['service'] is not None else 5,
+                    'period': period,
+                }
+                computed = compute_kpi_row(filled)
+                r.update(computed)
+                r['note'] = r['note'] or ''
+            # Место в рейтинге по итоговому баллу
+            ranked = sorted(rows, key=lambda x: x['total_score'], reverse=True)
+            for idx, r in enumerate(ranked):
+                r['rank'] = idx + 1
+            return ok({'rows': rows, 'period': period})
 
-        if action == 'instructors-kpi-save':
+        if action == 'instructors-kpi-save-row':
+            # Сохранение одной строки таблицы KPI (сырые факты — баллы считаются на бэкенде)
             if not is_admin(cur, token):
                 return err('Доступ запрещён', 403)
             iid = body.get('instructor_id')
             period = body.get('period')
             if not iid or not period:
                 return err('Не указан инструктор или период')
-            fields = [
-                'pdd_test_passed', 'pdd_test_points', 'practical_pass_percent', 'practical_passed', 'practical_total',
-                'practical_points', 'students_at_exam', 'students_at_exam_points', 'reviews_count', 'reviews_points',
-                'package_upgrades', 'package_upgrades_points', 'discipline_points', 'service_points',
-                'rank_in_branch', 'bonus_amount', 'bonus_label',
-            ]
+            fields = ['reviews', 'exams', 'passed', 'package_upgrades_n', 'pdd_status', 'discipline', 'service', 'note']
             cols = ['instructor_id', 'period'] + fields
             vals = [iid, period] + [body.get(f) for f in fields]
             placeholders = ', '.join(['%s'] * len(cols))
@@ -686,7 +788,56 @@ def handler(event: dict, context) -> dict:
             )
             row = cur.fetchone()
             conn.commit()
-            return ok({'kpi': dict(row)})
+            return ok({'kpi': compute_kpi_row(dict(row))})
+
+        # ══════════════════════════════════════════════════════════════════════
+        # INSTRUCTOR VIDEOS (просмотр записей регистратора всех мастеров)
+        # ══════════════════════════════════════════════════════════════════════
+
+        if action == 'instructor-videos-list':
+            if not is_admin(cur, token):
+                return err('Доступ запрещён', 403)
+            cur.execute(
+                f"""SELECT v.id, v.instructor_id, i.name as instructor_name, v.shift_date, v.file_name,
+                           v.file_size, v.s3_url, v.uploaded_at
+                    FROM {SCHEMA}.instructor_video_uploads v
+                    JOIN {SCHEMA}.instructors i ON i.id = v.instructor_id
+                    ORDER BY v.uploaded_at DESC"""
+            )
+            rows = [dict(r) for r in cur.fetchall()]
+            grouped = {}
+            for r in rows:
+                iid = r['instructor_id']
+                if iid not in grouped:
+                    grouped[iid] = {'instructor_id': iid, 'instructor_name': r['instructor_name'], 'shifts': {}}
+                shift_key = str(r['shift_date'])
+                shifts = grouped[iid]['shifts']
+                if shift_key not in shifts:
+                    shifts[shift_key] = {'shift_date': shift_key, 'files': [], 'total_size': 0}
+                shifts[shift_key]['files'].append({
+                    'id': r['id'], 'file_name': r['file_name'], 'file_size': r['file_size'],
+                    's3_url': r['s3_url'], 'uploaded_at': r['uploaded_at'],
+                })
+                shifts[shift_key]['total_size'] += r['file_size']
+            result = []
+            for iid, data in grouped.items():
+                result.append({'instructor_id': iid, 'instructor_name': data['instructor_name'], 'shifts': list(data['shifts'].values())})
+            result.sort(key=lambda x: x['instructor_name'])
+            return ok({'instructors': result})
+
+        if action == 'instructor-video-url':
+            if not is_admin(cur, token):
+                return err('Доступ запрещён', 403)
+            video_id = body.get('video_id')
+            if not video_id:
+                return err('Не указан video_id')
+            cur.execute(f"SELECT s3_key FROM {SCHEMA}.instructor_video_uploads WHERE id=%s", (video_id,))
+            row = cur.fetchone()
+            if not row:
+                return err('Видео не найдено', 404)
+            s3 = reg45_s3_client()
+            url = s3.generate_presigned_url('get_object', Params={'Bucket': REG45_S3_BUCKET, 'Key': row['s3_key']}, ExpiresIn=3600)
+            return ok({'url': url})
 
         # ══════════════════════════════════════════════════════════════════════
         # CONTENT

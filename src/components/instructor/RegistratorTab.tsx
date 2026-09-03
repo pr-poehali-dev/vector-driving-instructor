@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Icon from '@/components/ui/icon';
-import { uploadVideo, getArchive, ShiftGroup } from '@/api/instructor';
+import { uploadVideo, getArchive, getVideoUrl, ShiftGroup, VideoFile } from '@/api/instructor';
 
 const ACCEPTED_EXT = ['.mp4', '.mov', '.avi'];
 
@@ -43,6 +43,41 @@ interface UploadState {
   error: string;
 }
 
+function VideoPlayerModal({ file, onClose }: { file: VideoFile; onClose: () => void }) {
+  const [url, setUrl] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    getVideoUrl(file.id)
+      .then(d => setUrl(d.url))
+      .catch(e => setError(e instanceof Error ? e.message : 'Не удалось получить ссылку'))
+      .finally(() => setLoading(false));
+  }, [file.id]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={onClose}>
+      <div className="w-full max-w-3xl" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-white text-sm font-medium truncate">{file.file_name}</span>
+          <button onClick={onClose} className="text-white/70 hover:text-white p-1.5 flex-shrink-0">
+            <Icon name="X" size={22} />
+          </button>
+        </div>
+        <div className="bg-black rounded-2xl overflow-hidden flex items-center justify-center min-h-[240px]">
+          {loading ? (
+            <Icon name="Loader" size={28} className="animate-spin text-white/50 my-16" />
+          ) : error ? (
+            <p className="text-red-400 text-sm py-16">{error}</p>
+          ) : (
+            <video src={url} controls autoPlay className="w-full max-h-[70vh]" />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function RegistratorTab() {
   const [shiftDate, setShiftDate] = useState(todayIso());
   const [dragOver, setDragOver] = useState(false);
@@ -50,6 +85,7 @@ export default function RegistratorTab() {
   const [shifts, setShifts] = useState<ShiftGroup[]>([]);
   const [loadingArchive, setLoadingArchive] = useState(true);
   const [openShift, setOpenShift] = useState<string | null>(null);
+  const [playFile, setPlayFile] = useState<VideoFile | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const loadArchive = useCallback(() => {
@@ -232,9 +268,12 @@ export default function RegistratorTab() {
                           </div>
                           <div className="flex items-center gap-3 flex-shrink-0">
                             <span className="text-slate-500 text-xs">{fmtBytes(f.file_size)}</span>
-                            <span className="flex items-center gap-1 text-emerald-400 text-xs font-semibold">
-                              <Icon name="Check" size={12} />Загружено
-                            </span>
+                            <button
+                              onClick={() => setPlayFile(f)}
+                              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-rose-600 hover:bg-rose-700 text-white transition-colors"
+                            >
+                              <Icon name="Play" size={11} />Смотреть
+                            </button>
                           </div>
                         </div>
                       ))}
@@ -246,6 +285,8 @@ export default function RegistratorTab() {
           </div>
         )}
       </div>
+
+      {playFile && <VideoPlayerModal file={playFile} onClose={() => setPlayFile(null)} />}
     </div>
   );
 }

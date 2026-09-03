@@ -11,17 +11,17 @@ export interface InstructorSession {
 
 export interface KpiData {
   period: string;
+  reviews: number; reviews_points: number;
+  exams: number; exams_points: number;
+  passed: number; pass_percent: number; pass_points: number;
+  package_upgrades_n: number; upgrades_points: number;
+  pdd_status: string; pdd_points: number;
+  discipline: number;
+  service: number;
+  note: string;
   total_score: number;
-  rank_in_branch: number | null;
-  bonus_amount: number;
-  bonus_label: string;
-  pdd_test: { passed: boolean; points: number };
-  practical: { pass_percent: number; passed: number; total: number; points: number };
-  students_at_exam: { count: number; points: number };
-  reviews: { count: number; points: number };
-  package_upgrades: { count: number; points: number };
-  discipline_points: number;
-  service_points: number;
+  rank: number | null;
+  rank_total: number;
 }
 
 export interface VideoFile {
@@ -92,6 +92,10 @@ export async function uploadVideo(shiftDate: string, fileName: string, contentBa
 
 export async function getArchive(): Promise<{ shifts: ShiftGroup[] }> {
   return api({ action: 'get_archive' }, getToken());
+}
+
+export async function getVideoUrl(videoId: number): Promise<{ url: string }> {
+  return api({ action: 'get_video_url', video_id: videoId }, getToken());
 }
 
 export async function startPddTest(): Promise<{ session_id: number; questions: PddQuestion[] }> {

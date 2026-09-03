@@ -10,8 +10,9 @@ action=logout
 action=get_kpi            period? ('YYYY-MM-01', по умолчанию текущий месяц)
 
 === VIDEO REGISTRATOR (S3) ===
-action=get_upload_url     shift_date, file_name, file_size, content_base64  (загрузка файла в S3, вернёт url)
+action=upload_video       shift_date, file_name, content_base64  (загрузка файла в S3 reg-45)
 action=get_archive        сгруппированный по датам список загруженных видео
+action=get_video_url      video_id  (временная ссылка на просмотр видео, 1 час)
 
 === PDD TEST ===
 action=start_pdd_test     (случайные 20 вопросов из общего банка)
@@ -64,6 +65,14 @@ def now_utc():
     return datetime.now(timezone.utc)
 
 
+def s3_client():
+    return boto3.client(
+        's3', endpoint_url=S3_ENDPOINT, region_name=S3_REGION,
+        aws_access_key_id=os.environ['REG45_S3_ACCESS_KEY'],
+        aws_secret_access_key=os.environ['REG45_S3_SECRET_KEY'],
+    )
+
+
 def get_instructor(cur, token):
     if not token:
         return None
@@ -78,27 +87,69 @@ def get_instructor(cur, token):
     return cur.fetchone()
 
 
+def scale_reviews_exams(n):
+    """Шкала для 'Отзывы' и 'Экзамены': 10+ = 15; 8–9 = 13; 6–7 = 11; 4–5 = 8; 2–3 = 5; 1 = 2; 0 = 0"""
+    if n >= 10: return 15
+    if n >= 8: return 13
+    if n >= 6: return 11
+    if n >= 4: return 8
+    if n >= 2: return 5
+    if n == 1: return 2
+    return 0
+
+
+def scale_pass_percent(exams, passed):
+    """Шкала для '% сдачи': 90%+=25; 80-89=22; 70-79=19; 60-69=16; 50-59=12; 40-49=8; <40=4"""
+    if exams == 0:
+        return 0, 0
+    pct = passed / exams
+    if pct >= 0.9: pts = 25
+    elif pct >= 0.8: pts = 22
+    elif pct >= 0.7: pts = 19
+    elif pct >= 0.6: pts = 16
+    elif pct >= 0.5: pts = 12
+    elif pct >= 0.4: pts = 8
+    else: pts = 4
+    return round(pct * 100), pts
+
+
+def scale_upgrades(n):
+    """Шкала для 'Повышения пакета': 5+=10; 4=9; 3=7; 2=5; 1=3; 0=0"""
+    if n >= 5: return 10
+    if n == 4: return 9
+    if n == 3: return 7
+    if n == 2: return 5
+    if n == 1: return 3
+    return 0
+
+
+def compute_kpi_row(row):
+    """Считает баллы из сырых фактов ровно по формулам оригинальной Excel-таблицы мотивации."""
+    reviews_pts = scale_reviews_exams(row['reviews'])
+    exams_pts = scale_reviews_exams(row['exams'])
+    pass_percent, pass_pts = scale_pass_percent(row['exams'], row['passed'])
+    upgrades_pts = scale_upgrades(row['package_upgrades_n'])
+    pdd_pts = 20 if row['pdd_status'] == 'Сдал' else 0
+    discipline = max(0, min(10, row['discipline']))
+    service = max(0, min(5, row['service']))
+    total = reviews_pts + exams_pts + pass_pts + upgrades_pts + pdd_pts + discipline + service
+    return {
+        'period': row['period'],
+        'reviews': row['reviews'], 'reviews_points': reviews_pts,
+        'exams': row['exams'], 'exams_points': exams_pts,
+        'passed': row['passed'], 'pass_percent': pass_percent, 'pass_points': pass_pts,
+        'package_upgrades': row['package_upgrades_n'], 'upgrades_points': upgrades_pts,
+        'pdd_status': row['pdd_status'], 'pdd_points': pdd_pts,
+        'discipline': discipline, 'service': service,
+        'note': row['note'],
+        'total_score': total,
+    }
+
+
 def kpi_public(row):
     if not row:
         return None
-    total = (
-        row['pdd_test_points'] + row['practical_points'] + row['students_at_exam_points']
-        + row['reviews_points'] + row['package_upgrades_points'] + row['discipline_points'] + row['service_points']
-    )
-    return {
-        'period': row['period'],
-        'total_score': total,
-        'rank_in_branch': row['rank_in_branch'],
-        'bonus_amount': float(row['bonus_amount']),
-        'bonus_label': row['bonus_label'],
-        'pdd_test': {'passed': row['pdd_test_passed'], 'points': row['pdd_test_points']},
-        'practical': {'pass_percent': row['practical_pass_percent'], 'passed': row['practical_passed'], 'total': row['practical_total'], 'points': row['practical_points']},
-        'students_at_exam': {'count': row['students_at_exam'], 'points': row['students_at_exam_points']},
-        'reviews': {'count': row['reviews_count'], 'points': row['reviews_points']},
-        'package_upgrades': {'count': row['package_upgrades'], 'points': row['package_upgrades_points']},
-        'discipline_points': row['discipline_points'],
-        'service_points': row['service_points'],
-    }
+    return compute_kpi_row(row)
 
 
 def handler(event: dict, context) -> dict:
@@ -176,7 +227,14 @@ def handler(event: dict, context) -> dict:
                 (instr['id'], period)
             )
             row = cur.fetchone()
-            return ok({'kpi': kpi_public(row)})
+            kpi = kpi_public(row)
+            if kpi:
+                cur.execute(f"SELECT * FROM {SCHEMA}.instructor_kpi WHERE period=%s", (period,))
+                all_rows = cur.fetchall()
+                totals = sorted((compute_kpi_row(r)['total_score'] for r in all_rows), reverse=True)
+                kpi['rank'] = totals.index(kpi['total_score']) + 1 if kpi['total_score'] in totals else None
+                kpi['rank_total'] = len(totals)
+            return ok({'kpi': kpi})
 
         # ══════════════════════════════════════════════════════════════════
         # VIDEO REGISTRATOR (S3)
@@ -201,11 +259,7 @@ def handler(event: dict, context) -> dict:
             ext = safe_name.rsplit('.', 1)[-1].lower() if '.' in safe_name else 'mp4'
             content_type = {'mp4': 'video/mp4', 'mov': 'video/quicktime', 'avi': 'video/x-msvideo'}.get(ext, 'application/octet-stream')
 
-            s3 = boto3.client(
-                's3', endpoint_url=S3_ENDPOINT, region_name=S3_REGION,
-                aws_access_key_id=os.environ['REG45_S3_ACCESS_KEY'],
-                aws_secret_access_key=os.environ['REG45_S3_SECRET_KEY'],
-            )
+            s3 = s3_client()
             s3.put_object(Bucket=S3_BUCKET, Key=s3_key, Body=file_bytes, ContentType=content_type)
             s3_url = f"{S3_ENDPOINT}/{S3_BUCKET}/{s3_key}"
 
@@ -236,6 +290,25 @@ def handler(event: dict, context) -> dict:
                 grouped[key]['files'].append(r)
                 grouped[key]['total_size'] += r['file_size']
             return ok({'shifts': list(grouped.values())})
+
+        if action == 'get_video_url':
+            # Временная ссылка для просмотра видео прямо в браузере (без скачивания файла на диск)
+            instr = get_instructor(cur, token)
+            if not instr:
+                return err('Требуется авторизация', 401)
+            video_id = body.get('video_id')
+            if not video_id:
+                return err('Не указан video_id')
+            cur.execute(
+                f"SELECT s3_key FROM {SCHEMA}.instructor_video_uploads WHERE id=%s AND instructor_id=%s",
+                (video_id, instr['id'])
+            )
+            row = cur.fetchone()
+            if not row:
+                return err('Видео не найдено', 404)
+            s3 = s3_client()
+            url = s3.generate_presigned_url('get_object', Params={'Bucket': S3_BUCKET, 'Key': row['s3_key']}, ExpiresIn=3600)
+            return ok({'url': url})
 
         # ══════════════════════════════════════════════════════════════════
         # PDD TEST (ежемесячный зачёт мастера)
@@ -312,9 +385,9 @@ def handler(event: dict, context) -> dict:
             period = cur.fetchone()['p']
             if passed:
                 cur.execute(
-                    f"""INSERT INTO {SCHEMA}.instructor_kpi (instructor_id, period, pdd_test_passed, pdd_test_points)
-                        VALUES (%s,%s,TRUE,20)
-                        ON CONFLICT (instructor_id, period) DO UPDATE SET pdd_test_passed=TRUE, pdd_test_points=20, updated_at=NOW()""",
+                    f"""INSERT INTO {SCHEMA}.instructor_kpi (instructor_id, period, pdd_status)
+                        VALUES (%s,%s,'Сдал')
+                        ON CONFLICT (instructor_id, period) DO UPDATE SET pdd_status='Сдал', updated_at=NOW()""",
                     (instr['id'], period)
                 )
             conn.commit()

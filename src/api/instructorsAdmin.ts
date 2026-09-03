@@ -12,26 +12,51 @@ export interface InstructorRow {
   last_seen: string | null;
 }
 
-export interface InstructorKpiRow {
+// Строка общей таблицы KPI (аналог листа "Рейтинг мастеров" в Excel)
+export interface KpiTableRow {
   instructor_id: number;
-  period: string;
-  pdd_test_passed: boolean;
-  pdd_test_points: number;
-  practical_pass_percent: number;
-  practical_passed: number;
-  practical_total: number;
-  practical_points: number;
-  students_at_exam: number;
-  students_at_exam_points: number;
-  reviews_count: number;
+  name: string;
+  login: string;
+  branch_name: string | null;
+  is_active: boolean;
+  // сырые факты (вводятся вручную)
+  reviews: number;
+  exams: number;
+  passed: number;
+  package_upgrades_n: number;
+  pdd_status: string; // 'Сдал' | ''
+  discipline: number;
+  service: number;
+  note: string;
+  // посчитанные баллы (только для чтения)
   reviews_points: number;
-  package_upgrades: number;
-  package_upgrades_points: number;
-  discipline_points: number;
-  service_points: number;
-  rank_in_branch: number | null;
-  bonus_amount: number;
-  bonus_label: string;
+  exams_points: number;
+  pass_percent: number;
+  pass_points: number;
+  upgrades_points: number;
+  pdd_points: number;
+  total_score: number;
+  rank: number;
+}
+
+export interface VideoFile {
+  id: number;
+  file_name: string;
+  file_size: number;
+  s3_url: string;
+  uploaded_at: string;
+}
+
+export interface InstructorShiftGroup {
+  shift_date: string;
+  files: VideoFile[];
+  total_size: number;
+}
+
+export interface InstructorVideos {
+  instructor_id: number;
+  instructor_name: string;
+  shifts: InstructorShiftGroup[];
 }
 
 function adminToken() { return localStorage.getItem('vector_admin_token') || ''; }
@@ -57,8 +82,16 @@ export const updateInstructor = (d: { id: number; name?: string; branch_id?: num
 export const removeInstructor = (id: number) =>
   call({ action: 'instructors-remove', id }, adminToken());
 
-export const getInstructorKpi = (instructor_id: number, period?: string): Promise<{ kpi: InstructorKpiRow | null; period: string }> =>
-  call({ action: 'instructors-kpi-get', instructor_id, period }, adminToken());
+export const getKpiTable = (period?: string): Promise<{ rows: KpiTableRow[]; period: string }> =>
+  call({ action: 'instructors-kpi-table', period }, adminToken());
 
-export const saveInstructorKpi = (d: Partial<InstructorKpiRow> & { instructor_id: number; period: string }) =>
-  call({ action: 'instructors-kpi-save', ...d }, adminToken());
+export const saveKpiRow = (d: {
+  instructor_id: number; period: string; reviews: number; exams: number; passed: number;
+  package_upgrades_n: number; pdd_status: string; discipline: number; service: number; note: string;
+}) => call({ action: 'instructors-kpi-save-row', ...d }, adminToken());
+
+export const getInstructorVideos = (): Promise<{ instructors: InstructorVideos[] }> =>
+  call({ action: 'instructor-videos-list' }, adminToken());
+
+export const getInstructorVideoUrl = (video_id: number): Promise<{ url: string }> =>
+  call({ action: 'instructor-video-url', video_id }, adminToken());
