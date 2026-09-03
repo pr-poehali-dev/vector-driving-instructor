@@ -83,9 +83,11 @@ REG45_S3_REGION = 'ru-central-1'
 
 
 def reg45_s3_client():
+    # Cloud.ru требует составной Access Key ID в формате "tenant_id:key_id"
+    access_key = f"{os.environ['REG45_S3_TENANT_ID']}:{os.environ['REG45_S3_ACCESS_KEY']}"
     return boto3.client(
         's3', endpoint_url=REG45_S3_ENDPOINT, region_name=REG45_S3_REGION,
-        aws_access_key_id=os.environ['REG45_S3_ACCESS_KEY'],
+        aws_access_key_id=access_key,
         aws_secret_access_key=os.environ['REG45_S3_SECRET_KEY'],
     )
 
