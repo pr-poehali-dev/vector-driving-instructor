@@ -5,6 +5,7 @@ import {
   getInstructors, addInstructor, updateInstructor, removeInstructor,
   getKpiTable, saveKpiRow, InstructorRow, KpiTableRow,
 } from '@/api/instructorsAdmin';
+import InstructorsCredentialsPrint from '@/components/admin/InstructorsCredentialsPrint';
 
 function generateDigitPassword(length = 6): string {
   let pw = '';
@@ -318,6 +319,13 @@ export default function InstructorsEditor() {
           <p className="text-sm text-gray-400 mt-0.5 capitalize">{fmtPeriodLabel(period)} · баллы считаются автоматически по шкале</p>
         </div>
         <div className="flex gap-2">
+          {instructors.some(i => i.is_active) && (
+            <button onClick={() => window.print()}
+              title="Печать или сохранение в PDF списка логинов и паролей для раздачи мастерам"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:border-gray-300 hover:text-[#1a1a1a] transition-colors">
+              <Icon name="Printer" size={15} />Экспорт доступов
+            </button>
+          )}
           {rows.length > 0 && (
             <button onClick={() => setFullscreen(true)}
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:border-gray-300 hover:text-[#1a1a1a] transition-colors">
@@ -414,6 +422,8 @@ export default function InstructorsEditor() {
           </div>
         </div>
       )}
+
+      <InstructorsCredentialsPrint instructors={instructors} />
     </div>
   );
 }

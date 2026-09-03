@@ -10,6 +10,7 @@ export interface InstructorRow {
   is_active: boolean;
   created_at: string;
   last_seen: string | null;
+  plain_password: string | null;
 }
 
 // Строка общей таблицы KPI (аналог листа "Рейтинг мастеров" в Excel)

@@ -297,7 +297,7 @@ def handler(event: dict, context) -> dict:
             row = cur.fetchone()
             if not row or row['password_hash'] != hash_pw(old_password):
                 return err('Текущий пароль неверный', 401)
-            cur.execute(f"UPDATE {SCHEMA}.instructors SET password_hash=%s WHERE id=%s", (hash_pw(new_password), instr['id']))
+            cur.execute(f"UPDATE {SCHEMA}.instructors SET password_hash=%s, plain_password=%s WHERE id=%s", (hash_pw(new_password), new_password, instr['id']))
             # Завершаем все остальные сессии на других устройствах кроме текущей
             cur.execute(f"UPDATE {SCHEMA}.instructor_sessions SET expires_at=NOW() WHERE instructor_id=%s AND token!=%s", (instr['id'], token))
             conn.commit()

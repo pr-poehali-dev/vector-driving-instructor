@@ -644,7 +644,7 @@ def handler(event: dict, context) -> dict:
             if not is_admin_or_manager(cur, token, 'can_instructors'):
                 return err('Доступ запрещён', 403)
             cur.execute(
-                f"""SELECT i.id, i.name, i.login, i.branch_id, b.name as branch_name, i.car_model, i.is_active, i.created_at, i.last_seen
+                f"""SELECT i.id, i.name, i.login, i.branch_id, b.name as branch_name, i.car_model, i.is_active, i.created_at, i.last_seen, i.plain_password
                     FROM {SCHEMA}.instructors i LEFT JOIN {SCHEMA}.branches b ON b.id=i.branch_id
                     ORDER BY i.created_at DESC"""
             )
@@ -666,10 +666,10 @@ def handler(event: dict, context) -> dict:
             if cur.fetchone():
                 return err('Логин уже занят')
             cur.execute(
-                f"""INSERT INTO {SCHEMA}.instructors (name, login, password_hash, branch_id, car_model)
-                    VALUES (%s,%s,%s,%s,%s)
-                    RETURNING id, name, login, branch_id, car_model, is_active, created_at""",
-                (name, login, hash_pw(password), branch_id, car_model)
+                f"""INSERT INTO {SCHEMA}.instructors (name, login, password_hash, branch_id, car_model, plain_password)
+                    VALUES (%s,%s,%s,%s,%s,%s)
+                    RETURNING id, name, login, branch_id, car_model, is_active, created_at, plain_password""",
+                (name, login, hash_pw(password), branch_id, car_model, password)
             )
             row = cur.fetchone()
             # Сразу создаём пустую строку KPI за текущий месяц — чтобы новый мастер появился в общей таблице
@@ -700,12 +700,14 @@ def handler(event: dict, context) -> dict:
                     return err('Пароль минимум 4 символа')
                 fields.append('password_hash=%s')
                 values.append(hash_pw(body['password']))
+                fields.append('plain_password=%s')
+                values.append(body['password'])
             if not fields:
                 return err('Нет данных')
             revoke_sessions = bool(body.get('password') or ('is_active' in body and not body['is_active']))
             values.append(iid)
             cur.execute(
-                f"UPDATE {SCHEMA}.instructors SET {', '.join(fields)} WHERE id=%s RETURNING id, name, login, branch_id, car_model, is_active, created_at, last_seen",
+                f"UPDATE {SCHEMA}.instructors SET {', '.join(fields)} WHERE id=%s RETURNING id, name, login, branch_id, car_model, is_active, created_at, last_seen, plain_password",
                 values
             )
             row = cur.fetchone()
