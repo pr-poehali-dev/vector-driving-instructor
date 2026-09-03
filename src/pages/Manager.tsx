@@ -8,6 +8,8 @@ import SupportTickets from '@/components/admin/SupportTickets';
 import PddManager from '@/components/admin/PddManager';
 import RouteManager from '@/components/admin/RouteManager';
 import ChatLogs from '@/components/admin/ChatLogs';
+import InstructorsEditor from '@/components/admin/InstructorsEditor';
+import InstructorVideosViewer from '@/components/admin/InstructorVideosViewer';
 import { managerLogin, managerMe, managerLogout, ManagerSession } from '@/api/managers';
 import { getStudents, addStudent, updateStudent, removeStudent } from '@/api/auth';
 
@@ -404,7 +406,7 @@ function StudentsPanel() {
 export default function ManagerPage() {
   const [session, setSession] = useState<ManagerSession | null>(null);
   const [checking, setChecking] = useState(true);
-  const [tab, setTab] = useState<'students' | 'content' | 'pdd' | 'route' | 'ai' | 'training' | 'support' | 'stats'>('students');
+  const [tab, setTab] = useState<'students' | 'content' | 'pdd' | 'route' | 'instructors' | 'instructorVideos' | 'ai' | 'training' | 'support' | 'stats'>('students');
 
   useEffect(() => {
     managerMe()
@@ -434,6 +436,8 @@ export default function ManagerPage() {
     p.content && { key: 'content', label: 'Контент бота', icon: 'MessageSquare' },
     p.pdd && { key: 'pdd', label: 'ПДД', icon: 'BookOpen' },
     p.route && { key: 'route', label: 'Маршрут', icon: 'Map' },
+    p.instructors && { key: 'instructors', label: 'Инструкторы', icon: 'Car' },
+    p.instructors && { key: 'instructorVideos', label: 'Видеорегистратор', icon: 'Video' },
     p.ai && { key: 'ai', label: 'AI-инструктор', icon: 'Brain' },
     p.ai && { key: 'training', label: 'Обучение ИИ', icon: 'Sparkles' },
     p.support && { key: 'support', label: 'Обращения', icon: 'LifeBuoy' },
@@ -480,6 +484,8 @@ export default function ManagerPage() {
         {activeTab === 'content' && p.content && <ContentEditor />}
         {activeTab === 'pdd' && p.pdd && <PddManager />}
         {activeTab === 'route' && p.route && <RouteManager />}
+        {activeTab === 'instructors' && p.instructors && <InstructorsEditor />}
+        {activeTab === 'instructorVideos' && p.instructors && <InstructorVideosViewer />}
         {activeTab === 'ai' && p.ai && <AiSettings />}
         {activeTab === 'training' && p.ai && <AiTraining />}
         {activeTab === 'support' && p.support && <SupportTickets />}

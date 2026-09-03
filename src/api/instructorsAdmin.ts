@@ -59,7 +59,14 @@ export interface InstructorVideos {
   shifts: InstructorShiftGroup[];
 }
 
-function adminToken() { return localStorage.getItem('vector_admin_token') || ''; }
+function accessToken() {
+  const admin = localStorage.getItem('vector_admin_token') || '';
+  const manager = localStorage.getItem('vector_manager_token') || '';
+  // На странице менеджера в приоритете токен менеджера — в браузере может
+  // остаться старый/просроченный токен администратора от прошлого захода в /admin.
+  if (window.location.pathname.startsWith('/manager')) return manager || admin;
+  return admin || manager;
+}
 
 async function call(body: object, token?: string) {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -71,27 +78,27 @@ async function call(body: object, token?: string) {
 }
 
 export const getInstructors = (): Promise<{ instructors: InstructorRow[] }> =>
-  call({ action: 'instructors-list' }, adminToken());
+  call({ action: 'instructors-list' }, accessToken());
 
 export const addInstructor = (d: { name: string; login: string; password: string; branch_id?: number | null; car_model?: string }) =>
-  call({ action: 'instructors-add', ...d }, adminToken());
+  call({ action: 'instructors-add', ...d }, accessToken());
 
 export const updateInstructor = (d: { id: number; name?: string; branch_id?: number | null; car_model?: string; password?: string; is_active?: boolean }) =>
-  call({ action: 'instructors-update', ...d }, adminToken());
+  call({ action: 'instructors-update', ...d }, accessToken());
 
 export const removeInstructor = (id: number) =>
-  call({ action: 'instructors-remove', id }, adminToken());
+  call({ action: 'instructors-remove', id }, accessToken());
 
 export const getKpiTable = (period?: string): Promise<{ rows: KpiTableRow[]; period: string }> =>
-  call({ action: 'instructors-kpi-table', period }, adminToken());
+  call({ action: 'instructors-kpi-table', period }, accessToken());
 
 export const saveKpiRow = (d: {
   instructor_id: number; period: string; reviews: number; exams: number; passed: number;
   package_upgrades_n: number; pdd_status: string; discipline: number; service: number; note: string;
-}) => call({ action: 'instructors-kpi-save-row', ...d }, adminToken());
+}) => call({ action: 'instructors-kpi-save-row', ...d }, accessToken());
 
 export const getInstructorVideos = (): Promise<{ instructors: InstructorVideos[] }> =>
-  call({ action: 'instructor-videos-list' }, adminToken());
+  call({ action: 'instructor-videos-list' }, accessToken());
 
 export const getInstructorVideoUrl = (video_id: number): Promise<{ url: string }> =>
-  call({ action: 'instructor-video-url', video_id }, adminToken());
+  call({ action: 'instructor-video-url', video_id }, accessToken());

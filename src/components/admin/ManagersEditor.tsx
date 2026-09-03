@@ -21,6 +21,7 @@ const PERM_LABELS = [
   { key: 'can_content', label: 'Контент бота', desc: 'Темы и сообщения чат-бота', icon: 'MessageSquare' },
   { key: 'can_pdd', label: 'ПДД', desc: 'Разделы, темы и вопросы ПДД в кабинете ученика', icon: 'BookOpen' },
   { key: 'can_route', label: 'Маршрут', desc: 'Экзаменационный маршрут, точки и видео', icon: 'Map' },
+  { key: 'can_instructors', label: 'Инструкторы', desc: 'Таблица KPI мастеров и видео с регистраторов', icon: 'Car' },
   { key: 'can_ai', label: 'AI-инструктор', desc: 'Настройки AI', icon: 'Brain' },
   { key: 'can_support', label: 'Обращения', desc: 'Обращения учеников в поддержку', icon: 'LifeBuoy' },
   { key: 'can_stats', label: 'Статистика', desc: 'Только просмотр', icon: 'BarChart2' },
@@ -45,6 +46,7 @@ function ManagerForm({ manager, onClose, onSaved }: {
     can_support: manager?.can_support ?? false,
     can_pdd: manager?.can_pdd ?? false,
     can_route: manager?.can_route ?? false,
+    can_instructors: manager?.can_instructors ?? false,
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
