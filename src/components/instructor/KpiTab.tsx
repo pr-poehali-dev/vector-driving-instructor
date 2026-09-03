@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Icon from '@/components/ui/icon';
-import { getKpi, KpiData } from '@/api/instructor';
+import { getKpi, KpiData, BranchRanking } from '@/api/instructor';
 
 const MONTH_NAMES = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
 
@@ -36,14 +36,66 @@ function KpiCard({ icon, iconColor, title, fact, points, sub }: KpiCardProps) {
   );
 }
 
+function BranchRankingBlock({ ranking, myBranchId }: { ranking: BranchRanking[]; myBranchId: number | null }) {
+  if (ranking.length === 0) return null;
+  return (
+    <div className="bg-slate-800 rounded-2xl border border-slate-700 p-5 md:p-6">
+      <div className="flex items-center gap-2.5 mb-4">
+        <Icon name="Building2" size={18} className="text-cyan-400" />
+        <h3 className="text-white font-montserrat font-bold text-base">Кубок филиала</h3>
+        <span className="text-slate-500 text-xs ml-1">командный рейтинг</span>
+      </div>
+      <div className="flex flex-col gap-2">
+        {ranking.map(b => {
+          const isMine = b.branch_id === myBranchId;
+          const isWinner = b.final_score >= 70;
+          return (
+            <div
+              key={b.branch_id}
+              className={`flex items-center gap-3 rounded-xl px-4 py-3 border ${
+                isMine ? 'bg-rose-600/10 border-rose-600/40' : 'bg-slate-900/50 border-slate-700/60'
+              }`}
+            >
+              <span className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold flex-shrink-0 ${
+                b.rank === 1 ? 'bg-amber-400/20 text-amber-400' : 'bg-slate-700 text-slate-400'
+              }`}>
+                {b.rank}
+              </span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="text-white text-sm font-semibold truncate">{b.branch_name}</p>
+                  {isMine && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-rose-600 text-white flex-shrink-0">Ваш филиал</span>}
+                  {isWinner && <Icon name="Trophy" size={12} className="text-amber-400 flex-shrink-0" />}
+                </div>
+                <p className="text-slate-500 text-xs mt-0.5">{b.masters_count} мастеров · % сдачи {b.pass_percent}% · ПДД сдали {b.pdd_share}%</p>
+              </div>
+              <div className="text-right flex-shrink-0">
+                <p className="text-white font-montserrat font-bold text-lg leading-none">{b.final_score}</p>
+                <p className="text-slate-500 text-[10px] mt-0.5">/ 100</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <p className="text-slate-500 text-xs mt-4">Условие победы: итог филиала ≥ 70 баллов. Приз — командное мероприятие до 20 000 ₽.</p>
+    </div>
+  );
+}
+
 export default function KpiTab() {
   const [data, setData] = useState<KpiData | null>(null);
+  const [branchRanking, setBranchRanking] = useState<BranchRanking[]>([]);
+  const [myBranchId, setMyBranchId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
     getKpi()
-      .then(d => setData(d.kpi))
+      .then(d => {
+        setData(d.kpi);
+        setBranchRanking(d.branch_ranking || []);
+        setMyBranchId(d.my_branch?.branch_id ?? null);
+      })
       .catch(e => setError(e instanceof Error ? e.message : 'Ошибка загрузки'))
       .finally(() => setLoading(false));
   }, []);
@@ -63,9 +115,12 @@ export default function KpiTab() {
 
   if (!data) {
     return (
-      <div className="py-24 text-center text-slate-500">
-        <Icon name="ClipboardX" size={32} className="mx-auto mb-3 opacity-40" />
-        <p className="text-sm">Показатели за этот месяц пока не внесены администрацией</p>
+      <div className="flex flex-col gap-6">
+        <div className="py-16 text-center text-slate-500">
+          <Icon name="ClipboardX" size={32} className="mx-auto mb-3 opacity-40" />
+          <p className="text-sm">Показатели за этот месяц пока не внесены администрацией</p>
+        </div>
+        <BranchRankingBlock ranking={branchRanking} myBranchId={myBranchId} />
       </div>
     );
   }
@@ -158,6 +213,8 @@ export default function KpiTab() {
           </div>
         </div>
       )}
+
+      <BranchRankingBlock ranking={branchRanking} myBranchId={myBranchId} />
     </div>
   );
 }

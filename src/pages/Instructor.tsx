@@ -6,6 +6,7 @@ import KpiTab from '@/components/instructor/KpiTab';
 import RegistratorTab from '@/components/instructor/RegistratorTab';
 import KnowledgeBaseTab from '@/components/instructor/KnowledgeBaseTab';
 import PddTestTab from '@/components/instructor/PddTestTab';
+import ChangePasswordModal from '@/components/instructor/ChangePasswordModal';
 
 type Tab = 'kpi' | 'registrator' | 'knowledge' | 'test';
 
@@ -71,6 +72,7 @@ function LoginScreen({ onSuccess }: { onSuccess: (s: InstructorSession) => void 
 
 function InstructorDashboard({ session, onLogout }: { session: InstructorSession; onLogout: () => void }) {
   const [tab, setTab] = useState<Tab>('kpi');
+  const [showPwModal, setShowPwModal] = useState(false);
   const initials = session.name.split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase();
 
   return (
@@ -87,9 +89,13 @@ function InstructorDashboard({ session, onLogout }: { session: InstructorSession
               <p className="text-white text-sm font-semibold truncate">{session.name}</p>
               <p className="text-slate-500 text-xs truncate">{session.branch_name} · {session.car_model}</p>
             </div>
-            <div className="w-9 h-9 rounded-full bg-rose-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+            <button
+              onClick={() => setShowPwModal(true)}
+              title="Сменить пароль"
+              className="w-9 h-9 rounded-full bg-rose-600 hover:bg-rose-700 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 transition-colors"
+            >
               {initials}
-            </div>
+            </button>
             <button onClick={onLogout} className="text-slate-500 hover:text-white transition-colors p-1.5 flex-shrink-0">
               <Icon name="LogOut" size={17} />
             </button>
@@ -120,6 +126,8 @@ function InstructorDashboard({ session, onLogout }: { session: InstructorSession
         {tab === 'knowledge' && <KnowledgeBaseTab />}
         {tab === 'test' && <PddTestTab />}
       </div>
+
+      {showPwModal && <ChangePasswordModal onClose={() => setShowPwModal(false)} />}
     </div>
   );
 }

@@ -24,6 +24,20 @@ export interface KpiData {
   rank_total: number;
 }
 
+export interface BranchRanking {
+  branch_id: number;
+  branch_name: string;
+  avg_rating: number;
+  pass_percent: number;
+  reviews_per_master: number;
+  exams_per_master: number;
+  upgrades_per_master: number;
+  pdd_share: number;
+  final_score: number;
+  masters_count: number;
+  rank: number;
+}
+
 export interface VideoFile {
   id: number;
   file_name: string;
@@ -82,8 +96,12 @@ export async function instructorLogout() {
   if (token) await api({ action: 'logout' }, token).catch(() => {});
 }
 
-export async function getKpi(period?: string): Promise<{ kpi: KpiData | null }> {
+export async function getKpi(period?: string): Promise<{ kpi: KpiData | null; branch_ranking: BranchRanking[]; my_branch: BranchRanking | null }> {
   return api({ action: 'get_kpi', period }, getToken());
+}
+
+export async function changePassword(oldPassword: string, newPassword: string): Promise<{ ok: boolean }> {
+  return api({ action: 'change_password', old_password: oldPassword, new_password: newPassword }, getToken());
 }
 
 export async function uploadVideo(shiftDate: string, fileName: string, contentBase64: string): Promise<VideoFile> {

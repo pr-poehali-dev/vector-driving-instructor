@@ -5,9 +5,10 @@
 action=login              login, password
 action=me
 action=logout
+action=change_password    old_password, new_password
 
 === KPI ===
-action=get_kpi            period? ('YYYY-MM-01', по умолчанию текущий месяц)
+action=get_kpi            period?  (возвращает kpi мастера + branch_ranking всех филиалов + my_branch)
 
 === VIDEO REGISTRATOR (S3) ===
 action=upload_video       shift_date, file_name, content_base64  (загрузка файла в S3 reg-45)
@@ -154,6 +155,76 @@ def kpi_public(row):
     return compute_kpi_row(row)
 
 
+def compute_branch_ranking(cur, period, schema):
+    """Рейтинг филиалов ("Кубок филиала") — формулы 1-в-1 из листа 'Рейтинг филиалов' Excel:
+    итог = ср.рейтинг мастеров*30% + %сдачи*25% + min(отзывы/мастер/10,1)*15% + min(экзамены/мастер/10,1)*10%
+           + min(повышения/мастер/5,1)*10% + доля ПДД сдали*10%
+    """
+    cur.execute(
+        f"""SELECT i.branch_id, b.name as branch_name, k.reviews, k.exams, k.passed, k.package_upgrades_n, k.pdd_status
+            FROM {schema}.instructors i
+            JOIN {schema}.branches b ON b.id = i.branch_id
+            LEFT JOIN {schema}.instructor_kpi k ON k.instructor_id = i.id AND k.period = %s
+            WHERE i.is_active = TRUE AND i.branch_id IS NOT NULL""",
+        (period,)
+    )
+    rows = cur.fetchall()
+
+    branches = {}
+    for r in rows:
+        bid = r['branch_id']
+        if bid not in branches:
+            branches[bid] = {'branch_id': bid, 'branch_name': r['branch_name'], 'masters': []}
+        reviews = r['reviews'] or 0
+        exams = r['exams'] or 0
+        passed = r['passed'] or 0
+        upgrades = r['package_upgrades_n'] or 0
+        pdd_status = r['pdd_status'] or ''
+        total_score = compute_kpi_row({
+            'period': period, 'reviews': reviews, 'exams': exams, 'passed': passed,
+            'package_upgrades_n': upgrades, 'pdd_status': pdd_status,
+            'discipline': 10, 'service': 5, 'note': '',
+        })['total_score']
+        branches[bid]['masters'].append({
+            'total_score': total_score, 'reviews': reviews, 'exams': exams,
+            'passed': passed, 'upgrades': upgrades, 'pdd_passed': pdd_status == 'Сдал',
+        })
+
+    result = []
+    for bid, data in branches.items():
+        masters = data['masters']
+        n = len(masters) or 1
+        avg_rating = sum(m['total_score'] for m in masters) / n
+        total_exams = sum(m['exams'] for m in masters)
+        total_passed = sum(m['passed'] for m in masters)
+        pass_percent = (total_passed / total_exams) if total_exams else 0
+        reviews_per_master = sum(m['reviews'] for m in masters) / n
+        exams_per_master = sum(m['exams'] for m in masters) / n
+        upgrades_per_master = sum(m['upgrades'] for m in masters) / n
+        pdd_share = sum(1 for m in masters if m['pdd_passed']) / n
+
+        final_score = (
+            avg_rating * 0.30
+            + pass_percent * 100 * 0.25
+            + min(reviews_per_master / 10, 1) * 100 * 0.15
+            + min(exams_per_master / 10, 1) * 100 * 0.10
+            + min(upgrades_per_master / 5, 1) * 100 * 0.10
+            + pdd_share * 100 * 0.10
+        )
+        result.append({
+            'branch_id': bid, 'branch_name': data['branch_name'],
+            'avg_rating': round(avg_rating, 1), 'pass_percent': round(pass_percent * 100),
+            'reviews_per_master': round(reviews_per_master, 1), 'exams_per_master': round(exams_per_master, 1),
+            'upgrades_per_master': round(upgrades_per_master, 1), 'pdd_share': round(pdd_share * 100),
+            'final_score': round(final_score, 1), 'masters_count': len(masters),
+        })
+
+    result.sort(key=lambda x: x['final_score'], reverse=True)
+    for idx, r in enumerate(result):
+        r['rank'] = idx + 1
+    return result
+
+
 def handler(event: dict, context) -> dict:
     if event.get('httpMethod') == 'OPTIONS':
         return {'statusCode': 200, 'headers': CORS, 'body': ''}
@@ -212,6 +283,26 @@ def handler(event: dict, context) -> dict:
                 conn.commit()
             return ok({'ok': True})
 
+        if action == 'change_password':
+            instr = get_instructor(cur, token)
+            if not instr:
+                return err('Требуется авторизация', 401)
+            old_password = (body.get('old_password') or '').strip()
+            new_password = (body.get('new_password') or '').strip()
+            if not old_password or not new_password:
+                return err('Заполните оба поля')
+            if len(new_password) < 4:
+                return err('Новый пароль минимум 4 символа')
+            cur.execute(f"SELECT password_hash FROM {SCHEMA}.instructors WHERE id=%s", (instr['id'],))
+            row = cur.fetchone()
+            if not row or row['password_hash'] != hash_pw(old_password):
+                return err('Текущий пароль неверный', 401)
+            cur.execute(f"UPDATE {SCHEMA}.instructors SET password_hash=%s WHERE id=%s", (hash_pw(new_password), instr['id']))
+            # Завершаем все остальные сессии на других устройствах кроме текущей
+            cur.execute(f"UPDATE {SCHEMA}.instructor_sessions SET expires_at=NOW() WHERE instructor_id=%s AND token!=%s", (instr['id'], token))
+            conn.commit()
+            return ok({'ok': True})
+
         # ══════════════════════════════════════════════════════════════════
         # KPI
         # ══════════════════════════════════════════════════════════════════
@@ -236,7 +327,10 @@ def handler(event: dict, context) -> dict:
                 totals = sorted((compute_kpi_row(r)['total_score'] for r in all_rows), reverse=True)
                 kpi['rank'] = totals.index(kpi['total_score']) + 1 if kpi['total_score'] in totals else None
                 kpi['rank_total'] = len(totals)
-            return ok({'kpi': kpi})
+
+            branch_ranking = compute_branch_ranking(cur, period, SCHEMA)
+            my_branch = next((b for b in branch_ranking if b['branch_id'] == instr['branch_id']), None)
+            return ok({'kpi': kpi, 'branch_ranking': branch_ranking, 'my_branch': my_branch})
 
         # ══════════════════════════════════════════════════════════════════
         # VIDEO REGISTRATOR (S3)

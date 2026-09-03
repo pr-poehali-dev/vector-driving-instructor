@@ -112,6 +112,120 @@ function NumCell({ value, onChange, min = 0, max = 999, width = 'w-14' }: { valu
   );
 }
 
+// ── Сама таблица (переиспользуется в обычном и полноэкранном режиме) ──────────
+interface KpiTableProps {
+  rows: KpiTableRow[];
+  instructors: InstructorRow[];
+  savingIds: Set<number>;
+  updateField: (id: number, field: keyof KpiTableRow, value: string | number) => void;
+  onRemove: (i: InstructorRow) => void;
+}
+
+function KpiTable({ rows, instructors, savingIds, updateField, onRemove }: KpiTableProps) {
+  return (
+    <table className="w-full text-sm border-collapse min-w-[1100px]">
+      <thead>
+        <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wide">
+          <th className="px-3 py-3 text-left font-semibold sticky left-0 bg-gray-50 z-10">Мастер</th>
+          <th className="px-3 py-3 text-left font-semibold">Филиал</th>
+          <th className="px-2 py-3 font-semibold" title="Отзывы (макс 15 баллов)">Отзывы</th>
+          <th className="px-2 py-3 font-semibold" title="Экзамены (макс 15 баллов)">Экзамены</th>
+          <th className="px-2 py-3 font-semibold" title="Сдали">Сдали</th>
+          <th className="px-2 py-3 font-semibold" title="% сдачи (макс 25 баллов)">% сдачи</th>
+          <th className="px-2 py-3 font-semibold" title="Повышения пакета (макс 10 баллов)">Повышения</th>
+          <th className="px-2 py-3 font-semibold" title="ПДД (макс 20 баллов)">ПДД</th>
+          <th className="px-2 py-3 font-semibold" title="Дисциплина 0-10">Дисц.</th>
+          <th className="px-2 py-3 font-semibold" title="Сервис 0-5">Серв.</th>
+          <th className="px-3 py-3 font-semibold text-[#E8002D]">Итого /100</th>
+          <th className="px-2 py-3 font-semibold">Место</th>
+          <th className="px-3 py-3 text-left font-semibold">Примечание</th>
+          <th className="px-2 py-3"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map(r => {
+          const instr = instructors.find(i => i.id === r.instructor_id);
+          const isSaving = savingIds.has(r.instructor_id);
+          return (
+            <tr key={r.instructor_id} className="border-t border-gray-50 hover:bg-gray-50/50">
+              <td className="px-3 py-2 sticky left-0 bg-white z-10 whitespace-nowrap">
+                <div className="flex items-center gap-2">
+                  {r.rank === 1 && <Icon name="Trophy" size={13} className="text-amber-400 flex-shrink-0" />}
+                  <span className="font-medium text-[#1a1a1a]">{r.name}</span>
+                  {isSaving && <Icon name="Loader" size={11} className="animate-spin text-gray-300 flex-shrink-0" />}
+                </div>
+              </td>
+              <td className="px-3 py-2 text-gray-400 text-xs whitespace-nowrap">{r.branch_name || '—'}</td>
+              <td className="px-2 py-2">
+                <NumCell value={r.reviews} onChange={v => updateField(r.instructor_id, 'reviews', v)} />
+                <div className="text-[10px] text-center text-gray-400 mt-0.5">{r.reviews_points} б.</div>
+              </td>
+              <td className="px-2 py-2">
+                <NumCell value={r.exams} onChange={v => updateField(r.instructor_id, 'exams', v)} />
+                <div className="text-[10px] text-center text-gray-400 mt-0.5">{r.exams_points} б.</div>
+              </td>
+              <td className="px-2 py-2">
+                <NumCell value={r.passed} onChange={v => updateField(r.instructor_id, 'passed', v)} />
+              </td>
+              <td className="px-2 py-2 text-center">
+                <span className="text-sm font-semibold text-gray-700">{r.pass_percent}%</span>
+                <div className="text-[10px] text-center text-gray-400 mt-0.5">{r.pass_points} б.</div>
+              </td>
+              <td className="px-2 py-2">
+                <NumCell value={r.package_upgrades_n} onChange={v => updateField(r.instructor_id, 'package_upgrades_n', v)} max={20} />
+                <div className="text-[10px] text-center text-gray-400 mt-0.5">{r.upgrades_points} б.</div>
+              </td>
+              <td className="px-2 py-2">
+                <select
+                  value={r.pdd_status}
+                  onChange={e => updateField(r.instructor_id, 'pdd_status', e.target.value)}
+                  className={`w-20 px-1.5 py-1.5 rounded-lg border text-xs text-center outline-none ${
+                    r.pdd_status === 'Сдал' ? 'border-green-200 bg-green-50 text-green-700' : 'border-gray-200 bg-gray-50 text-gray-500'
+                  }`}
+                >
+                  <option value="">—</option>
+                  <option value="Сдал">Сдал</option>
+                  <option value="Не сдал">Не сдал</option>
+                </select>
+              </td>
+              <td className="px-2 py-2">
+                <NumCell value={r.discipline} onChange={v => updateField(r.instructor_id, 'discipline', v)} max={10} width="w-12" />
+              </td>
+              <td className="px-2 py-2">
+                <NumCell value={r.service} onChange={v => updateField(r.instructor_id, 'service', v)} max={5} width="w-12" />
+              </td>
+              <td className="px-3 py-2 text-center">
+                <span className="font-montserrat font-bold text-base text-[#1a1a1a]">{r.total_score}</span>
+              </td>
+              <td className="px-2 py-2 text-center">
+                <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${
+                  r.rank === 1 ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'
+                }`}>{r.rank}</span>
+              </td>
+              <td className="px-3 py-2">
+                <input
+                  value={r.note}
+                  onChange={e => updateField(r.instructor_id, 'note', e.target.value)}
+                  placeholder="—"
+                  className="w-32 px-2 py-1.5 rounded-lg border border-gray-200 text-xs outline-none focus:border-[#E8002D] bg-gray-50 focus:bg-white"
+                />
+              </td>
+              <td className="px-2 py-2">
+                {instr && (
+                  <button onClick={() => onRemove(instr)}
+                    className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors">
+                    <Icon name="Trash2" size={14} />
+                  </button>
+                )}
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+}
+
 // ── Основной компонент: общая таблица KPI ──────────────────────────────────────
 export default function InstructorsEditor() {
   const [instructors, setInstructors] = useState<InstructorRow[]>([]);
@@ -122,6 +236,7 @@ export default function InstructorsEditor() {
   const [removeTarget, setRemoveTarget] = useState<InstructorRow | null>(null);
   const [removing, setRemoving] = useState(false);
   const [savingIds, setSavingIds] = useState<Set<number>>(new Set());
+  const [fullscreen, setFullscreen] = useState(false);
   const period = currentPeriod();
   const saveTimers = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
 
@@ -202,11 +317,19 @@ export default function InstructorsEditor() {
           <h2 className="font-montserrat font-bold text-lg text-[#1a1a1a]">Мотивация мастеров</h2>
           <p className="text-sm text-gray-400 mt-0.5 capitalize">{fmtPeriodLabel(period)} · баллы считаются автоматически по шкале</p>
         </div>
-        <button onClick={() => setShowAdd(true)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-semibold hover:opacity-90"
-          style={{ background: '#E8002D' }}>
-          <Icon name="UserPlus" size={15} />Добавить мастера
-        </button>
+        <div className="flex gap-2">
+          {rows.length > 0 && (
+            <button onClick={() => setFullscreen(true)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:border-gray-300 hover:text-[#1a1a1a] transition-colors">
+              <Icon name="Maximize2" size={15} />На весь экран
+            </button>
+          )}
+          <button onClick={() => setShowAdd(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-semibold hover:opacity-90"
+            style={{ background: '#E8002D' }}>
+            <Icon name="UserPlus" size={15} />Добавить мастера
+          </button>
+        </div>
       </div>
 
       {rows.length === 0 ? (
@@ -216,106 +339,7 @@ export default function InstructorsEditor() {
         </div>
       ) : (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-x-auto">
-          <table className="w-full text-sm border-collapse min-w-[1100px]">
-            <thead>
-              <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wide">
-                <th className="px-3 py-3 text-left font-semibold sticky left-0 bg-gray-50 z-10">Мастер</th>
-                <th className="px-3 py-3 text-left font-semibold">Филиал</th>
-                <th className="px-2 py-3 font-semibold" title="Отзывы (макс 15 баллов)">Отзывы</th>
-                <th className="px-2 py-3 font-semibold" title="Экзамены (макс 15 баллов)">Экзамены</th>
-                <th className="px-2 py-3 font-semibold" title="Сдали">Сдали</th>
-                <th className="px-2 py-3 font-semibold" title="% сдачи (макс 25 баллов)">% сдачи</th>
-                <th className="px-2 py-3 font-semibold" title="Повышения пакета (макс 10 баллов)">Повышения</th>
-                <th className="px-2 py-3 font-semibold" title="ПДД (макс 20 баллов)">ПДД</th>
-                <th className="px-2 py-3 font-semibold" title="Дисциплина 0-10">Дисц.</th>
-                <th className="px-2 py-3 font-semibold" title="Сервис 0-5">Серв.</th>
-                <th className="px-3 py-3 font-semibold text-[#E8002D]">Итого /100</th>
-                <th className="px-2 py-3 font-semibold">Место</th>
-                <th className="px-3 py-3 text-left font-semibold">Примечание</th>
-                <th className="px-2 py-3"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map(r => {
-                const instr = instructors.find(i => i.id === r.instructor_id);
-                const isSaving = savingIds.has(r.instructor_id);
-                return (
-                  <tr key={r.instructor_id} className="border-t border-gray-50 hover:bg-gray-50/50">
-                    <td className="px-3 py-2 sticky left-0 bg-white z-10 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        {r.rank === 1 && <Icon name="Trophy" size={13} className="text-amber-400 flex-shrink-0" />}
-                        <span className="font-medium text-[#1a1a1a]">{r.name}</span>
-                        {isSaving && <Icon name="Loader" size={11} className="animate-spin text-gray-300 flex-shrink-0" />}
-                      </div>
-                    </td>
-                    <td className="px-3 py-2 text-gray-400 text-xs whitespace-nowrap">{r.branch_name || '—'}</td>
-                    <td className="px-2 py-2">
-                      <NumCell value={r.reviews} onChange={v => updateField(r.instructor_id, 'reviews', v)} />
-                      <div className="text-[10px] text-center text-gray-400 mt-0.5">{r.reviews_points} б.</div>
-                    </td>
-                    <td className="px-2 py-2">
-                      <NumCell value={r.exams} onChange={v => updateField(r.instructor_id, 'exams', v)} />
-                      <div className="text-[10px] text-center text-gray-400 mt-0.5">{r.exams_points} б.</div>
-                    </td>
-                    <td className="px-2 py-2">
-                      <NumCell value={r.passed} onChange={v => updateField(r.instructor_id, 'passed', v)} />
-                    </td>
-                    <td className="px-2 py-2 text-center">
-                      <span className="text-sm font-semibold text-gray-700">{r.pass_percent}%</span>
-                      <div className="text-[10px] text-center text-gray-400 mt-0.5">{r.pass_points} б.</div>
-                    </td>
-                    <td className="px-2 py-2">
-                      <NumCell value={r.package_upgrades_n} onChange={v => updateField(r.instructor_id, 'package_upgrades_n', v)} max={20} />
-                      <div className="text-[10px] text-center text-gray-400 mt-0.5">{r.upgrades_points} б.</div>
-                    </td>
-                    <td className="px-2 py-2">
-                      <select
-                        value={r.pdd_status}
-                        onChange={e => updateField(r.instructor_id, 'pdd_status', e.target.value)}
-                        className={`w-20 px-1.5 py-1.5 rounded-lg border text-xs text-center outline-none ${
-                          r.pdd_status === 'Сдал' ? 'border-green-200 bg-green-50 text-green-700' : 'border-gray-200 bg-gray-50 text-gray-500'
-                        }`}
-                      >
-                        <option value="">—</option>
-                        <option value="Сдал">Сдал</option>
-                        <option value="Не сдал">Не сдал</option>
-                      </select>
-                    </td>
-                    <td className="px-2 py-2">
-                      <NumCell value={r.discipline} onChange={v => updateField(r.instructor_id, 'discipline', v)} max={10} width="w-12" />
-                    </td>
-                    <td className="px-2 py-2">
-                      <NumCell value={r.service} onChange={v => updateField(r.instructor_id, 'service', v)} max={5} width="w-12" />
-                    </td>
-                    <td className="px-3 py-2 text-center">
-                      <span className="font-montserrat font-bold text-base text-[#1a1a1a]">{r.total_score}</span>
-                    </td>
-                    <td className="px-2 py-2 text-center">
-                      <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${
-                        r.rank === 1 ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'
-                      }`}>{r.rank}</span>
-                    </td>
-                    <td className="px-3 py-2">
-                      <input
-                        value={r.note}
-                        onChange={e => updateField(r.instructor_id, 'note', e.target.value)}
-                        placeholder="—"
-                        className="w-32 px-2 py-1.5 rounded-lg border border-gray-200 text-xs outline-none focus:border-[#E8002D] bg-gray-50 focus:bg-white"
-                      />
-                    </td>
-                    <td className="px-2 py-2">
-                      {instr && (
-                        <button onClick={() => setRemoveTarget(instr)}
-                          className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors">
-                          <Icon name="Trash2" size={14} />
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <KpiTable rows={rows} instructors={instructors} savingIds={savingIds} updateField={updateField} onRemove={setRemoveTarget} />
         </div>
       )}
 
@@ -369,6 +393,24 @@ export default function InstructorsEditor() {
                 {removing ? 'Удаление...' : 'Удалить'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {fullscreen && (
+        <div className="fixed inset-0 z-50 bg-white flex flex-col">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
+            <div>
+              <h2 className="font-montserrat font-bold text-lg text-[#1a1a1a]">Мотивация мастеров</h2>
+              <p className="text-sm text-gray-400 mt-0.5 capitalize">{fmtPeriodLabel(period)}</p>
+            </div>
+            <button onClick={() => setFullscreen(false)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:border-gray-300 hover:text-[#1a1a1a] transition-colors">
+              <Icon name="Minimize2" size={15} />Свернуть
+            </button>
+          </div>
+          <div className="flex-1 overflow-auto px-6 py-4">
+            <KpiTable rows={rows} instructors={instructors} savingIds={savingIds} updateField={updateField} onRemove={setRemoveTarget} />
           </div>
         </div>
       )}
