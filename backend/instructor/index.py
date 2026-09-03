@@ -35,8 +35,9 @@ CORS = {
     'Access-Control-Allow-Headers': 'Content-Type, X-Auth-Token',
 }
 
-S3_BUCKET = 'files'
-S3_ENDPOINT = 'https://bucket.poehali.dev'
+S3_BUCKET = 'reg-45'
+S3_ENDPOINT = 'https://s3.cloud.ru'
+S3_REGION = 'ru-central-1'
 
 
 def get_conn():
@@ -201,12 +202,12 @@ def handler(event: dict, context) -> dict:
             content_type = {'mp4': 'video/mp4', 'mov': 'video/quicktime', 'avi': 'video/x-msvideo'}.get(ext, 'application/octet-stream')
 
             s3 = boto3.client(
-                's3', endpoint_url=S3_ENDPOINT,
-                aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
-                aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY'],
+                's3', endpoint_url=S3_ENDPOINT, region_name=S3_REGION,
+                aws_access_key_id=os.environ['REG45_S3_ACCESS_KEY'],
+                aws_secret_access_key=os.environ['REG45_S3_SECRET_KEY'],
             )
             s3.put_object(Bucket=S3_BUCKET, Key=s3_key, Body=file_bytes, ContentType=content_type)
-            s3_url = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{s3_key}"
+            s3_url = f"{S3_ENDPOINT}/{S3_BUCKET}/{s3_key}"
 
             cur.execute(
                 f"""INSERT INTO {SCHEMA}.instructor_video_uploads (instructor_id, shift_date, file_name, file_size, s3_key, s3_url)
