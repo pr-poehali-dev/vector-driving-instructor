@@ -178,7 +178,7 @@ def scale_upgrades(n):
 
 def compute_kpi_row(row):
     reviews_pts = scale_reviews_exams(row['reviews'])
-    exams_pts = scale_reviews_exams(row['exams'])
+    exams_pts = scale_reviews_exams(row['passed'])
     pass_percent, pass_pts = scale_pass_percent(row['exams'], row['passed'])
     upgrades_pts = scale_upgrades(row['package_upgrades_n'])
     pdd_pts = 20 if row['pdd_status'] == 'Сдал' else 0

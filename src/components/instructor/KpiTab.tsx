@@ -172,8 +172,8 @@ export default function KpiTab() {
         />
         <KpiCard
           icon="GraduationCap" iconColor="#8b5cf6"
-          title="Курсанты на экзамене"
-          fact={`${data.exams} человек`}
+          title="Курсанты сдали экзамен"
+          fact={`${data.passed} из ${data.exams}`}
           points={`${data.exams_points} / 15`}
         />
         <KpiCard

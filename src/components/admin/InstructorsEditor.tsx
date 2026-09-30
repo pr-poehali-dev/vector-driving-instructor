@@ -130,8 +130,8 @@ function KpiTable({ rows, instructors, savingIds, updateField, onRemove }: KpiTa
           <th className="px-3 py-3 text-left font-semibold sticky left-0 bg-gray-50 z-10">Мастер</th>
           <th className="px-3 py-3 text-left font-semibold">Филиал</th>
           <th className="px-2 py-3 font-semibold" title="Отзывы (макс 15 баллов)">Отзывы</th>
-          <th className="px-2 py-3 font-semibold" title="Экзамены (макс 15 баллов)">Экзамены</th>
-          <th className="px-2 py-3 font-semibold" title="Сдали">Сдали</th>
+          <th className="px-2 py-3 font-semibold" title="Экзамены">Экзамены</th>
+          <th className="px-2 py-3 font-semibold" title="Сдали (макс 15 баллов)">Сдали</th>
           <th className="px-2 py-3 font-semibold" title="% сдачи (макс 25 баллов)">% сдачи</th>
           <th className="px-2 py-3 font-semibold" title="Повышения пакета (макс 10 баллов)">Повышения</th>
           <th className="px-2 py-3 font-semibold" title="ПДД (макс 20 баллов)">ПДД</th>
@@ -163,10 +163,10 @@ function KpiTable({ rows, instructors, savingIds, updateField, onRemove }: KpiTa
               </td>
               <td className="px-2 py-2">
                 <NumCell value={r.exams} onChange={v => updateField(r.instructor_id, 'exams', v)} />
-                <div className="text-[10px] text-center text-gray-400 mt-0.5">{r.exams_points} б.</div>
               </td>
               <td className="px-2 py-2">
                 <NumCell value={r.passed} onChange={v => updateField(r.instructor_id, 'passed', v)} />
+                <div className="text-[10px] text-center text-gray-400 mt-0.5">{r.exams_points} б.</div>
               </td>
               <td className="px-2 py-2 text-center">
                 <span className="text-sm font-semibold text-gray-700">{r.pass_percent}%</span>
@@ -254,7 +254,7 @@ export default function InstructorsEditor() {
     const scaleReviewsExams = (n: number) => n >= 10 ? 15 : n >= 8 ? 13 : n >= 6 ? 11 : n >= 4 ? 8 : n >= 2 ? 5 : n === 1 ? 2 : 0;
     const scaleUpgrades = (n: number) => n >= 5 ? 10 : n === 4 ? 9 : n === 3 ? 7 : n === 2 ? 5 : n === 1 ? 3 : 0;
     const reviews_points = scaleReviewsExams(r.reviews);
-    const exams_points = scaleReviewsExams(r.exams);
+    const exams_points = scaleReviewsExams(r.passed);
     let pass_percent = 0, pass_points = 0;
     if (r.exams > 0) {
       const pct = r.passed / r.exams;
