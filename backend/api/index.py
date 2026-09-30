@@ -197,6 +197,76 @@ def compute_kpi_row(row):
         'total_score': total,
     }
 
+
+def compute_branch_ranking(cur, period, schema):
+    """Рейтинг филиалов ("Кубок филиала") — формулы 1-в-1 из листа 'Рейтинг филиалов' Excel:
+    итог = ср.рейтинг мастеров*30% + %сдачи*25% + min(отзывы/мастер/10,1)*15% + min(сдали/мастер/10,1)*10%
+           + min(повышения/мастер/5,1)*10% + доля ПДД сдали*10%
+    """
+    cur.execute(
+        f"""SELECT i.branch_id, b.name as branch_name, k.reviews, k.exams, k.passed, k.package_upgrades_n, k.pdd_status
+            FROM {schema}.instructors i
+            JOIN {schema}.branches b ON b.id = i.branch_id
+            LEFT JOIN {schema}.instructor_kpi k ON k.instructor_id = i.id AND k.period = %s
+            WHERE i.is_active = TRUE AND i.branch_id IS NOT NULL""",
+        (period,)
+    )
+    rows = cur.fetchall()
+
+    branches = {}
+    for r in rows:
+        bid = r['branch_id']
+        if bid not in branches:
+            branches[bid] = {'branch_id': bid, 'branch_name': r['branch_name'], 'masters': []}
+        reviews = r['reviews'] or 0
+        exams = r['exams'] or 0
+        passed = r['passed'] or 0
+        upgrades = r['package_upgrades_n'] or 0
+        pdd_status = r['pdd_status'] or ''
+        total_score = compute_kpi_row({
+            'period': period, 'reviews': reviews, 'exams': exams, 'passed': passed,
+            'package_upgrades_n': upgrades, 'pdd_status': pdd_status,
+            'discipline': 10, 'service': 5, 'note': '',
+        })['total_score']
+        branches[bid]['masters'].append({
+            'total_score': total_score, 'reviews': reviews, 'exams': exams,
+            'passed': passed, 'upgrades': upgrades, 'pdd_passed': pdd_status == 'Сдал',
+        })
+
+    result = []
+    for bid, data in branches.items():
+        masters = data['masters']
+        n = len(masters) or 1
+        avg_rating = sum(m['total_score'] for m in masters) / n
+        total_exams = sum(m['exams'] for m in masters)
+        total_passed = sum(m['passed'] for m in masters)
+        pass_percent = (total_passed / total_exams) if total_exams else 0
+        reviews_per_master = sum(m['reviews'] for m in masters) / n
+        passed_per_master = sum(m['passed'] for m in masters) / n
+        upgrades_per_master = sum(m['upgrades'] for m in masters) / n
+        pdd_share = sum(1 for m in masters if m['pdd_passed']) / n
+
+        final_score = (
+            avg_rating * 0.30
+            + pass_percent * 100 * 0.25
+            + min(reviews_per_master / 10, 1) * 100 * 0.15
+            + min(passed_per_master / 10, 1) * 100 * 0.10
+            + min(upgrades_per_master / 5, 1) * 100 * 0.10
+            + pdd_share * 100 * 0.10
+        )
+        result.append({
+            'branch_id': bid, 'branch_name': data['branch_name'],
+            'avg_rating': round(avg_rating, 1), 'pass_percent': round(pass_percent * 100),
+            'reviews_per_master': round(reviews_per_master, 1), 'exams_per_master': round(passed_per_master, 1),
+            'upgrades_per_master': round(upgrades_per_master, 1), 'pdd_share': round(pdd_share * 100),
+            'final_score': round(final_score, 1), 'masters_count': len(masters),
+        })
+
+    result.sort(key=lambda x: x['final_score'], reverse=True)
+    for idx, r in enumerate(result):
+        r['rank'] = idx + 1
+    return result
+
 def ok(data, status=200):
     return {'statusCode': status, 'headers': {**CORS, 'Content-Type': 'application/json'}, 'body': json.dumps(data, ensure_ascii=False, default=str)}
 
@@ -770,7 +840,8 @@ def handler(event: dict, context) -> dict:
             ranked = sorted(rows, key=lambda x: x['total_score'], reverse=True)
             for idx, r in enumerate(ranked):
                 r['rank'] = idx + 1
-            return ok({'rows': rows, 'period': period})
+            branch_ranking = compute_branch_ranking(cur, period, SCHEMA)
+            return ok({'rows': rows, 'period': period, 'branch_ranking': branch_ranking})
 
         if action == 'instructors-kpi-save-row':
             # Сохранение одной строки таблицы KPI (сырые факты — баллы считаются на бэкенде)

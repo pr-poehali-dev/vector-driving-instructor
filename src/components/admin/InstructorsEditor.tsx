@@ -3,9 +3,10 @@ import Icon from '@/components/ui/icon';
 import { getBranches, Branch } from '@/api/branches';
 import {
   getInstructors, addInstructor, updateInstructor, removeInstructor,
-  getKpiTable, saveKpiRow, InstructorRow, KpiTableRow,
+  getKpiTable, saveKpiRow, InstructorRow, KpiTableRow, BranchRanking,
 } from '@/api/instructorsAdmin';
 import InstructorsCredentialsPrint from '@/components/admin/InstructorsCredentialsPrint';
+import InstructorsLeaderboardModal from '@/components/admin/InstructorsLeaderboardModal';
 
 function generateDigitPassword(length = 6): string {
   let pw = '';
@@ -232,19 +233,21 @@ export default function InstructorsEditor() {
   const [instructors, setInstructors] = useState<InstructorRow[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [rows, setRows] = useState<KpiTableRow[]>([]);
+  const [branchRanking, setBranchRanking] = useState<BranchRanking[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<InstructorRow | null>(null);
   const [removing, setRemoving] = useState(false);
   const [savingIds, setSavingIds] = useState<Set<number>>(new Set());
   const [fullscreen, setFullscreen] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
   const period = currentPeriod();
   const saveTimers = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
 
   const loadAll = useCallback(() => {
     setLoading(true);
     Promise.all([getInstructors(), getBranches(), getKpiTable(period)])
-      .then(([i, b, k]) => { setInstructors(i.instructors); setBranches(b.branches); setRows(k.rows); })
+      .then(([i, b, k]) => { setInstructors(i.instructors); setBranches(b.branches); setRows(k.rows); setBranchRanking(k.branch_ranking || []); })
       .finally(() => setLoading(false));
   }, [period]);
 
@@ -318,7 +321,13 @@ export default function InstructorsEditor() {
           <h2 className="font-montserrat font-bold text-lg text-[#1a1a1a]">Мотивация мастеров</h2>
           <p className="text-sm text-gray-400 mt-0.5 capitalize">{fmtPeriodLabel(period)} · баллы считаются автоматически по шкале</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          {rows.length > 0 && (
+            <button onClick={() => setShowLeaderboard(true)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:border-gray-300 hover:text-[#1a1a1a] transition-colors">
+              <Icon name="Trophy" size={15} className="text-amber-500" />Рейтинг и кубок
+            </button>
+          )}
           {instructors.some(i => i.is_active) && (
             <button onClick={() => window.print()}
               title="Печать или сохранение в PDF списка логинов и паролей для раздачи мастерам"
@@ -421,6 +430,15 @@ export default function InstructorsEditor() {
             <KpiTable rows={rows} instructors={instructors} savingIds={savingIds} updateField={updateField} onRemove={setRemoveTarget} />
           </div>
         </div>
+      )}
+
+      {showLeaderboard && (
+        <InstructorsLeaderboardModal
+          rows={rows}
+          branchRanking={branchRanking}
+          period={period}
+          onClose={() => setShowLeaderboard(false)}
+        />
       )}
 
       <InstructorsCredentialsPrint instructors={instructors} />

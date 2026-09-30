@@ -60,6 +60,20 @@ export interface InstructorVideos {
   shifts: InstructorShiftGroup[];
 }
 
+export interface BranchRanking {
+  branch_id: number;
+  branch_name: string;
+  avg_rating: number;
+  pass_percent: number;
+  reviews_per_master: number;
+  exams_per_master: number;
+  upgrades_per_master: number;
+  pdd_share: number;
+  final_score: number;
+  masters_count: number;
+  rank: number;
+}
+
 function accessToken() {
   const admin = localStorage.getItem('vector_admin_token') || '';
   const manager = localStorage.getItem('vector_manager_token') || '';
@@ -90,7 +104,7 @@ export const updateInstructor = (d: { id: number; name?: string; branch_id?: num
 export const removeInstructor = (id: number) =>
   call({ action: 'instructors-remove', id }, accessToken());
 
-export const getKpiTable = (period?: string): Promise<{ rows: KpiTableRow[]; period: string }> =>
+export const getKpiTable = (period?: string): Promise<{ rows: KpiTableRow[]; period: string; branch_ranking: BranchRanking[] }> =>
   call({ action: 'instructors-kpi-table', period }, accessToken());
 
 export const saveKpiRow = (d: {
