@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Icon from '@/components/ui/icon';
 import { getKpi, KpiData, BranchRanking } from '@/api/instructor';
+import LeaderboardBlock from '@/components/instructor/LeaderboardBlock';
 
 const MONTH_NAMES = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
 
@@ -120,6 +121,7 @@ export default function KpiTab() {
           <Icon name="ClipboardX" size={32} className="mx-auto mb-3 opacity-40" />
           <p className="text-sm">Показатели за этот месяц пока не внесены администрацией</p>
         </div>
+        <LeaderboardBlock />
         <BranchRankingBlock ranking={branchRanking} myBranchId={myBranchId} />
       </div>
     );
@@ -214,6 +216,7 @@ export default function KpiTab() {
         </div>
       )}
 
+      <LeaderboardBlock />
       <BranchRankingBlock ranking={branchRanking} myBranchId={myBranchId} />
     </div>
   );

@@ -100,6 +100,27 @@ export async function getKpi(period?: string): Promise<{ kpi: KpiData | null; br
   return api({ action: 'get_kpi', period }, getToken());
 }
 
+export interface LeaderboardRow {
+  instructor_id: number;
+  name: string;
+  branch_name: string | null;
+  total_score: number;
+  rank: number;
+  is_me: boolean;
+}
+
+export interface Leaderboard {
+  period: string;
+  periods: string[];
+  rows: LeaderboardRow[];
+  branch_ranking: BranchRanking[];
+  my_branch_id: number | null;
+}
+
+export async function getLeaderboard(period?: string): Promise<Leaderboard> {
+  return api({ action: 'get_leaderboard', period }, getToken());
+}
+
 export async function changePassword(oldPassword: string, newPassword: string): Promise<{ ok: boolean }> {
   return api({ action: 'change_password', old_password: oldPassword, new_password: newPassword }, getToken());
 }

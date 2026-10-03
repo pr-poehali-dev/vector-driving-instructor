@@ -19,6 +19,12 @@ function currentPeriod(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
 }
 
+function shiftPeriod(period: string, delta: number): string {
+  const d = new Date(period);
+  const n = new Date(d.getFullYear(), d.getMonth() + delta, 1);
+  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-01`;
+}
+
 function fmtPeriodLabel(period: string): string {
   const MONTHS = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'];
   const d = new Date(period);
@@ -241,7 +247,7 @@ export default function InstructorsEditor() {
   const [savingIds, setSavingIds] = useState<Set<number>>(new Set());
   const [fullscreen, setFullscreen] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
-  const period = currentPeriod();
+  const [period, setPeriod] = useState(currentPeriod());
   const saveTimers = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
 
   const loadAll = useCallback(() => {
@@ -322,6 +328,17 @@ export default function InstructorsEditor() {
           <p className="text-sm text-gray-400 mt-0.5 capitalize">{fmtPeriodLabel(period)} · баллы считаются автоматически по шкале</p>
         </div>
         <div className="flex gap-2 flex-wrap">
+          <div className="flex items-center rounded-xl border border-gray-200 overflow-hidden">
+            <button onClick={() => setPeriod(p => shiftPeriod(p, -1))} title="Предыдущий месяц"
+              className="px-3 py-2.5 text-gray-500 hover:bg-gray-50 hover:text-[#1a1a1a] transition-colors">
+              <Icon name="ChevronLeft" size={16} />
+            </button>
+            <span className="px-3 text-sm font-semibold text-[#1a1a1a] capitalize min-w-[130px] text-center">{fmtPeriodLabel(period)}</span>
+            <button onClick={() => setPeriod(p => shiftPeriod(p, 1))} disabled={period >= currentPeriod()} title="Следующий месяц"
+              className="px-3 py-2.5 text-gray-500 hover:bg-gray-50 hover:text-[#1a1a1a] transition-colors disabled:opacity-30 disabled:hover:bg-transparent">
+              <Icon name="ChevronRight" size={16} />
+            </button>
+          </div>
           {rows.length > 0 && (
             <button onClick={() => setShowLeaderboard(true)}
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:border-gray-300 hover:text-[#1a1a1a] transition-colors">

@@ -333,6 +333,44 @@ def handler(event: dict, context) -> dict:
             my_branch = next((b for b in branch_ranking if b['branch_id'] == instr['branch_id']), None)
             return ok({'kpi': kpi, 'branch_ranking': branch_ranking, 'my_branch': my_branch})
 
+        if action == 'get_leaderboard':
+            instr = get_instructor(cur, token)
+            if not instr:
+                return err('Требуется авторизация', 401)
+            period = body.get('period')
+            if not period:
+                cur.execute("SELECT date_trunc('month', now())::date as p")
+                period = cur.fetchone()['p']
+            cur.execute(
+                f"""SELECT i.id as instructor_id, i.name, b.name as branch_name,
+                           k.reviews, k.exams, k.passed, k.package_upgrades_n, k.pdd_status, k.discipline, k.service
+                    FROM {SCHEMA}.instructors i
+                    LEFT JOIN {SCHEMA}.branches b ON b.id = i.branch_id
+                    LEFT JOIN {SCHEMA}.instructor_kpi k ON k.instructor_id = i.id AND k.period = %s
+                    WHERE i.is_active = TRUE""",
+                (period,)
+            )
+            rows = []
+            for r in cur.fetchall():
+                c = compute_kpi_row({
+                    'period': period, 'reviews': r['reviews'] or 0, 'exams': r['exams'] or 0, 'passed': r['passed'] or 0,
+                    'package_upgrades_n': r['package_upgrades_n'] or 0, 'pdd_status': r['pdd_status'] or '',
+                    'discipline': r['discipline'] if r['discipline'] is not None else 10,
+                    'service': r['service'] if r['service'] is not None else 5, 'note': '',
+                })
+                rows.append({
+                    'instructor_id': r['instructor_id'], 'name': r['name'], 'branch_name': r['branch_name'],
+                    'total_score': c['total_score'], 'is_me': r['instructor_id'] == instr['id'],
+                })
+            rows.sort(key=lambda x: (-x['total_score'], x['name']))
+            for idx, r in enumerate(rows):
+                r['rank'] = idx + 1
+            cur.execute(f"SELECT DISTINCT period FROM {SCHEMA}.instructor_kpi ORDER BY period DESC")
+            periods = [str(p['period']) for p in cur.fetchall()]
+            branch_ranking = compute_branch_ranking(cur, period, SCHEMA)
+            return ok({'period': str(period), 'periods': periods, 'rows': rows, 'branch_ranking': branch_ranking,
+                       'my_branch_id': instr['branch_id']})
+
         # ══════════════════════════════════════════════════════════════════
         # VIDEO REGISTRATOR (S3)
         # ══════════════════════════════════════════════════════════════════
