@@ -174,6 +174,69 @@ def call_yandex_gpt(api_key, folder_id, messages, temperature=0.3, max_tokens=20
     return result['result']['alternatives'][0]['message']['text'].strip()
 
 
+GEMINI_MODEL = 'gemini-3.7-flash'
+GEMINI_TIMEOUT = 10
+GEMINI_PAUSE_SEC = 120
+_gemini_down_until = 0.0
+
+
+def call_gemini(messages, temperature=0.3, max_tokens=512, timeout=GEMINI_TIMEOUT):
+    base = (os.environ.get('NEUROZAL_API_URL') or '').strip().rstrip('/')
+    if base.endswith('/v1'):
+        base = base[:-3]
+    key = (os.environ.get('NEUROZAL_API_KEY') or '').strip()
+    if not base or not key:
+        raise RuntimeError('Gemini не настроен')
+    chat = []
+    for m in messages:
+        text = (m.get('text') or '').strip()
+        if not text:
+            continue
+        role = m.get('role')
+        chat.append({'role': role if role in ('system', 'user', 'assistant') else 'user', 'content': text})
+    payload = json.dumps({
+        'model': GEMINI_MODEL,
+        'messages': chat,
+        'temperature': temperature,
+        'max_tokens': max_tokens,
+    }).encode('utf-8')
+    req = urllib.request.Request(
+        f'{base}/v1/chat/completions',
+        data=payload,
+        headers={'Content-Type': 'application/json', 'Authorization': f'Bearer {key}'},
+        method='POST'
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        result = json.loads(r.read().decode('utf-8'))
+    text = (result['choices'][0]['message'].get('content') or '').strip()
+    if not text:
+        raise RuntimeError('Gemini вернул пустой ответ')
+    return text
+
+
+def call_llm(api_key, folder_id, messages, temperature=0.3, max_tokens=200, timeout=20):
+    """Сначала Gemini; если лимит закончился или сервис не отвечает — YandexGPT."""
+    global _gemini_down_until
+    now = datetime.now(timezone.utc).timestamp()
+    if now >= _gemini_down_until and os.environ.get('NEUROZAL_API_KEY'):
+        try:
+            return call_gemini(messages, temperature=temperature, max_tokens=max_tokens)
+        except urllib.error.HTTPError as e:
+            code = e.code
+            try:
+                detail = e.read().decode('utf-8', errors='ignore')[:200]
+            except Exception:
+                detail = ''
+            print(f'Gemini HTTP {code}, переключаюсь на Yandex: {detail}')
+            _gemini_down_until = now + GEMINI_PAUSE_SEC
+        except Exception as e:
+            print(f'Gemini ошибка, переключаюсь на Yandex: {str(e)[:200]}')
+            _gemini_down_until = now + GEMINI_PAUSE_SEC
+    if not api_key:
+        raise RuntimeError('YandexGPT не настроен')
+    return call_yandex_gpt(api_key, folder_id, messages, temperature=temperature, max_tokens=max_tokens, timeout=timeout)
+
+
 def generate_video_description(title, api_key, folder_id):
     if not title:
         return ''
@@ -183,7 +246,7 @@ def generate_video_description(title, api_key, folder_id):
             f'"{title}". Опиши в 1-2 коротких предложениях, что показано на этом видео и '
             'какой манёвр или ситуацию на дороге оно разбирает. Пиши сразу описание, без вступлений и оговорок.'
         )
-        return call_yandex_gpt(
+        return call_llm(
             api_key, folder_id,
             [{'role': 'user', 'text': prompt}],
             temperature=0.3, max_tokens=150, timeout=15
@@ -518,7 +581,9 @@ def handler(event: dict, context) -> dict:
         return resp({'error': 'Сообщение слишком длинное'}, 400)
 
     api_key = os.environ.get('YANDEX_API_KEY', '')
-    if not api_key or not api_key.startswith('AQVN'):
+    if not api_key.startswith('AQVN'):
+        api_key = ''
+    if not api_key and not os.environ.get('NEUROZAL_API_KEY'):
         return resp({'error': 'AI-инструктор не настроен. Обратитесь к администратору.'}, 503)
 
     # Загружаем настройки и видео из БД
@@ -623,7 +688,7 @@ def handler(event: dict, context) -> dict:
     messages.append({'role': 'user', 'text': message})
 
     try:
-        answer = call_yandex_gpt(api_key, folder_id, messages, temperature=temperature, max_tokens=512, timeout=25)
+        answer = call_llm(api_key, folder_id, messages, temperature=temperature, max_tokens=512, timeout=25)
         save_log(message, answer)
         return resp({'answer': answer, 'video': None, 'videos': []})
     except urllib.error.HTTPError as e:
