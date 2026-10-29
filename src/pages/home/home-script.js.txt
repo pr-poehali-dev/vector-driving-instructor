@@ -5,8 +5,7 @@
   var CONFIG = {
     phoneText: "8 (919) 591-55-58",
     phoneHref: "tel:+79195915558",
-    /* Укажите URL CRM/почты для приёма заявок. Пока пусто — заявка сохраняется локально. */
-    leadEndpoint: "",
+    leadEndpoint: "https://functions.poehali.dev/ff150851-437d-4482-9100-86f56d45bea8",
     branches: {}
   };
   (function () {
@@ -141,11 +140,11 @@
   function digits(v) { return (v || "").replace(/\D/g, ""); }
 
   function submitLead(payload) {
-    if (!CONFIG.leadEndpoint) return Promise.resolve(true);
+    var body = { action: "submit_lead", name: payload.name, phone: payload.phone, branch: payload.branch, tariff: payload.tariff, website: ($("#f-website") || {}).value || "" };
     return fetch(CONFIG.leadEndpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(body)
     }).then(function (r) { return r.ok; }).catch(function () { return false; });
   }
 
@@ -180,10 +179,6 @@
           sentLead.textContent = "Не удалось отправить заявку. Позвоните: " + CONFIG.phoneText;
           return;
         }
-        try {
-          var key = "vektor45_leads", arr = JSON.parse(localStorage.getItem(key) || "[]");
-          arr.push(payload); localStorage.setItem(key, JSON.stringify(arr));
-        } catch (err) {}
         sentLead.className = "sent ok";
         sentLead.textContent = "Спасибо, " + payload.name + "! Заявка принята — администратор свяжется с вами в рабочее время филиала.";
         toast("Заявка принята. Мы свяжемся с вами.");

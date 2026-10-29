@@ -68,6 +68,17 @@ async function call(body: object) {
   return data;
 }
 
+export type LeadStatus = 'new' | 'in_work' | 'done' | 'rejected';
+export interface Lead {
+  id: number; name: string; phone: string; branch: string; category: string;
+  status: LeadStatus; note: string; created_at: string;
+}
+export const getLeads = (status?: LeadStatus): Promise<{ leads: Lead[]; new_count: number }> =>
+  call({ action: 'leads_list', status });
+export const updateLead = (id: number, d: { status?: LeadStatus; note?: string }) =>
+  call({ action: 'lead_update', id, ...d });
+export const deleteLead = (id: number) => call({ action: 'lead_delete', id });
+
 export const getHomeAdmin = (): Promise<HomeAdminContent> => call({ action: 'get_home_admin' });
 export const saveHomeItem = (section: Section, data: object, id?: number, is_active?: boolean) =>
   call({ action: 'save_item', section, data, id, is_active });

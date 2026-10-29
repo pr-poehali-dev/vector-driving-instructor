@@ -1,6 +1,10 @@
 """
 Контент главной страницы: автопарк, мастера, видео, FAQ, адреса, демо-блок, ключ карты.
 action=get_home            (публичный) весь контент
+action=submit_lead         name, phone, branch, tariff   (публичный, заявка с формы сайта)
+action=leads_list          status?    (админ/менеджер)
+action=lead_update         id, status?, note?
+action=lead_delete         id
 action=save_item           section, data, id?, sort_order?, is_active?
 action=delete_item         id
 action=reorder_items       order=[id,...]
@@ -57,6 +61,25 @@ def reg45_client():
         's3', endpoint_url='https://s3.cloud.ru', region_name='ru-central-1',
         aws_access_key_id=access, aws_secret_access_key=os.environ['REG45_S3_SECRET_KEY'],
     )
+
+
+def can_manage_leads(cur, token):
+    if not token:
+        return False
+    cur.execute(f"SELECT id FROM {SCHEMA}.admin_sessions WHERE token=%s AND expires_at > NOW()", (token,))
+    if cur.fetchone():
+        return True
+    cur.execute(
+        f"""SELECT m.can_students FROM {SCHEMA}.manager_sessions ms
+            JOIN {SCHEMA}.managers m ON m.id=ms.manager_id
+            WHERE ms.token=%s AND ms.expires_at > NOW() AND m.is_active=TRUE""",
+        (token,)
+    )
+    row = cur.fetchone()
+    return bool(row and row['can_students'])
+
+
+LEAD_STATUSES = {'new', 'in_work', 'done', 'rejected'}
 
 
 def can_edit(cur, token):
@@ -120,6 +143,71 @@ def handler(event: dict, context) -> dict:
             cur.execute(f"SELECT key, value FROM {SCHEMA}.home_settings")
             settings = {r['key']: r['value'] for r in cur.fetchall()}
             return ok({'items': items, 'settings': settings})
+
+        if action == 'submit_lead':
+            name = (body.get('name') or '').strip()[:100]
+            phone = (body.get('phone') or '').strip()[:30]
+            branch = (body.get('branch') or '').strip()[:200]
+            category = (body.get('tariff') or body.get('category') or '').strip()[:100]
+            if (body.get('website') or '').strip():
+                return ok({'ok': True})
+            if len(name) < 2 or len(re.sub(r'\D', '', phone)) != 11:
+                return err('Проверьте имя и телефон')
+            cur.execute(
+                f"""SELECT count(*) AS n FROM {SCHEMA}.leads
+                    WHERE phone=%s AND created_at > NOW() - INTERVAL '10 minutes'""",
+                (phone,)
+            )
+            if cur.fetchone()['n'] >= 3:
+                return ok({'ok': True})
+            cur.execute(
+                f"INSERT INTO {SCHEMA}.leads (name, phone, branch, category) VALUES (%s,%s,%s,%s) RETURNING id",
+                (name, phone, branch, category)
+            )
+            lead_id = cur.fetchone()['id']
+            conn.commit()
+            return ok({'ok': True, 'id': lead_id})
+
+        if action in ('leads_list', 'lead_update', 'lead_delete'):
+            if not can_manage_leads(cur, token):
+                return err('Доступ запрещён', 403)
+            if action == 'leads_list':
+                status = body.get('status')
+                if status in LEAD_STATUSES:
+                    cur.execute(
+                        f"""SELECT id, name, phone, branch, category, status, note, created_at
+                            FROM {SCHEMA}.leads WHERE status=%s ORDER BY created_at DESC LIMIT 500""",
+                        (status,)
+                    )
+                else:
+                    cur.execute(
+                        f"""SELECT id, name, phone, branch, category, status, note, created_at
+                            FROM {SCHEMA}.leads ORDER BY created_at DESC LIMIT 500"""
+                    )
+                rows = [dict(r) for r in cur.fetchall()]
+                cur.execute(f"SELECT count(*) AS n FROM {SCHEMA}.leads WHERE status='new'")
+                return ok({'leads': rows, 'new_count': cur.fetchone()['n']})
+            lead_id = body.get('id')
+            if not isinstance(lead_id, int):
+                return err('Не указана заявка')
+            if action == 'lead_delete':
+                cur.execute(f"DELETE FROM {SCHEMA}.leads WHERE id=%s", (lead_id,))
+                conn.commit()
+                return ok({'ok': True})
+            fields, values = [], []
+            if body.get('status') in LEAD_STATUSES:
+                fields.append('status=%s')
+                values.append(body['status'])
+            if 'note' in body:
+                fields.append('note=%s')
+                values.append(str(body.get('note') or '')[:1000])
+            if not fields:
+                return err('Нет данных')
+            fields.append('updated_at=NOW()')
+            values.append(lead_id)
+            cur.execute(f"UPDATE {SCHEMA}.leads SET {', '.join(fields)} WHERE id=%s", values)
+            conn.commit()
+            return ok({'ok': True})
 
         if not can_edit(cur, token):
             return err('Доступ запрещён', 403)

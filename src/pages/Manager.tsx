@@ -3,6 +3,7 @@ import VectorLogo from '@/components/VectorLogo';
 import Icon from '@/components/ui/icon';
 import ContentEditor from '@/components/admin/ContentEditor';
 import HomeEditor from '@/components/admin/HomeEditor';
+import LeadsPanel from '@/components/admin/LeadsPanel';
 import AiSettings from '@/components/admin/AiSettings';
 import AiTraining from '@/components/admin/AiTraining';
 import SupportTickets from '@/components/admin/SupportTickets';
@@ -407,7 +408,7 @@ function StudentsPanel() {
 export default function ManagerPage() {
   const [session, setSession] = useState<ManagerSession | null>(null);
   const [checking, setChecking] = useState(true);
-  const [tab, setTab] = useState<'students' | 'homepage' | 'content' | 'pdd' | 'route' | 'instructors' | 'instructorVideos' | 'ai' | 'training' | 'support' | 'stats'>('students');
+  const [tab, setTab] = useState<'students' | 'leads' | 'homepage' | 'content' | 'pdd' | 'route' | 'instructors' | 'instructorVideos' | 'ai' | 'training' | 'support' | 'stats'>('students');
 
   useEffect(() => {
     managerMe()
@@ -434,6 +435,7 @@ export default function ManagerPage() {
   const p = session.permissions ?? {};
   const tabs = [
     p.students && { key: 'students', label: 'Ученики', icon: 'Users' },
+    p.students && { key: 'leads', label: 'Заявки', icon: 'Inbox' },
     p.content && { key: 'homepage', label: 'Главная сайта', icon: 'LayoutTemplate' },
     p.content && { key: 'content', label: 'Контент бота', icon: 'MessageSquare' },
     p.pdd && { key: 'pdd', label: 'ПДД', icon: 'BookOpen' },
@@ -483,6 +485,7 @@ export default function ManagerPage() {
         )}
 
         {activeTab === 'students' && p.students && <StudentsPanel />}
+        {activeTab === 'leads' && p.students && <LeadsPanel />}
         {activeTab === 'homepage' && p.content && <HomeEditor />}
         {activeTab === 'content' && p.content && <ContentEditor />}
         {activeTab === 'pdd' && p.pdd && <PddManager />}

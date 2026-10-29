@@ -1,7 +1,50 @@
 {
   "tests": [
-    {"name": "OPTIONS returns 200", "method": "OPTIONS", "path": "/", "expectedStatus": 200},
-    {"name": "Public home content", "method": "POST", "path": "/", "body": {"action": "get_home"}, "expectedStatus": 200},
-    {"name": "Save without token is forbidden", "method": "POST", "path": "/", "body": {"action": "save_item", "section": "faq", "data": {}}, "expectedStatus": 403}
+    {
+      "name": "OPTIONS returns 200",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Public home content",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "get_home"
+      },
+      "expectedStatus": 200
+    },
+    {
+      "name": "Save without token is forbidden",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "save_item",
+        "section": "faq",
+        "data": {}
+      },
+      "expectedStatus": 403
+    },
+    {
+      "name": "Lead with bad phone is rejected",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "submit_lead",
+        "name": "Тест",
+        "phone": "123"
+      },
+      "expectedStatus": 400
+    },
+    {
+      "name": "Leads list without token is forbidden",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "leads_list"
+      },
+      "expectedStatus": 403
+    }
   ]
 }
