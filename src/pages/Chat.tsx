@@ -317,7 +317,7 @@ export default function ChatPage() {
         const ids = new Set(topicMessages.map(m => m.id));
         setMessages(prev => [...prev, ...topicMessages]);
         setNewMessageIds(ids);
-        const lastOptions = topicMessages.findLast(m => m.options?.length)?.options;
+        const lastOptions = [...topicMessages].reverse().find(m => m.options?.length)?.options;
         if (lastOptions?.length) setCurrentOptions(lastOptions);
         setIsTyping(false);
       }, 600);

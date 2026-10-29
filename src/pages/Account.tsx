@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from "@/lib/router-compat";
 import VectorLogo from '@/components/VectorLogo';
 import Icon from '@/components/ui/icon';
 import StudentLogin from '@/components/StudentLogin';

@@ -1,1 +1,0 @@
-ALTER TABLE t_p22961065_vector_driving_instr.managers ADD COLUMN IF NOT EXISTS can_pdd BOOLEAN NOT NULL DEFAULT FALSE;

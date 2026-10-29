@@ -1,1 +1,0 @@
-ALTER TABLE t_p22961065_vector_driving_instr.managers ADD COLUMN can_support BOOLEAN NOT NULL DEFAULT FALSE;

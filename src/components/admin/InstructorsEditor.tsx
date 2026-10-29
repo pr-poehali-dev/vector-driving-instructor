@@ -81,7 +81,7 @@ function AddInstructorModal({ branches, onClose, onAdded }: { branches: Branch[]
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Филиал</label>
-            <select value={form.branch_id} onChange={e => setForm(f => ({ ...f, branch_id: e.target.value }))}
+            <select value={form.branch_id} onChange={e => setForm(f => ({ ...f, branch_id: Number(e.target.value) }))}
               className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-[#E8002D] bg-white">
               {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
