@@ -50,7 +50,7 @@ p { margin: 0; }
 .cta { display: flex; flex-wrap: wrap; gap: 12px; }
 
 .wrap { position: relative; z-index: 2; width: 100%; max-width: 1252px; margin: 0 auto; padding-inline: clamp(16px, 4vw, 24px); }
-section { position: relative; padding-block: clamp(64px, 9vw, 120px); }
+section:not([aria-label^="Notifications"]) { position: relative; padding-block: clamp(64px, 9vw, 120px); }
 section[id] { scroll-margin-top: 112px; }
 .sub { max-width: 44em; margin: 16px 0 0; color: var(--muted-2); font-size: clamp(15px, 1.45vw, 17px); }
 .kicker { display: flex; align-items: center; gap: 12px; font: 600 11.5px/1 var(--f-body); letter-spacing: .22em; text-transform: uppercase; color: var(--brand-2); }
