@@ -40,9 +40,10 @@ export async function sendAiChat(
   message: string,
   history: { role: string; text: string }[],
   student_id?: number | null,
-  student_name?: string
+  student_name?: string,
+  watching?: { title: string; description: string; action_steps: string[]; common_mistakes: string[]; pdd_refs: string[] } | null
 ) {
-  return aiApi({ action: 'chat', message, history, student_id: student_id ?? null, student_name: student_name || '' });
+  return aiApi({ action: 'chat', message, history, student_id: student_id ?? null, student_name: student_name || '', watching: watching ?? null });
 }
 
 export interface AiTrainingSuggestion {

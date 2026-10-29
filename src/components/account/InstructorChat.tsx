@@ -6,6 +6,7 @@ import { getTopics, DBTopic, logTopicView } from '@/api/content';
 import { getAiSettings, sendAiChat } from '@/api/ai';
 import { getSiteSettings } from '@/api/siteSettings';
 import { useVoiceChat } from '@/hooks/useVoiceChat';
+import { useWatch } from './WatchContext';
 
 function WatermarkLayer({ name }: { name: string }) {
   if (!name) return null;
@@ -216,6 +217,7 @@ export default function InstructorChat({ studentId, studentName, onClose }: Prop
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [voiceMode, setVoiceMode] = useState(false);
   const [showSupport, setShowSupport] = useState(false);
+  const { watching } = useWatch();
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -320,7 +322,7 @@ export default function InstructorChat({ studentId, studentName, onClose }: Prop
     setAiError('');
     const history = aiMessages.filter(m => m.id !== 'ai-welcome').map(m => ({ role: m.role === 'user' ? 'user' : 'instructor', text: m.text }));
     try {
-      const data = await sendAiChat(text, history, studentId, studentName);
+      const data = await sendAiChat(text, history, studentId, studentName, watching);
       if (data.error) throw new Error(data.error);
       const videos = data.videos && data.videos.length > 0 ? data.videos : (data.video ? [data.video] : []);
       setAiMessages(prev => [...prev, { id: `ai-resp-${Date.now()}`, role: 'instructor', text: data.answer, videos }]);
@@ -483,11 +485,21 @@ export default function InstructorChat({ studentId, studentName, onClose }: Prop
                 )}
               </div>
 
+              {watching && (
+                <div className="flex items-center gap-2 px-4 py-2 bg-purple-50 border-t border-purple-100 flex-shrink-0">
+                  <Icon name="Video" size={14} className="text-purple-600 flex-shrink-0" />
+                  <p className="text-xs text-purple-800 truncate">Вы смотрите: <span className="font-semibold">{watching.title}</span></p>
+                </div>
+              )}
+
               {aiMessages.length <= 1 && (
                 <div className="px-4 py-2.5 bg-[#f4f6fa] border-t border-gray-100 flex flex-col gap-1.5 flex-shrink-0">
                   <p className="text-xs text-gray-400 font-medium">Быстрые вопросы:</p>
                   <div className="flex flex-wrap gap-1.5">
-                    {['Как правильно парковаться?', 'Как сдать экзамен ГИБДД?', 'Что такое помеха справа?', 'Объясни это видео проще'].map(q => (
+                    {(watching
+                      ? ['Объясни это видео проще', 'Какие тут частые ошибки?', 'Что нужно запомнить?', 'Какие правила ПДД здесь важны?']
+                      : ['Как правильно парковаться?', 'Как сдать экзамен ГИБДД?', 'Что такое помеха справа?', 'Как вести себя при заносе?']
+                    ).map(q => (
                       <button
                         key={q}
                         onClick={() => sendAiMessage(q)}

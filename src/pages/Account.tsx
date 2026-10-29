@@ -12,6 +12,7 @@ import MistakesSection from '@/components/account/MistakesSection';
 import NotificationsSection from '@/components/account/NotificationsSection';
 import ProfileSection from '@/components/account/ProfileSection';
 import InstructorChat from '@/components/account/InstructorChat';
+import { WatchProvider } from '@/components/account/WatchContext';
 
 export type AccountTab = 'home' | 'pdd' | 'route' | 'results' | 'mistakes' | 'notifications' | 'profile';
 
@@ -94,6 +95,7 @@ export default function AccountPage() {
   }
 
   return (
+    <WatchProvider>
     <div className="min-h-screen bg-[#f7f7f7] font-opensans flex">
       {/* Sidebar (desktop) */}
       <aside className="hidden md:flex flex-col w-64 flex-shrink-0 bg-[#1a1a1a] min-h-screen sticky top-0">
@@ -205,5 +207,6 @@ export default function AccountPage() {
         ))}
       </nav>
     </div>
+    </WatchProvider>
   );
 }
