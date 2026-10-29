@@ -11,6 +11,7 @@ import ResultsSection from '@/components/account/ResultsSection';
 import MistakesSection from '@/components/account/MistakesSection';
 import NotificationsSection from '@/components/account/NotificationsSection';
 import ProfileSection from '@/components/account/ProfileSection';
+import InstructorChat from '@/components/account/InstructorChat';
 
 export type AccountTab = 'home' | 'pdd' | 'route' | 'results' | 'mistakes' | 'notifications' | 'profile';
 
@@ -39,10 +40,13 @@ export default function AccountPage() {
   const [studentName, setStudentName] = useState('');
   const [tab, setTab] = useState<AccountTab>('home');
   const [unreadCount, setUnreadCount] = useState(0);
+  const [studentId, setStudentId] = useState<number | null>(null);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatEverOpened, setChatEverOpened] = useState(false);
 
   useEffect(() => {
     studentMe()
-      .then(d => { setStudentName(d.name); setAuthState('ok'); })
+      .then(d => { setStudentName(d.name); setStudentId(d.id || null); setAuthState('ok'); })
       .catch(() => setAuthState('login'));
   }, []);
 
@@ -54,7 +58,8 @@ export default function AccountPage() {
     return () => clearInterval(interval);
   }, [authState]);
 
-  const handleLogout = () => { studentLogout(); setAuthState('login'); };
+  const handleLogout = () => { studentLogout(); setChatOpen(false); setChatEverOpened(false); setAuthState('login'); };
+  const openChat = () => { setChatEverOpened(true); setChatOpen(true); };
 
   if (authState === 'checking') {
     return (
@@ -80,7 +85,7 @@ export default function AccountPage() {
               <p className="text-gray-400 text-sm mt-1">Прогресс, ПДД, тесты и результаты обучения</p>
             </div>
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-              <StudentLogin onSuccess={name => { setStudentName(name); setAuthState('ok'); }} />
+              <StudentLogin onSuccess={name => { setStudentName(name); setAuthState('ok'); studentMe().then(d => setStudentId(d.id || null)).catch(() => {}); }} />
             </div>
           </div>
         </div>
@@ -161,6 +166,27 @@ export default function AccountPage() {
           {tab === 'profile' && <ProfileSection />}
         </main>
       </div>
+
+      {chatEverOpened && (
+        <aside
+          className={chatOpen
+            ? 'fixed inset-0 z-50 md:sticky md:top-0 md:h-screen md:w-[400px] md:flex-shrink-0 md:z-auto md:border-l md:border-gray-200'
+            : 'hidden'}
+        >
+          <InstructorChat studentId={studentId} studentName={studentName} onClose={() => setChatOpen(false)} />
+        </aside>
+      )}
+
+      {!chatOpen && (
+        <button
+          onClick={openChat}
+          className="fixed z-40 right-4 bottom-20 md:right-6 md:bottom-6 flex items-center gap-2 pl-3.5 pr-4 py-3 rounded-full text-white text-sm font-semibold shadow-lg hover:opacity-90 transition-opacity"
+          style={{ background: '#E8002D' }}
+        >
+          <Icon name="MessageCircle" size={18} />
+          Спросить инструктора
+        </button>
+      )}
 
       {/* Bottom nav (mobile) */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-100 flex items-stretch"
