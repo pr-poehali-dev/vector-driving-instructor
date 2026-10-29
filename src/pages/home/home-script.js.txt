@@ -7,13 +7,18 @@
     phoneHref: "tel:+79195915558",
     /* Укажите URL CRM/почты для приёма заявок. Пока пусто — заявка сохраняется локально. */
     leadEndpoint: "",
-    branches: {
-      gorky: "ул. Максима Горького, 41",
-      station: "ул. Станционная, 49",
-      mkr4: "4-й микрорайон, 32",
-      airfield: "автодром, проспект Машиностроителей, 38/6"
-    }
+    branches: {}
   };
+  (function () {
+    var el = document.getElementById("home-data");
+    if (!el) return;
+    try {
+      var d = JSON.parse(el.textContent || "{}");
+      CONFIG.branches = d.branches || {};
+      CONFIG.locations = d.locations || [];
+      CONFIG.mapKey = d.mapKey || "";
+    } catch (e) {}
+  })();
 
   var IMG = {"teslaA": "/home/g_teslaA.jpg", "teslaB": "/home/g_teslaB.jpg", "tenet3": "/home/g_tenet3.jpg", "tenet2": "/home/g_tenet2.jpg", "granta1": "/home/g_granta1.jpg", "granta3": "/home/g_granta3.jpg", "instr": "/home/g_instr.jpg", "info1": "/home/info1.jpg", "info2": "/home/info2.jpg", "info3": "/home/info3.jpg", "logo": "/home/logo.png", "logoV": "/home/logo-vektor-full.png", "logoVw": "/home/logo-vektor-word.png", "truck": "/home/truck.webp", "plate": "/home/plate-red.jpg"};
   var VID = {"hero": "/home/hero.mp4", "reel": "/home/reel.mp4"};
@@ -27,6 +32,23 @@
   /* ---------- картинки и видео ---------- */
   document.documentElement.style.setProperty("--plate", "url(" + IMG.plate + ")");
   $$("[data-img]").forEach(function (e) { if (IMG[e.dataset.img]) e.src = IMG[e.dataset.img]; });
+
+  $$("[data-site-video]").forEach(function (v) {
+    var holder = v.parentElement, btn = holder && holder.querySelector("[data-play]");
+    if (!btn) return;
+    function stopOthers() {
+      $$("[data-site-video]").forEach(function (o) { if (o !== v && !o.paused) { o.pause(); } });
+    }
+    function sync() { holder.classList.toggle("is-playing", !v.paused && !v.ended); v.controls = !v.paused; }
+    btn.addEventListener("click", function () {
+      stopOthers();
+      v.muted = false; v.defaultMuted = false; v.volume = 1;
+      var p = v.play(); if (p && p.catch) p.catch(function () { v.muted = true; v.play(); });
+    });
+    v.addEventListener("play", function () { stopOthers(); sync(); });
+    v.addEventListener("pause", sync);
+    v.addEventListener("ended", function () { v.currentTime = 0; sync(); });
+  });
 
   function playVideo(v) { var p = v.play(); if (p && p.catch) p.catch(function () {}); }
   $$("[data-vid]").forEach(function (v) {
@@ -146,7 +168,7 @@
       var payload = {
         name: name.value.trim(),
         phone: phone.value.trim(),
-        branch: branch.value ? CONFIG.branches[branch.value] : "не выбран",
+        branch: branch.value ? (CONFIG.branches[branch.value] || branch.value) : "не выбран",
         tariff: tariff.value,
         at: new Date().toISOString()
       };
@@ -274,7 +296,7 @@
         var name = $("#f-name");
         if (name) name.focus({ preventScroll: true });
       }, 600);
-      toast("Филиал выбран: " + CONFIG.branches[key] + ". Осталось оставить заявку.");
+      toast("Филиал выбран: " + (CONFIG.branches[key] || "") + ". Осталось оставить заявку.");
     }
   }
   $$("[data-branch-link]").forEach(function (a) {

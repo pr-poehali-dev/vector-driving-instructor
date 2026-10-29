@@ -298,7 +298,27 @@ form.lead-form { display: grid; gap: 14px; padding: clamp(20px, 3.4vw, 34px); }
 .vbox .cap h3 { font-size: clamp(22px, 3vw, 36px); }
 .vbox .cap p { max-width: 28em; margin-top: 8px; color: var(--muted-2); font-size: 14.5px; }
 .reel { position: relative; justify-self: center; width: min(100%, 360px); aspect-ratio: 9 / 16; max-height: 640px; padding: 10px; border: 1px solid rgba(255,255,255,.16); border-radius: 36px; background: linear-gradient(160deg, #1a1a1d, #0a0a0c); box-shadow: 0 50px 100px -40px #000, 0 0 80px -20px rgba(163,15,28,.45); }
-.reel video { width: 100%; height: 100%; border-radius: 27px; object-fit: cover; }
+.reel video { width: 100%; height: 100%; border-radius: 27px; object-fit: cover; background: #000; }
+.vplay { position: absolute; z-index: 3; inset: 0; display: grid; place-items: center; width: 100%; border: 0; background: transparent; cursor: pointer; }
+.vplay span { display: grid; place-items: center; width: 84px; height: 84px; border: 1px solid rgba(255,255,255,.34); border-radius: 50%; background: rgba(5,5,6,.42); backdrop-filter: blur(10px); box-shadow: 0 0 50px rgba(225,29,46,.45); transition: transform .3s, background .3s; }
+.vplay:hover span { transform: scale(1.08); background: rgba(225,29,46,.55); }
+.vplay svg { width: 28px; height: 28px; margin-left: 4px; color: #fff; }
+.is-playing .vplay, .is-playing .cap, .is-playing small { opacity: 0; pointer-events: none; }
+.vbox.is-playing::after { opacity: 0; }
+.vbox .cap, .vbox::after { transition: opacity .3s; }
+.cinema.auto { grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); }
+.cinema.auto .vbox { min-height: 340px; }
+.masters.auto { grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); }
+.master-photo > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 30%; }
+.real-map { position: absolute; inset: 0; z-index: 1; background: #0b0b0d; }
+.real-map .leaflet-container { width: 100%; height: 100%; background: #0b0b0d; font-family: var(--f-body); }
+.real-map .leaflet-control-attribution { background: rgba(5,5,6,.7); color: var(--muted); font-size: 10px; }
+.real-map .leaflet-control-attribution a { color: var(--muted-2); }
+.map-marker { display: flex; flex-direction: column; align-items: center; transform: translate(-50%, -100%); }
+.map-marker i { width: 22px; height: 22px; border: 2px solid #fff; border-radius: 50%; background: var(--brand); box-shadow: 0 0 0 6px rgba(225,29,46,.2), 0 0 22px rgba(225,29,46,.7); transition: transform .25s; }
+.map-marker b { margin-top: 6px; padding: 5px 9px; border-radius: 999px; background: rgba(5,5,6,.82); border: 1px solid rgba(255,255,255,.18); color: #fff; font: 600 11px/1 var(--f-body); white-space: nowrap; }
+.map-marker.active i { transform: scale(1.35); background: #fff; border-color: var(--brand); }
+.map-marker.active b { background: var(--brand); border-color: var(--brand); }
 .reel small { position: absolute; z-index: 2; left: 24px; top: 22px; padding: 6px 10px; border-radius: 999px; background: rgba(5,5,6,.6); font: 700 11px var(--f-body); letter-spacing: .14em; text-transform: uppercase; backdrop-filter: blur(8px); }
 
 /* ==========================================================================

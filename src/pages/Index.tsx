@@ -1,27 +1,23 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import homeHtml from "./home/home.html?raw";
-import homeCss from "./home/home.css?inline";
 import homeScript from "./home/home-script.js.txt?raw";
+import { buildHomeHtml, branchTexts } from "./home/render";
+import { mountBranchMap } from "./home/map";
+import type { HomeContent } from "@/api/home";
 
-const FONTS_HREF =
-  "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Montserrat:wght@500;700;800;900&family=Onest:wght@400;500;600;700&display=swap";
-const TITLE = "Автошкола «Вектор 45» в Кургане — категории A и B";
+export default function Index({ home }: { home: HomeContent | null }) {
+  const html = useMemo(() => {
+    const body = buildHomeHtml(homeHtml, home);
+    const locs = home?.items.locations || [];
+    const data = JSON.stringify({
+      branches: branchTexts(locs),
+      locations: locs,
+      mapKey: home?.settings.map?.key || "",
+    }).replace(/</g, "\\u003c");
+    return `${body}<script type="application/json" id="home-data">${data}</script>`;
+  }, [home]);
 
-export default function Index() {
   useEffect(() => {
-    const prevTitle = document.title;
-    document.title = TITLE;
-
-    const style = document.createElement("style");
-    style.setAttribute("data-home", "1");
-    style.textContent = homeCss;
-    document.head.appendChild(style);
-
-    const fonts = document.createElement("link");
-    fonts.rel = "stylesheet";
-    fonts.href = FONTS_HREF;
-    document.head.appendChild(fonts);
-
     const subscriptions: Array<[EventTarget, string, EventListenerOrEventListenerObject, unknown]> = [];
     const targets: EventTarget[] = [window, document];
     const originals = targets.map((t) => t.addEventListener);
@@ -41,16 +37,21 @@ export default function Index() {
       });
     }
 
+    let unmountMap: () => void = () => {};
+    let cancelled = false;
+    mountBranchMap(home?.items.locations || [], home?.settings.map?.key || "")
+      .then((u) => { if (cancelled) u(); else unmountMap = u; })
+      .catch(() => {});
+
     return () => {
+      cancelled = true;
+      unmountMap();
       subscriptions.forEach(([t, type, fn, opts]) =>
         t.removeEventListener(type, fn, opts as EventListenerOptions),
       );
-      style.remove();
-      fonts.remove();
       document.body.classList.remove("lock");
-      document.title = prevTitle;
     };
-  }, []);
+  }, [html]);
 
-  return <div dangerouslySetInnerHTML={{ __html: homeHtml }} />;
+  return <div dangerouslySetInnerHTML={{ __html: html }} />;
 }

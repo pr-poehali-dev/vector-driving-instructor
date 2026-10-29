@@ -3,6 +3,7 @@ import VectorLogo from '@/components/VectorLogo';
 import Icon from '@/components/ui/icon';
 import { adminLogin, adminMe, adminLogout, getStudents, addStudent, updateStudent, removeStudent } from '@/api/auth';
 import ContentEditor from '@/components/admin/ContentEditor';
+import HomeEditor from '@/components/admin/HomeEditor';
 import AiSettings from '@/components/admin/AiSettings';
 import ManagersEditor from '@/components/admin/ManagersEditor';
 import BranchesEditor from '@/components/admin/BranchesEditor';
@@ -369,7 +370,7 @@ function EditStudentModal({ student, onClose, onUpdated }: { student: Student; o
 
 // ─── Main dashboard ──────────────────────────────────────────────────────────
 function AdminDashboard() {
-  const [tab, setTab] = useState<'students' | 'instructors' | 'instructorVideos' | 'content' | 'pdd' | 'route' | 'notifications' | 'ai' | 'training' | 'support' | 'managers' | 'branches' | 'logs' | 'activity' | 'site'>('students');
+  const [tab, setTab] = useState<'students' | 'instructors' | 'instructorVideos' | 'homepage' | 'content' | 'pdd' | 'route' | 'notifications' | 'ai' | 'training' | 'support' | 'managers' | 'branches' | 'logs' | 'activity' | 'site'>('students');
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -426,6 +427,7 @@ function AdminDashboard() {
               { key: 'students', label: 'Ученики', icon: 'Users' },
               { key: 'instructors', label: 'Инструкторы', icon: 'Car' },
               { key: 'instructorVideos', label: 'Видеорегистратор', icon: 'Video' },
+              { key: 'homepage', label: 'Главная сайта', icon: 'LayoutTemplate' },
               { key: 'content', label: 'Контент бота', icon: 'MessageSquare' },
               { key: 'pdd', label: 'ПДД', icon: 'BookOpen' },
               { key: 'route', label: 'Маршрут', icon: 'Map' },
@@ -457,6 +459,7 @@ function AdminDashboard() {
 
         {tab === 'instructors' && <InstructorsEditor />}
         {tab === 'instructorVideos' && <InstructorVideosViewer />}
+        {tab === 'homepage' && <HomeEditor />}
         {tab === 'content' && <ContentEditor />}
         {tab === 'pdd' && <PddManager />}
         {tab === 'route' && <RouteManager />}
