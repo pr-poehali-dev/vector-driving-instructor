@@ -12,7 +12,6 @@ import MistakesSection from '@/components/account/MistakesSection';
 import NotificationsSection from '@/components/account/NotificationsSection';
 import ProfileSection from '@/components/account/ProfileSection';
 import InstructorChat from '@/components/account/InstructorChat';
-import { WatchProvider } from '@/components/account/WatchContext';
 
 export type AccountTab = 'home' | 'pdd' | 'route' | 'results' | 'mistakes' | 'notifications' | 'profile';
 
@@ -43,7 +42,7 @@ export default function AccountPage() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [studentId, setStudentId] = useState<number | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
-  const [chatEverOpened, setChatEverOpened] = useState(false);
+  const [chatUnread, setChatUnread] = useState(false);
 
   useEffect(() => {
     studentMe()
@@ -59,8 +58,8 @@ export default function AccountPage() {
     return () => clearInterval(interval);
   }, [authState]);
 
-  const handleLogout = () => { studentLogout(); setChatOpen(false); setChatEverOpened(false); setAuthState('login'); };
-  const openChat = () => { setChatEverOpened(true); setChatOpen(true); };
+  const handleLogout = () => { studentLogout(); setChatOpen(false); setChatUnread(false); setAuthState('login'); };
+  const openChat = () => { setChatUnread(false); setChatOpen(true); };
 
   if (authState === 'checking') {
     return (
@@ -95,7 +94,6 @@ export default function AccountPage() {
   }
 
   return (
-    <WatchProvider>
     <div className="min-h-screen bg-[#f7f7f7] font-opensans flex">
       {/* Sidebar (desktop) */}
       <aside className="hidden md:flex flex-col w-64 flex-shrink-0 bg-[#1a1a1a] min-h-screen sticky top-0">
@@ -169,15 +167,19 @@ export default function AccountPage() {
         </main>
       </div>
 
-      {chatEverOpened && (
-        <aside
-          className={chatOpen
-            ? 'fixed inset-0 z-50 md:sticky md:top-0 md:h-screen md:w-[400px] md:flex-shrink-0 md:z-auto md:border-l md:border-gray-200'
-            : 'hidden'}
-        >
-          <InstructorChat studentId={studentId} studentName={studentName} onClose={() => setChatOpen(false)} />
-        </aside>
-      )}
+      <aside
+        className={chatOpen
+          ? 'fixed inset-0 z-50 md:sticky md:top-0 md:h-screen md:w-[400px] md:flex-shrink-0 md:z-auto md:border-l md:border-gray-200'
+          : 'hidden'}
+      >
+        <InstructorChat
+          studentId={studentId}
+          studentName={studentName}
+          visible={chatOpen}
+          onProactive={() => setChatUnread(true)}
+          onClose={() => setChatOpen(false)}
+        />
+      </aside>
 
       {!chatOpen && (
         <button
@@ -186,7 +188,8 @@ export default function AccountPage() {
           style={{ background: '#E8002D' }}
         >
           <Icon name="MessageCircle" size={18} />
-          Спросить инструктора
+          {chatUnread ? 'Инструктор задал вопрос' : 'Спросить инструктора'}
+          {chatUnread && <span className="w-2.5 h-2.5 rounded-full bg-white animate-pulse" />}
         </button>
       )}
 
@@ -207,6 +210,5 @@ export default function AccountPage() {
         ))}
       </nav>
     </div>
-    </WatchProvider>
   );
 }

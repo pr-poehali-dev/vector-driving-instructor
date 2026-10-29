@@ -5,8 +5,9 @@ import SupportModal from '@/components/SupportModal';
 import { getTopics, DBTopic, logTopicView } from '@/api/content';
 import { getAiSettings, sendAiChat } from '@/api/ai';
 import { getSiteSettings } from '@/api/siteSettings';
+import { quizQuestion, quizAnswer, TestQuestion } from '@/api/pdd';
+import { createSupportTicket } from '@/api/support';
 import { useVoiceChat } from '@/hooks/useVoiceChat';
-import { useWatch } from './WatchContext';
 
 function WatermarkLayer({ name }: { name: string }) {
   if (!name) return null;
@@ -193,15 +194,33 @@ type AiMessage = {
   text: string;
   id: string;
   videos?: { title: string; url: string; thumb: string; description?: string }[];
+  quiz?: {
+    question: TestQuestion;
+    selected?: number;
+    result?: { is_correct: boolean; correct_index: number; explanation: string };
+  };
+  feedback?: { options: string[]; chosen?: string };
 };
+
+const FEEDBACK_KEY = 'vector_feedback_asked_';
+
+const QUIZ_INTROS = [
+  'Давайте проверим себя, небольшой вопрос:',
+  'Пока вы смотрите видео, вопрос на внимательность:',
+  'Быстрый вопрос, чтобы не терять форму:',
+];
+const FIRST_QUIZ_DELAY_MS = 3 * 60 * 1000;
+const NEXT_QUIZ_DELAY_MS = 7 * 60 * 1000;
 
 interface Props {
   studentId: number | null;
   studentName: string;
+  visible: boolean;
+  onProactive: () => void;
   onClose: () => void;
 }
 
-export default function InstructorChat({ studentId, studentName, onClose }: Props) {
+export default function InstructorChat({ studentId, studentName, visible, onProactive, onClose }: Props) {
   const [dbTopics, setDbTopics] = useState<DBTopic[]>([]);
   const [mode, setMode] = useState<ChatMode>('ai');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -217,11 +236,19 @@ export default function InstructorChat({ studentId, studentName, onClose }: Prop
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [voiceMode, setVoiceMode] = useState(false);
   const [showSupport, setShowSupport] = useState(false);
-  const { watching } = useWatch();
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const aiInputRef = useRef<HTMLInputElement>(null);
+
+  const seenQuizIds = useRef<number[]>([]);
+  const awaitingRemark = useRef(false);
+  const busyRef = useRef(false);
+  const visibleRef = useRef(visible);
+  const onProactiveRef = useRef(onProactive);
+  busyRef.current = aiLoading || aiMessages.some(m => m.quiz && m.quiz.selected === undefined);
+  visibleRef.current = visible;
+  onProactiveRef.current = onProactive;
 
   const voice = useVoiceChat({
     onResult: (text) => { sendAiMessage(text); },
@@ -264,7 +291,87 @@ export default function InstructorChat({ studentId, studentName, onClose }: Prop
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [messages, isTyping, aiMessages, aiLoading, mode]);
+  }, [messages, isTyping, aiMessages, aiLoading, mode, visible]);
+
+  const askQuiz = async () => {
+    try {
+      const { question } = await quizQuestion(seenQuizIds.current);
+      seenQuizIds.current = [...seenQuizIds.current, question.id];
+      const intro = QUIZ_INTROS[seenQuizIds.current.length % QUIZ_INTROS.length];
+      setAiMessages(prev => [...prev, { id: `quiz-${Date.now()}`, role: 'instructor', text: intro, quiz: { question } }]);
+      if (!visibleRef.current) onProactiveRef.current();
+    } catch {
+      return;
+    }
+  };
+
+  useEffect(() => {
+    if (!settingsLoaded || !chatAiEnabled) return;
+    let t: ReturnType<typeof setTimeout>;
+    const schedule = (ms: number) => {
+      t = setTimeout(async () => {
+        if (busyRef.current || awaitingRemark.current) {
+          schedule(60 * 1000);
+          return;
+        }
+        await askQuiz();
+        schedule(NEXT_QUIZ_DELAY_MS);
+      }, ms);
+    };
+    schedule(FIRST_QUIZ_DELAY_MS);
+    return () => clearTimeout(t);
+  }, [settingsLoaded, chatAiEnabled]);
+
+  const askFeedbackOnce = () => {
+    const key = FEEDBACK_KEY + (studentId ?? 'x');
+    if (localStorage.getItem(key)) return;
+    localStorage.setItem(key, '1');
+    setTimeout(() => {
+      setAiMessages(prev => [...prev, {
+        id: `fb-${Date.now()}`,
+        role: 'instructor',
+        text: 'Кстати, как у вас проходит обучение? Всё ли нравится?',
+        feedback: { options: ['Всё отлично', 'Есть пожелания'] },
+      }]);
+    }, 2500);
+  };
+
+  const answerQuiz = async (msgId: string, idx: number) => {
+    const msg = aiMessages.find(m => m.id === msgId);
+    if (!msg?.quiz || msg.quiz.selected !== undefined) return;
+    setAiMessages(prev => prev.map(m => (m.id === msgId && m.quiz ? { ...m, quiz: { ...m.quiz, selected: idx } } : m)));
+    try {
+      const r = await quizAnswer(msg.quiz.question.id, idx);
+      const right = msg.quiz.question.options[r.correct_index];
+      const reply = r.is_correct
+        ? `Верно! ${r.explanation}`.trim()
+        : `Не совсем. Правильный ответ: ${right}. ${r.explanation}`.trim();
+      setAiMessages(prev => [
+        ...prev.map(m => (m.id === msgId && m.quiz ? { ...m, quiz: { ...m.quiz, result: r } } : m)),
+        { id: `quiz-reply-${Date.now()}`, role: 'instructor' as const, text: reply },
+      ]);
+      askFeedbackOnce();
+    } catch (err: unknown) {
+      setAiMessages(prev => prev.map(m => (m.id === msgId && m.quiz ? { ...m, quiz: { ...m.quiz, selected: undefined } } : m)));
+      setAiError(err instanceof Error ? err.message : 'Ошибка соединения');
+    }
+  };
+
+  const chooseFeedback = (msgId: string, option: string) => {
+    const good = option === 'Всё отлично';
+    if (!good) awaitingRemark.current = true;
+    setAiMessages(prev => [
+      ...prev.map(m => (m.id === msgId && m.feedback ? { ...m, feedback: { ...m.feedback, chosen: option } } : m)),
+      { id: `fb-user-${Date.now()}`, role: 'user' as const, text: option },
+      {
+        id: `fb-reply-${Date.now()}`,
+        role: 'instructor' as const,
+        text: good
+          ? 'Рад слышать! Если что-то захотите улучшить, просто напишите мне.'
+          : 'Расскажите, что можно улучшить. Я передам это администрации.',
+      },
+    ]);
+  };
 
   const handleOptionSelect = (option: string) => {
     const optLower = option.toLowerCase();
@@ -317,12 +424,22 @@ export default function InstructorChat({ studentId, studentName, onClose }: Prop
   const sendAiMessage = async (text: string) => {
     if (!text.trim() || aiLoading) return;
     const userMsg: AiMessage = { id: `ai-user-${Date.now()}`, role: 'user', text };
+    if (awaitingRemark.current) {
+      awaitingRemark.current = false;
+      createSupportTicket(`Отзыв об обучении: ${text}`, studentId, studentName).catch(() => {});
+      setAiMessages(prev => [
+        ...prev,
+        userMsg,
+        { id: `fb-thanks-${Date.now()}`, role: 'instructor' as const, text: 'Спасибо! Передал администрации.' },
+      ]);
+      return;
+    }
     setAiMessages(prev => [...prev, userMsg]);
     setAiLoading(true);
     setAiError('');
     const history = aiMessages.filter(m => m.id !== 'ai-welcome').map(m => ({ role: m.role === 'user' ? 'user' : 'instructor', text: m.text }));
     try {
-      const data = await sendAiChat(text, history, studentId, studentName, watching);
+      const data = await sendAiChat(text, history, studentId, studentName);
       if (data.error) throw new Error(data.error);
       const videos = data.videos && data.videos.length > 0 ? data.videos : (data.video ? [data.video] : []);
       setAiMessages(prev => [...prev, { id: `ai-resp-${Date.now()}`, role: 'instructor', text: data.answer, videos }]);
@@ -465,6 +582,57 @@ export default function InstructorChat({ studentId, studentName, onClose }: Prop
                           <VideoPlayer url={v.url} title={v.title} thumb={v.thumb} studentName={studentName} />
                         </div>
                       ))}
+                      {msg.quiz && (
+                        <div className="mt-2.5">
+                          <p className="font-semibold text-[#1a1a1a] mb-2">{msg.quiz.question.text}</p>
+                          {msg.quiz.question.image_url && (
+                            <img src={msg.quiz.question.image_url} alt="" className="w-full rounded-xl mb-2 border border-gray-100" />
+                          )}
+                          <div className="flex flex-col gap-1.5">
+                            {msg.quiz.question.options.map((opt, i) => {
+                              const res = msg.quiz!.result;
+                              const picked = msg.quiz!.selected === i;
+                              const cls = res
+                                ? i === res.correct_index
+                                  ? 'border-green-400 bg-green-50 text-green-800'
+                                  : picked
+                                  ? 'border-red-300 bg-red-50 text-red-700'
+                                  : 'border-gray-200 text-gray-400'
+                                : picked
+                                ? 'border-purple-300 bg-purple-50'
+                                : 'border-gray-200 hover:border-purple-300 hover:bg-purple-50';
+                              return (
+                                <button
+                                  key={i}
+                                  disabled={msg.quiz!.selected !== undefined}
+                                  onClick={() => answerQuiz(msg.id, i)}
+                                  className={`text-left text-sm px-3 py-2 rounded-xl border transition-colors ${cls}`}
+                                >
+                                  {opt}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                      {msg.feedback && (
+                        <div className="flex flex-wrap gap-2 mt-2.5">
+                          {msg.feedback.options.map(o => (
+                            <button
+                              key={o}
+                              disabled={!!msg.feedback!.chosen}
+                              onClick={() => chooseFeedback(msg.id, o)}
+                              className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${
+                                msg.feedback!.chosen === o
+                                  ? 'border-purple-400 bg-purple-50 text-purple-700'
+                                  : 'border-gray-200 hover:border-purple-300 hover:bg-purple-50 disabled:opacity-50'
+                              }`}
+                            >
+                              {o}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -485,21 +653,11 @@ export default function InstructorChat({ studentId, studentName, onClose }: Prop
                 )}
               </div>
 
-              {watching && (
-                <div className="flex items-center gap-2 px-4 py-2 bg-purple-50 border-t border-purple-100 flex-shrink-0">
-                  <Icon name="Video" size={14} className="text-purple-600 flex-shrink-0" />
-                  <p className="text-xs text-purple-800 truncate">Вы смотрите: <span className="font-semibold">{watching.title}</span></p>
-                </div>
-              )}
-
               {aiMessages.length <= 1 && (
                 <div className="px-4 py-2.5 bg-[#f4f6fa] border-t border-gray-100 flex flex-col gap-1.5 flex-shrink-0">
                   <p className="text-xs text-gray-400 font-medium">Быстрые вопросы:</p>
                   <div className="flex flex-wrap gap-1.5">
-                    {(watching
-                      ? ['Объясни это видео проще', 'Какие тут частые ошибки?', 'Что нужно запомнить?', 'Какие правила ПДД здесь важны?']
-                      : ['Как правильно парковаться?', 'Как сдать экзамен ГИБДД?', 'Что такое помеха справа?', 'Как вести себя при заносе?']
-                    ).map(q => (
+                    {['Как правильно парковаться?', 'Как сдать экзамен ГИБДД?', 'Что такое помеха справа?', 'Как вести себя при заносе?'].map(q => (
                       <button
                         key={q}
                         onClick={() => sendAiMessage(q)}

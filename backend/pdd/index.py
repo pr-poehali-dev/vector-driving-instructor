@@ -404,6 +404,41 @@ def handler(event: dict, context) -> dict:
             questions = [question_public(q_map[qid]) for qid in q_ids if qid in q_map]
             return ok({'session_id': session_id, 'questions': questions})
 
+        if action == 'quiz_question':
+            student = get_student(cur, token)
+            if not student:
+                return err('Требуется авторизация', 401)
+            exclude = [int(x) for x in (body.get('exclude') or []) if str(x).isdigit()][:200]
+            cur.execute(
+                f"SELECT id, text, image_url, options FROM {SCHEMA}.pdd_questions WHERE is_active=TRUE AND NOT (id = ANY(%s))",
+                (exclude,)
+            )
+            rows = cur.fetchall()
+            if not rows:
+                cur.execute(f"SELECT id, text, image_url, options FROM {SCHEMA}.pdd_questions WHERE is_active=TRUE")
+                rows = cur.fetchall()
+            if not rows:
+                return err('Вопросов пока нет', 404)
+            return ok({'question': question_public(random.choice(rows))})
+
+        if action == 'quiz_answer':
+            student = get_student(cur, token)
+            if not student:
+                return err('Требуется авторизация', 401)
+            qid = body.get('question_id')
+            sel = body.get('selected_index')
+            if not isinstance(qid, int) or not isinstance(sel, int):
+                return err('Неверные данные')
+            cur.execute(f"SELECT correct_index, explanation FROM {SCHEMA}.pdd_questions WHERE id=%s", (qid,))
+            q = cur.fetchone()
+            if not q:
+                return err('Вопрос не найден', 404)
+            return ok({
+                'is_correct': sel == q['correct_index'],
+                'correct_index': q['correct_index'],
+                'explanation': q['explanation'] or '',
+            })
+
         if action == 'submit_test':
             student = get_student(cur, token)
             if not student:

@@ -543,30 +543,6 @@ def handler(event: dict, context) -> dict:
         'тему. Вместо этого коротко уточни, что именно он имеет в виду, и предложи 2-3 варианта на выбор.'
     )
 
-    watching = body.get('watching') or None
-    if isinstance(watching, dict) and (watching.get('title') or '').strip():
-        def _lst(key):
-            items = watching.get(key) or []
-            return [str(i)[:300] for i in items[:15]] if isinstance(items, list) else []
-        ctx = f"Прямо сейчас ученик смотрит видеоурок «{str(watching.get('title'))[:200]}»."
-        desc = str(watching.get('description') or '')[:1500].strip()
-        if desc:
-            ctx += f'\nОписание урока: {desc}'
-        if _lst('action_steps'):
-            ctx += '\nПорядок выполнения:\n' + '\n'.join(f'{n}. {s}' for n, s in enumerate(_lst('action_steps'), 1))
-        if _lst('common_mistakes'):
-            ctx += '\nТипичные ошибки:\n' + '\n'.join(f'- {s}' for s in _lst('common_mistakes'))
-        if _lst('pdd_refs'):
-            ctx += '\nСвязанные пункты ПДД: ' + '; '.join(_lst('pdd_refs'))
-        full_prompt += (
-            f'\n\n{ctx}\n'
-            'Если вопрос ученика относится к этому видео или словам «это», «тут», «здесь», «в видео» — '
-            'отвечай именно по этому уроку, опираясь на описание выше. Объясняй простыми словами и коротко. '
-            'Если в описании нет нужной детали, честно скажи об этом и дай общий совет по теме.'
-        )
-    else:
-        watching = None
-
     # Ищем подходящие видео (по названию видео, а не по теме целиком)
     videos = []
     try:
@@ -574,9 +550,6 @@ def handler(event: dict, context) -> dict:
         videos = find_relevant_videos(message, all_videos)
     except Exception:
         all_videos = []
-
-    if watching and not has_video_intent(message):
-        videos = []
 
     def save_log(user_msg, bot_msg):
         try:

@@ -28,6 +28,13 @@
       "expectedStatus": 401
     },
     {
+      "name": "Quiz question without auth returns 401",
+      "method": "POST",
+      "path": "/",
+      "body": { "action": "quiz_question" },
+      "expectedStatus": 401
+    },
+    {
       "name": "Get all categories no token forbidden",
       "method": "POST",
       "path": "/",

@@ -1,6 +1,4 @@
-import { useEffect } from 'react';
 import Icon from '@/components/ui/icon';
-import { useWatch } from './WatchContext';
 import { RoutePoint, POINT_TYPE_LABELS, POINT_TYPE_ICONS } from '@/api/route';
 import RouteVideoPlayer from './RouteVideoPlayer';
 
@@ -18,22 +16,6 @@ interface Props {
 
 export default function RoutePointCard({ point, onMarkStudied, marking }: Props) {
   const diff = DIFFICULTY_LABELS[point.difficulty] || DIFFICULTY_LABELS.normal;
-  const { setWatching } = useWatch();
-
-  useEffect(() => {
-    if (!point.video_url) {
-      setWatching(null);
-      return;
-    }
-    setWatching({
-      title: point.video_title || point.title,
-      description: point.description || '',
-      action_steps: point.action_steps || [],
-      common_mistakes: point.common_mistakes || [],
-      pdd_refs: point.pdd_refs || [],
-    });
-    return () => setWatching(null);
-  }, [point.id, point.video_url, setWatching]);
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex flex-col gap-4">

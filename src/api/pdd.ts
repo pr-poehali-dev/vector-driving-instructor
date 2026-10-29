@@ -118,6 +118,17 @@ export async function submitTest(
   return api({ action: 'submit_test', session_id, answers }, getStudentToken());
 }
 
+export async function quizQuestion(exclude: number[]): Promise<{ question: TestQuestion }> {
+  return api({ action: 'quiz_question', exclude }, getStudentToken());
+}
+
+export async function quizAnswer(
+  question_id: number,
+  selected_index: number
+): Promise<{ is_correct: boolean; correct_index: number; explanation: string }> {
+  return api({ action: 'quiz_answer', question_id, selected_index }, getStudentToken());
+}
+
 export async function getResults(): Promise<{ results: TestResultSummary[] }> {
   return api({ action: 'get_results' }, getStudentToken());
 }
