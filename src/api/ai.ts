@@ -42,7 +42,18 @@ export async function sendAiChat(
   student_id?: number | null,
   student_name?: string
 ) {
-  return aiApi({ action: 'chat', message, history, student_id: student_id ?? null, student_name: student_name || '' });
+  const body = { action: 'chat', message, history, student_id: student_id ?? null, student_name: student_name || '' };
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      return await aiApi(body);
+    } catch (e: unknown) {
+      const text = e instanceof Error ? e.message : '';
+      const transient = e instanceof TypeError || /JSON|Unexpected|timeout|Load failed|Failed to fetch/i.test(text);
+      if (!transient) throw e;
+      await new Promise(r => setTimeout(r, 600));
+    }
+  }
+  throw new Error('Инструктор сейчас не отвечает. Попробуйте отправить вопрос ещё раз через минуту.');
 }
 
 export interface AiTrainingSuggestion {
